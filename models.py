@@ -34,12 +34,6 @@ class EmptyLayer(nn.Module):
     def __init__(self):
         super(EmptyLayer, self).__init__()
 
-class DetectionLayer(nn.Module):
-    """Placeholder for the 'yolo' layer"""
-    def __init__(self, anchors):
-        super(DetectionLayer, self).__init__()
-        self.anchors = anchors
-
 class YOLOLayer(nn.Module):
     """Detection layer"""
     def __init__(self, anchors, num_classes, image_dim):
@@ -96,10 +90,10 @@ def create_modules(blocks):
     """
     Constructs module list of layer blocks from block configuration in 'blocks'
     """
-    hyperparams = blocks[0]
+    hyperparams = blocks.pop(0)
     output_filters = [int(hyperparams['channels'])]
     module_list = nn.ModuleList()
-    for i, block in enumerate(blocks[1:]):
+    for i, block in enumerate(blocks):
         modules = nn.Sequential()
 
         if block['type'] == 'convolutional':
@@ -157,7 +151,7 @@ class Darknet(nn.Module):
     def forward(self, x, cuda=True):
         detections = None
         outputs = []
-        for i, (module_def, module) in enumerate(zip(self.blocks[1:], self.module_list)):
+        for i, (module_def, module) in enumerate(zip(self.blocks, self.module_list)):
             if module_def['type'] in ['convolutional', 'upsample']:
                 x = module(x)
             elif module_def['type'] == 'route':
@@ -171,9 +165,9 @@ class Darknet(nn.Module):
                 x = outputs[-1] + outputs[layer_i]
             elif module_def['type'] == 'yolo':
                 x = module[0](x, cuda)
-                # Register detection
+                # Add to detections
                 detections = x if detections is None else torch.cat((detections, x), 1)
-            # Register output
+
             outputs.append(x)
 
         return detections
@@ -185,51 +179,42 @@ class Darknet(nn.Module):
         fp = open(weights_path, "rb")
         header = np.fromfile(fp, dtype=np.int32, count=5)   # First five are header values
         weights = np.fromfile(fp, dtype=np.float32)         # The rest are weights
+        fp.close()
 
         ptr = 0
-        for i, (module_def, module) in enumerate(zip(self.blocks[1:], self.module_list)):
+        for i, (module_def, module) in enumerate(zip(self.blocks, self.module_list)):
             if module_def['type'] == 'convolutional':
-
                 conv_layer = module[0]
                 if module_def['batch_normalize']:
                     bn_layer = module[1]
-                    # Get the number of weights of Batch Norm Layer
-                    num_bn_biases = bn_layer.bias.numel()
-                    # Load the weights
-                    bn_biases = torch.from_numpy(weights[ptr:ptr + num_bn_biases])
-                    ptr += num_bn_biases
-                    bn_weights = torch.from_numpy(weights[ptr: ptr + num_bn_biases])
-                    ptr  += num_bn_biases
-                    bn_running_mean = torch.from_numpy(weights[ptr: ptr + num_bn_biases])
-                    ptr  += num_bn_biases
-                    bn_running_var = torch.from_numpy(weights[ptr: ptr + num_bn_biases])
-                    ptr  += num_bn_biases
-                    # Cast the loaded weights into dims of model weights.
-                    bn_biases = bn_biases.view_as(bn_layer.bias.data)
-                    bn_weights = bn_weights.view_as(bn_layer.weight.data)
-                    bn_running_mean = bn_running_mean.view_as(bn_layer.running_mean)
-                    bn_running_var = bn_running_var.view_as(bn_layer.running_var)
-                    # Copy the data to model
-                    bn_layer.bias.data.copy_(bn_biases)
-                    bn_layer.weight.data.copy_(bn_weights)
-                    bn_layer.running_mean.copy_(bn_running_mean)
-                    bn_layer.running_var.copy_(bn_running_var)
+                    # Number of biases
+                    num_b = bn_layer.bias.numel()
+                    # Bias
+                    bn_b = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.bias)
+                    bn_layer.bias.data.copy_(bn_b)
+                    ptr += num_b
+                    # Weight
+                    bn_w = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.weight)
+                    bn_layer.weight.data.copy_(bn_w)
+                    ptr += num_b
+                    # Running Mean
+                    bn_rm = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.running_mean)
+                    bn_layer.running_mean.data.copy_(bn_rm)
+                    ptr += num_b
+                    # Running Var
+                    bn_rv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.running_var)
+                    bn_layer.running_var.data.copy_(bn_rv)
+                    ptr += num_b
                 else:
                     # Number of biases
-                    num_biases = conv_layer.bias.numel()
-                    # Load the weights
-                    conv_biases = torch.from_numpy(weights[ptr: ptr + num_biases])
-                    ptr = ptr + num_biases
-                    #reshape the loaded weights according to the dims of the model weights
-                    conv_biases = conv_biases.view_as(conv_layer.bias.data)
-                    # Finally copy the data
-                    conv_layer.bias.data.copy_(conv_biases)
-
-                # Let us load the weights for the Convolutional layers
-                num_weights = conv_layer.weight.numel()
-                # Do the same as above for weights
-                conv_weights = torch.from_numpy(weights[ptr:ptr+num_weights])
-                ptr = ptr + num_weights
-                # Copy data to model
-                conv_weights = conv_weights.view_as(conv_layer.weight.data)
-                conv_layer.weight.data.copy_(conv_weights)
+                    num_b = conv_layer.bias.numel()
+                    # Conv Bias
+                    conv_b = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(conv_layer.bias)
+                    conv_layer.bias.data.copy_(conv_b)
+                    ptr = ptr + num_b
+                # Number of weights
+                num_w = conv_layer.weight.numel()
+                # Conv Weights
+                conv_w = torch.from_numpy(weights[ptr:ptr+num_w]).view_as(conv_layer.weight)
+                conv_layer.weight.data.copy_(conv_w)
+                ptr = ptr + num_w
