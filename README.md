@@ -17,7 +17,7 @@ Minimal implementation of YOLO-V3
     $ sudo pip3 install -r requirements.txt
     
 ## Run Inference
-    $ python3 test.py --image_folder data/samples
+    $ python3 test.py --image_folder /data/samples
    
 <p align="center"><img src="outputs/2_0.png" width="480"\></p>
 <p align="center"><img src="outputs/3_0.png" width="480"\></p>
