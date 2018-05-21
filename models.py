@@ -13,24 +13,19 @@ from utils import *
 def parse_config(path):
     """Parses the yolo-v3 layer configuration file and returns block definitions"""
     file = open(path, 'r')
-    lines = file.read().split('\n')                        # store the lines in a list
-    lines = [x for x in lines if len(x) > 0]               # get read of the empty lines
-    lines = [x for x in lines if x[0] != '#']              # get rid of comments
-    lines = [x.rstrip().lstrip() for x in lines]           # get rid of fringe whitespaces
-
-    block = {}
+    lines = file.read().split('\n')
+    lines = [x for x in lines if x and not x.startswith('#')]
+    lines = [x.rstrip().lstrip() for x in lines] # get rid of fringe whitespaces
     blocks = []
-
     for line in lines:
         if line.startswith('['):        # This marks the start of a new block
-            if block:                   # If block is not empty, implies it is storing values of previous block.
-                blocks.append(block)    # add it the blocks list
-                block = {}              # re-init the block
-            block['type'] = line[1:-1].rstrip()
+            blocks.append({})           # re-init the block
+            blocks[-1]['type'] = line[1:-1].rstrip()
+            if blocks[-1]['type'] == 'convolutional':
+                blocks[-1]['batch_normalize'] = 0
         else:
             key, value = line.split("=")
-            block[key.rstrip()] = value.lstrip()
-    blocks.append(block)
+            blocks[-1][key.rstrip()] = value.lstrip()
 
     return blocks
 
@@ -45,6 +40,58 @@ class DetectionLayer(nn.Module):
         super(DetectionLayer, self).__init__()
         self.anchors = anchors
 
+class YOLOLayer(nn.Module):
+    """Detection layer"""
+    def __init__(self, anchors, num_classes, image_dim):
+        super(YOLOLayer, self).__init__()
+        self.anchors = anchors
+        self.num_anchors = len(anchors)
+        self.num_classes = num_classes
+        self.bbox_attrs = 5 + num_classes
+        self.image_dim = image_dim
+
+    def forward(self, x, cuda=True):
+        batch_size = x.size(0)
+        x_dim = x.size(2)
+        stride =  self.image_dim // x_dim
+
+        prediction = x.view(batch_size, self.bbox_attrs * self.num_anchors, x_dim * x_dim)
+        prediction = prediction.transpose(1, 2).contiguous()
+        prediction = prediction.view(batch_size, x_dim * x_dim * self.num_anchors, self.bbox_attrs)
+
+        # Sigmoid
+        prediction[:, :, 0] = torch.sigmoid(prediction[:, :, 0])    # Center X
+        prediction[:, :, 1] = torch.sigmoid(prediction[:, :, 1])    # Center Y
+        prediction[:, :, 4] = torch.sigmoid(prediction[:, :, 4])    # Object conf.
+
+        grid = np.arange(x_dim)
+        a, b = np.meshgrid(grid, grid)
+
+        x_offset = torch.FloatTensor(a).view(-1, 1)
+        y_offset = torch.FloatTensor(b).view(-1, 1)
+
+        if cuda:
+            x_offset = x_offset.cuda()
+            y_offset = y_offset.cuda()
+
+        x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, self.num_anchors).view(-1, 2).unsqueeze(0)
+        # Add offsets to center x and center y
+        prediction[:, :, :2] += x_y_offset
+
+        anchors = torch.FloatTensor([(a_h / stride, a_w / stride) for a_h, a_w in self.anchors])
+        if cuda:
+            anchors = anchors.cuda()
+
+        # Scale width and height by anchors
+        anchors = anchors.repeat(x_dim * x_dim, 1).unsqueeze(0)
+        prediction[:, :, 2:4] = torch.exp(prediction[:, :, 2:4]) * anchors
+        # Apply sigmoid to class scores
+        prediction[:, :, 5:self.bbox_attrs] = torch.sigmoid((prediction[:, :, 5:self.bbox_attrs]))
+        # Rescale output dimension to image size
+        prediction[:, :, :4] *= stride
+
+        return prediction
+
 def create_modules(blocks):
     """
     Constructs module list of layer blocks from block configuration in 'blocks'
@@ -56,7 +103,7 @@ def create_modules(blocks):
         modules = nn.Sequential()
 
         if block['type'] == 'convolutional':
-            bn = True if 'batch_normalize' in block else False
+            bn = int(block['batch_normalize'])
             filters = int(block['filters'])
             kernel_size = int(block['size'])
             pad = (kernel_size - 1) // 2 if int(block['pad']) else 0
@@ -69,7 +116,7 @@ def create_modules(blocks):
             if bn:
                 modules.add_module('batch_norm_%d' % i, nn.BatchNorm2d(filters))
             if block['activation'] == 'leaky':
-                modules.add_module('leaky_%d' % i, nn.LeakyReLU(0.1))
+                modules.add_module('leaky_%d' % i, nn.LeakyReLU(0.1, inplace=True))
 
         elif block['type'] == 'upsample':
             upsample = nn.Upsample(scale_factor=int(block['stride']), mode='bilinear')
@@ -77,10 +124,7 @@ def create_modules(blocks):
 
         elif block['type'] == 'route':
             layers = [int(x) for x in block["layers"].split(',')]
-            filters = output_filters[layers[0]]
-            # If skip-connection add filters of second output
-            if len(layers) > 1:
-                filters += output_filters[layers[1]]
+            filters = sum([output_filters[layer_i] for layer_i in layers])
             modules.add_module('route_%d' % i, EmptyLayer())
 
         elif block['type'] == 'shortcut':
@@ -94,8 +138,8 @@ def create_modules(blocks):
             anchors = [(anchors[i], anchors[i+1]) for i in range(0, len(anchors),2)]
             anchors = [anchors[i] for i in mask]
             # Define detection layer
-            detection = DetectionLayer(anchors)
-            modules.add_module('Detection_%d' % i, detection)
+            yolo_layer = YOLOLayer(anchors, int(block['classes']), int(hyperparams['height']))
+            modules.add_module('yolo_%d' % i, yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
         output_filters.append(filters)
@@ -110,6 +154,30 @@ class Darknet(nn.Module):
         self.hyperparams, self.module_list = create_modules(self.blocks)
         self.img_size = img_size
 
+    def forward(self, x, cuda=True):
+        detections = None
+        outputs = []
+        for i, (module_def, module) in enumerate(zip(self.blocks[1:], self.module_list)):
+            if module_def['type'] in ['convolutional', 'upsample']:
+                x = module(x)
+            elif module_def['type'] == 'route':
+                layer_i = [int(x) for x in module_def['layers'].split(',')]
+                if len(layer_i) == 1:    # Output
+                    x = outputs[layer_i[0]]
+                else:                   # Skip-connection
+                    x = torch.cat((outputs[layer_i[0]], outputs[layer_i[1]]), 1)
+            elif module_def['type'] == 'shortcut':
+                layer_i = int(module_def['from'])
+                x = outputs[-1] + outputs[layer_i]
+            elif module_def['type'] == 'yolo':
+                x = module[0](x, cuda)
+                # Register detection
+                detections = x if detections is None else torch.cat((detections, x), 1)
+            # Register output
+            outputs.append(x)
+
+        return detections
+
     def load_weights(self, weights_path):
         """Parses and copies the weights stored in 'weights_path' to the model"""
 
@@ -123,7 +191,7 @@ class Darknet(nn.Module):
             if module_def['type'] == 'convolutional':
 
                 conv_layer = module[0]
-                if 'batch_normalize' in module_def:
+                if module_def['batch_normalize']:
                     bn_layer = module[1]
                     # Get the number of weights of Batch Norm Layer
                     num_bn_biases = bn_layer.bias.numel()
@@ -165,31 +233,3 @@ class Darknet(nn.Module):
                 # Copy data to model
                 conv_weights = conv_weights.view_as(conv_layer.weight.data)
                 conv_layer.weight.data.copy_(conv_weights)
-
-    def forward(self, x, cuda=True):
-        detections = None
-        outputs = []
-        for i, (module_def, module) in enumerate(zip(self.blocks[1:], self.module_list)):
-            if module_def['type'] in ['convolutional', 'upsample']:
-                x = module(x)
-            elif module_def['type'] == 'route':
-                layer_i = [int(x) for x in module_def['layers'].split(',')]
-                if len(layer_i) == 1:    # Output
-                    x = outputs[layer_i[0]]
-                else:                   # Skip-connection
-                    x = torch.cat((outputs[layer_i[0]], outputs[layer_i[1]]), 1)
-            elif module_def['type'] == 'shortcut':
-                layer_i = int(module_def['from'])
-                x = outputs[-1] + outputs[layer_i]
-            elif module_def['type'] == 'yolo':
-                anchors = module[0].anchors
-                #Get the number of classes
-                num_classes = int(module_def["classes"])
-                # Rescale detection to image dim
-                x = rescale_detections(x, self.img_size, anchors, num_classes, cuda)
-                # Register detection
-                detections = x if detections is None else torch.cat((detections, x), 1)
-            # Register output
-            outputs.append(x)
-
-        return detections

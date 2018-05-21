@@ -20,9 +20,9 @@ from matplotlib.ticker import NullLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
-parser.add_argument('--config_folder', type=str, default='config/yolov3.cfg', help='path to model config file')
-parser.add_argument('--weights_folder', type=str, default='weights/yolov3.weights', help='path to weights file')
-parser.add_argument('--class_folder', type=str, default='data/coco.names', help='path to class label file')
+parser.add_argument('--config_path', type=str, default='config/yolov3.cfg', help='path to model config file')
+parser.add_argument('--weights_path', type=str, default='weights/yolov3.weights', help='path to weights file')
+parser.add_argument('--class_path', type=str, default='data/coco.names', help='path to class label file')
 parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
 parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
 parser.add_argument('--img_size', type=int, default=416, help='size of each image dimension')
@@ -32,8 +32,8 @@ print(opt)
 cuda = torch.cuda.is_available()
 
 # Set up model
-model = Darknet(opt.config_folder, img_size=opt.img_size)
-model.load_weights(opt.weights_folder)
+model = Darknet(opt.config_path, img_size=opt.img_size)
+model.load_weights(opt.weights_path)
 if cuda:
     model.cuda()
 
@@ -44,7 +44,7 @@ dataloader = DataLoader(ImageDataset('data/samples', img_size=opt.img_size),
                         batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 # Extract class labels
-classes = load_classes(opt.class_folder)
+classes = load_classes(opt.class_path)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
@@ -91,6 +91,8 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
                 box_w = ((x2 - x1) / unpad_w) * img.shape[1]
                 y1 = ((y1 - pad_y // 2) / unpad_h) * img.shape[0]
                 x1 = ((x1 - pad_x // 2) / unpad_w) * img.shape[1]
+
+                print ('\timage: %d' % i.item(), 'conf: %.5f' % cls_conf.item(), 'label: %s' % classes[int(cls_pred)])
 
                 # Create a Rectangle patch
                 bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=1,
