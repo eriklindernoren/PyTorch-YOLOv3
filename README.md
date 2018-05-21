@@ -2,10 +2,6 @@
 Minimal implementation of YOLO-V3
 
 ## Table of Contents
-  * [Installation](#installation)
-  * [Run Inference](#run-inference)
-  
-## Table of Contents
 - [PyTorch-YOLO-V3](#pytorch-yolo-v3)
   * [Table of Contents](#table-of-contents)
   * [Installation](#installation)
