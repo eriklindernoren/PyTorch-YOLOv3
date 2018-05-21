@@ -16,6 +16,7 @@ from torch.autograd import Variable
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.ticker import NullLocator
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
@@ -41,7 +42,7 @@ model.eval()
 
 dataloader = DataLoader(ImageDataset('data/samples', img_size=opt.img_size),
                         batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
-                        
+
 # Extract class labels
 classes = load_classes(opt.class_folder)
 
@@ -101,5 +102,8 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
                         bbox={'facecolor':'black', 'alpha':0.5, 'pad':1})
 
         # Save generated image with detections
-        plt.savefig('outputs/%d_%d.png' % (batch_i, image_i))
+        plt.axis('off')
+        plt.gca().xaxis.set_major_locator(NullLocator())
+        plt.gca().yaxis.set_major_locator(NullLocator())
+        plt.savefig('outputs/%d_%d.png' % (batch_i, image_i), bbox_inches='tight', pad_inches=0.0)
         plt.close()
