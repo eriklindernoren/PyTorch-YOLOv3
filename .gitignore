@@ -1,0 +1,5 @@
+
+.DS_Store
+
+weights/*.weights
+__pycache__
