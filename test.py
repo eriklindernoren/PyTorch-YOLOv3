@@ -23,6 +23,8 @@ parser.add_argument('--image_folder', type=str, default='data/samples', help='pa
 parser.add_argument('--config_path', type=str, default='config/yolov3.cfg', help='path to model config file')
 parser.add_argument('--weights_path', type=str, default='weights/yolov3.weights', help='path to weights file')
 parser.add_argument('--class_path', type=str, default='data/coco.names', help='path to class label file')
+parser.add_argument('--conf_thres', type=float, default=0.5, help='object confidence threshold')
+parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresshold for non-maximum suppression')
 parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
 parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
 parser.add_argument('--img_size', type=int, default=416, help='size of each image dimension')
@@ -55,7 +57,7 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
 
     # Get detections
     detections = model(input_imgs, cuda)
-    detections = filter_detections(detections, 80, conf_thres=0.8, nms_thres=0.4)
+    detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
 
     # Log progress
     current_time = time.time()

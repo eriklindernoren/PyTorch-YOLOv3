@@ -21,16 +21,13 @@ def bbox_iou(box1, box2):
     # Get the coordinates of bounding boxes
     b1_x1, b1_y1, b1_x2, b1_y2 = box1[:,0], box1[:,1], box1[:,2], box1[:,3]
     b2_x1, b2_y1, b2_x2, b2_y2 = box2[:,0], box2[:,1], box2[:,2], box2[:,3]
-
     # get the corrdinates of the intersection rectangle
     inter_rect_x1 =  torch.max(b1_x1, b2_x1)
     inter_rect_y1 =  torch.max(b1_y1, b2_y1)
     inter_rect_x2 =  torch.min(b1_x2, b2_x2)
     inter_rect_y2 =  torch.min(b1_y2, b2_y2)
-
     # Intersection area
     inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * torch.clamp(inter_rect_y2 - inter_rect_y1 + 1, min=0)
-
     # Union Area
     b1_area = (b1_x2 - b1_x1 + 1)*(b1_y2 - b1_y1 + 1)
     b2_area = (b2_x2 - b2_x1 + 1)*(b2_y2 - b2_y1 + 1)
@@ -40,7 +37,7 @@ def bbox_iou(box1, box2):
     return iou
 
 
-def filter_detections(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
+def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     """
     Removes detections with lower object confidence score than 'conf_thres' and performs
     Non-Maximum Suppression to further filter detections.
@@ -74,7 +71,7 @@ def filter_detections(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
         # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
         detections = torch.cat((image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
         #Get the various classes detected in the image
-        unique_classes = torch.from_numpy(np.unique(detections[:, -1].data.cpu().numpy())).cuda()
+        unique_classes = torch.from_numpy(np.unique(detections[:, -1].data.cpu().numpy()))
         for c in unique_classes:
             #get the detections with one particular class
             cls_mask = (detections[:, -1] == c)
@@ -83,22 +80,26 @@ def filter_detections(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
             # confidence is at the top
             _, conf_sort_index = torch.sort(detections_class[:, 4], descending=True)
             detections_class = detections_class[conf_sort_index]
-            n_cls_detections = detections_class.size(0)   # Number of detections
 
-            for i in range(n_cls_detections):
-                # If we're at the last detection
-                if i >= len(detections_class) - 1:
+            max_detections = []
+            while detections_class.size(0):
+                # Get detection with highest confidence and save as max detection
+                max_detection = detections_class[0].unsqueeze(0)
+                max_detections.append(max_detection)
+                # If we're at the last detection stop
+                if len(detections_class) == 1:
                     break
-                # Get the IOUs of all boxes of lower confidence than box i
-                ious = bbox_iou(detections_class[i].unsqueeze(0), detections_class[i+1:])
-                # Remove detections with IoU > NMS threshold
-                iou_mask = (ious < nms_thres)
-                detections_class = torch.cat((detections_class[:i+1], detections_class[i+1:][iou_mask]))
+                # Get the IOUs for all boxes with lower confidence
+                ious = bbox_iou(max_detection, detections_class[1:])
+                # Remove detections with IoU >= NMS threshold
+                detections_class = detections_class[1:][ious < nms_thres]
+
+            max_detections = torch.cat(max_detections)
             # Get index of image
-            image_index = detections_class.new(detections_class.size(0), 1).fill_(image_i)
+            image_index = max_detections.new(max_detections.size(0), 1).fill_(image_i)
             # Repeat the batch_id for as many detections of the class cls in the image
-            detections_class = torch.cat((image_index, detections_class), 1)
-            # Add detection to outputs
-            output = detections_class if output is None else torch.cat((output, detections_class), 0)
+            max_detections = torch.cat((image_index, max_detections), 1)
+            # Add max detections to outputs
+            output = max_detections if output is None else torch.cat((output, max_detections))
 
     return output
