@@ -7,22 +7,16 @@ Currently only inference using pretrained weights is supported.
 - [PyTorch-YOLOv3](#pytorch-yolov3)
   * [Table of Contents](#table-of-contents)
   * [Paper](#paper)
-      + [Title](#title)
-      + [Authors](#authors)
-      + [Abstract](#authors)
   * [Implementation](#implementation)
       + [Installation](#installation)
       + [Inference](#inference)
   * [Credit](#credit)
   
 ## Paper
-#### Title
-YOLOv3: An Incremental Improvement
+### YOLOv3: An Incremental Improvement
+_Joseph Redmon, Ali Farhadi_ <br>
 
-#### Authors
-Joseph Redmon, Ali Farhadi
-
-#### Abstract
+**Abstract** <br>
 We present some updates to YOLO! We made a bunch
 of little design changes to make it better. We also trained
 this new network that’s pretty swell. It’s a little bigger than
