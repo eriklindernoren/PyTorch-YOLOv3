@@ -56,7 +56,9 @@ def create_modules(module_defs):
                 modules.add_module('leaky_%d' % i, nn.LeakyReLU(0.1, inplace=True))
 
         elif module_def['type'] == 'upsample':
-            upsample = nn.Upsample(scale_factor=int(module_def['stride']), mode='bilinear')
+            upsample = nn.Upsample( scale_factor=int(module_def['stride']), 
+                                    mode='bilinear',
+                                    align_corners=True)
             modules.add_module('upsample_%d' % i, upsample)
 
         elif module_def['type'] == 'route':

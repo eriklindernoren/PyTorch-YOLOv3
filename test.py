@@ -4,10 +4,12 @@ from models import *
 from utils import *
 from datasets import *
 
+import os
 import sys
 import time
 import datetime
 import argparse
+from collections import defaultdict
 
 import torch
 from torch.utils.data import DataLoader
@@ -31,6 +33,8 @@ parser.add_argument('--img_size', type=int, default=416, help='size of each imag
 opt = parser.parse_args()
 print(opt)
 
+os.makedirs('output', exist_ok=True)
+
 cuda = torch.cuda.is_available()
 
 # Set up model
@@ -52,6 +56,9 @@ classes = load_classes(opt.class_path)
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 prev_time = time.time()
+imgs = []
+img_detections = defaultdict(list)
+print ('Performing object detection:')
 for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     # Configure input
     input_imgs = Variable(input_imgs.type(Tensor))
@@ -64,52 +71,65 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     current_time = time.time()
     inference_time = datetime.timedelta(seconds=current_time - prev_time)
     prev_time = current_time
-    print ('Batch %d - Inference time: %s' % (batch_i, inference_time))
+    print ('\t+ Batch %d, Inference Time: %s' % (batch_i, inference_time))
 
-    # Iterate through images in batch and save plot of detections
-    for image_i, path in enumerate(img_paths):
+    imgs.extend(img_paths)
+    if detections is not None:
+        for image_i, *d in detections:
+            img_detections[int(image_i) + batch_i*opt.batch_size].append(d)
 
-        # Create plot
-        img = np.array(Image.open(path))
-        plt.figure()
-        fig, ax = plt.subplots(1)
-        ax.imshow(img)
+# Bounding-box colors
+cmap = plt.get_cmap('tab20b')
+colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 
-        # The amount of padding that was added
-        pad_x = max(img.shape[0] - img.shape[1], 0) * (opt.img_size / max(img.shape))
-        pad_y = max(img.shape[1] - img.shape[0], 0) * (opt.img_size / max(img.shape))
-        # Image height and width after padding is removed
-        unpad_h = opt.img_size - pad_y
-        unpad_w = opt.img_size - pad_x
+print ('Saving images:')
+# Iterate through images and save plot of detections
+for img_i, path in enumerate(imgs):
 
-        # Draw bounding boxes and labels of detections
-        if detections is not None:
-            for i, x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
-                # Only detections for image i
-                if int(i) != image_i:
-                    continue
+    print ("(%d) Image: '%s'" % (img_i, path))
 
-                # Rescale coordinates to original dimensions
-                box_h = ((y2 - y1) / unpad_h) * img.shape[0]
-                box_w = ((x2 - x1) / unpad_w) * img.shape[1]
-                y1 = ((y1 - pad_y // 2) / unpad_h) * img.shape[0]
-                x1 = ((x1 - pad_x // 2) / unpad_w) * img.shape[1]
+    # Create plot
+    img = np.array(Image.open(path))
+    plt.figure()
+    fig, ax = plt.subplots(1)
+    ax.imshow(img)
 
-                print ('\timage: %d' % i.item(), 'conf: %.5f' % cls_conf.item(), 'label: %s' % classes[int(cls_pred)])
+    # The amount of padding that was added
+    pad_x = max(img.shape[0] - img.shape[1], 0) * (opt.img_size / max(img.shape))
+    pad_y = max(img.shape[1] - img.shape[0], 0) * (opt.img_size / max(img.shape))
+    # Image height and width after padding is removed
+    unpad_h = opt.img_size - pad_y
+    unpad_w = opt.img_size - pad_x
 
-                # Create a Rectangle patch
-                bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2,
-                                        edgecolor='white',
-                                        facecolor='none')
-                # Add the bbox to the plot
-                ax.add_patch(bbox)
-                # Add label
-                plt.text(x1, y1 - 10, s=classes[int(cls_pred)], color='white',
-                        bbox={'facecolor':'black', 'alpha':0.5, 'pad':1})
+    # Draw bounding boxes and labels of detections
+    if img_i in img_detections:
+        unique_labels = np.unique([int(d[-1]) for d in img_detections[img_i]])
+        n_cls_preds = len(unique_labels)
+        bbox_colors = random.sample(colors, n_cls_preds)
+        for x1, y1, x2, y2, conf, cls_conf, cls_pred in img_detections[img_i]:
 
-        # Save generated image with detections
-        plt.axis('off')
-        plt.gca().xaxis.set_major_locator(NullLocator())
-        plt.gca().yaxis.set_major_locator(NullLocator())
-        plt.savefig('outputs/%d_%d.png' % (batch_i, image_i), bbox_inches='tight', pad_inches=0.0)
-        plt.close()
+            print ('\t+ Label: %s, Conf: %.5f' % (classes[int(cls_pred)], cls_conf.item()))
+
+            # Rescale coordinates to original dimensions
+            box_h = ((y2 - y1) / unpad_h) * img.shape[0]
+            box_w = ((x2 - x1) / unpad_w) * img.shape[1]
+            y1 = ((y1 - pad_y // 2) / unpad_h) * img.shape[0]
+            x1 = ((x1 - pad_x // 2) / unpad_w) * img.shape[1]
+
+            color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
+            # Create a Rectangle patch
+            bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2,
+                                    edgecolor=color,
+                                    facecolor='none')
+            # Add the bbox to the plot
+            ax.add_patch(bbox)
+            # Add label
+            plt.text(x1, y1, s=classes[int(cls_pred)], color='white', verticalalignment='top',
+                    bbox={'color': color, 'pad': 0})
+
+    # Save generated image with detections
+    plt.axis('off')
+    plt.gca().xaxis.set_major_locator(NullLocator())
+    plt.gca().yaxis.set_major_locator(NullLocator())
+    plt.savefig('output/%d.png' % (img_i), bbox_inches='tight', pad_inches=0.0)
+    plt.close()
