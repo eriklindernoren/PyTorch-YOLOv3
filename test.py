@@ -36,6 +36,7 @@ cuda = torch.cuda.is_available()
 # Set up model
 model = Darknet(opt.config_path, img_size=opt.img_size)
 model.load_weights(opt.weights_path)
+
 if cuda:
     model.cuda()
 
@@ -56,7 +57,7 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     input_imgs = Variable(input_imgs.type(Tensor))
 
     # Get detections
-    detections = model(input_imgs, cuda)
+    detections = model(input_imgs)
     detections = non_max_suppression(detections, 80, opt.conf_thres, opt.nms_thres)
 
     # Log progress
@@ -97,8 +98,9 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
                 print ('\timage: %d' % i.item(), 'conf: %.5f' % cls_conf.item(), 'label: %s' % classes[int(cls_pred)])
 
                 # Create a Rectangle patch
-                bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=1,
-                                        edgecolor='white', facecolor='none')
+                bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2,
+                                        edgecolor='white',
+                                        facecolor='none')
                 # Add the bbox to the plot
                 ax.add_patch(bbox)
                 # Add label

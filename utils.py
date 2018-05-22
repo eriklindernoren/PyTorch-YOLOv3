@@ -27,10 +27,11 @@ def bbox_iou(box1, box2):
     inter_rect_x2 =  torch.min(b1_x2, b2_x2)
     inter_rect_y2 =  torch.min(b1_y2, b2_y2)
     # Intersection area
-    inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * torch.clamp(inter_rect_y2 - inter_rect_y1 + 1, min=0)
+    inter_area =    torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * \
+                    torch.clamp(inter_rect_y2 - inter_rect_y1 + 1, min=0)
     # Union Area
-    b1_area = (b1_x2 - b1_x1 + 1)*(b1_y2 - b1_y1 + 1)
-    b2_area = (b2_x2 - b2_x1 + 1)*(b2_y2 - b2_y1 + 1)
+    b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
+    b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
 
     iou = inter_area / (b1_area + b2_area - inter_area)
 
@@ -61,36 +62,30 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
         # Filter out confidence scores below threshold
         conf_mask = (image_pred[:, 4] >= conf_thres).squeeze()
         image_pred = image_pred[conf_mask]
-
         # If none are remaining => process next image
         if not image_pred.size(0):
             continue
-
         # Get score and class with highest confidence
         class_conf, class_pred = torch.max(image_pred[:, 5:5 + num_classes], 1,  keepdim=True)
         # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
         detections = torch.cat((image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
-        #Get the various classes detected in the image
-        unique_classes = torch.from_numpy(np.unique(detections[:, -1].data.cpu().numpy()))
-        for c in unique_classes:
-            #get the detections with one particular class
-            cls_mask = (detections[:, -1] == c)
-            detections_class = detections[cls_mask]
-            # sort the detections such that the entry with the maximum objectness
-            # confidence is at the top
+        # Iterate through all predicted classes
+        for c in detections[:, -1].unique():
+            # Get the detections with the particular class
+            detections_class = detections[detections[:, -1] == c]
+            # Sort the detections by maximum objectness confidence
             _, conf_sort_index = torch.sort(detections_class[:, 4], descending=True)
             detections_class = detections_class[conf_sort_index]
-
+            # Perform non-maximum suppression
             max_detections = []
             while detections_class.size(0):
                 # Get detection with highest confidence and save as max detection
-                max_detection = detections_class[0].unsqueeze(0)
-                max_detections.append(max_detection)
-                # If we're at the last detection stop
+                max_detections.append(detections_class[0].unsqueeze(0))
+                # Stop if we're at the last detection
                 if len(detections_class) == 1:
                     break
                 # Get the IOUs for all boxes with lower confidence
-                ious = bbox_iou(max_detection, detections_class[1:])
+                ious = bbox_iou(max_detections[-1], detections_class[1:])
                 # Remove detections with IoU >= NMS threshold
                 detections_class = detections_class[1:][ious < nms_thres]
 
