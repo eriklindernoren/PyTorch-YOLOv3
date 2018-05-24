@@ -1,8 +1,6 @@
 # PyTorch-YOLOv3
 Minimal implementation of YOLOv3 in PyTorch. 
 
-Currently only inference using pretrained weights is supported.
-
 ## Table of Contents
 - [PyTorch-YOLOv3](#pytorch-yolov3)
   * [Table of Contents](#table-of-contents)
