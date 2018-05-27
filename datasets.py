@@ -14,7 +14,7 @@ import matplotlib.patches as patches
 
 from skimage.transform import resize
 
-class ImageDataset(Dataset):
+class ImageFolder(Dataset):
     def __init__(self, folder_path, img_size=416):
         self.files = sorted(glob.glob('%s/*.*' % folder_path))
         self.img_shape = (img_size, img_size)

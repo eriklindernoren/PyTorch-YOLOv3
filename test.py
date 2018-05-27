@@ -44,21 +44,22 @@ model.load_weights(opt.weights_path)
 if cuda:
     model.cuda()
 
-# Set in evaluation mode
-model.eval()
 
-dataloader = DataLoader(ImageDataset('data/samples', img_size=opt.img_size),
+model.eval() # Set in evaluation mode
+
+dataloader = DataLoader(ImageFolder('data/samples', img_size=opt.img_size),
                         batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
-# Extract class labels
-classes = load_classes(opt.class_path)
+classes = load_classes(opt.class_path) # Extracts class labels from file
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
+imgs = []                           # Stores image paths
+img_detections = defaultdict(list)  # Stores detections for each image index
+
+print ('\nPerforming object detection:')
+
 prev_time = time.time()
-imgs = []
-img_detections = defaultdict(list)
-print ('Performing object detection:')
 for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     # Configure input
     input_imgs = Variable(input_imgs.type(Tensor))
@@ -76,13 +77,14 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     imgs.extend(img_paths)
     if detections is not None:
         for image_i, *d in detections:
-            img_detections[int(image_i) + batch_i*opt.batch_size].append(d)
+            idx = int(image_i) + batch_i * opt.batch_size
+            img_detections[idx].append(d)
 
 # Bounding-box colors
 cmap = plt.get_cmap('tab20b')
 colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 
-print ('Saving images:')
+print ('\nSaving images:')
 # Iterate through images and save plot of detections
 for img_i, path in enumerate(imgs):
 

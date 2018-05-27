@@ -70,7 +70,10 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
         # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
         detections = torch.cat((image_pred[:, :5], class_conf.float(), class_pred.float()), 1)
         # Iterate through all predicted classes
-        for c in detections[:, -1].unique():
+        unique_labels = detections[:, -1].cpu().unique()
+        if prediction.is_cuda:
+            unique_labels = unique_labels.cuda()
+        for c in unique_labels:
             # Get the detections with the particular class
             detections_class = detections[detections[:, -1] == c]
             # Sort the detections by maximum objectness confidence
