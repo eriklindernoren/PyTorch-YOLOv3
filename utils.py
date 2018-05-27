@@ -43,11 +43,8 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     Removes detections with lower object confidence score than 'conf_thres' and performs
     Non-Maximum Suppression to further filter detections.
     Returns detections with shape:
-        (image_index, object_confidence, x1, y1, x2, y2, class_score, class_pred)
+        (object_confidence, x1, y1, x2, y2, class_score, class_pred)
     """
-    # If no detection with confidence over threshold => exit
-    if (prediction[:, :, 4] >= conf_thres).squeeze().sum() == 0:
-        return
 
     # From (center x, center y, width, height) to (x1, y1, x2, y2)
     box_corner = prediction.new(prediction.shape)
@@ -57,7 +54,7 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
     prediction[:, :, :4] = box_corner[:, :, :4]
 
-    output = None
+    output = [None for _ in range(len(prediction))]
     for image_i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
         conf_mask = (image_pred[:, 4] >= conf_thres).squeeze()
@@ -92,12 +89,8 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
                 # Remove detections with IoU >= NMS threshold
                 detections_class = detections_class[1:][ious < nms_thres]
 
-            max_detections = torch.cat(max_detections)
-            # Get index of image
-            image_index = max_detections.new(max_detections.size(0), 1).fill_(image_i)
-            # Repeat the batch_id for as many detections of the class cls in the image
-            max_detections = torch.cat((image_index, max_detections), 1)
+            max_detections = torch.cat(max_detections).data
             # Add max detections to outputs
-            output = max_detections if output is None else torch.cat((output, max_detections))
+            output[image_i] = max_detections if output[image_i] is None else torch.cat((output[image_i], max_detections))
 
     return output

@@ -9,7 +9,6 @@ import sys
 import time
 import datetime
 import argparse
-from collections import defaultdict
 
 import torch
 from torch.utils.data import DataLoader
@@ -54,8 +53,8 @@ classes = load_classes(opt.class_path) # Extracts class labels from file
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-imgs = []                           # Stores image paths
-img_detections = defaultdict(list)  # Stores detections for each image index
+imgs = []           # Stores image paths
+img_detections = [] # Stores detections for each image index
 
 print ('\nPerforming object detection:')
 
@@ -74,11 +73,9 @@ for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     prev_time = current_time
     print ('\t+ Batch %d, Inference Time: %s' % (batch_i, inference_time))
 
+    # Save image and detections
     imgs.extend(img_paths)
-    if detections is not None:
-        for image_i, *d in detections:
-            idx = int(image_i) + batch_i * opt.batch_size
-            img_detections[idx].append(d)
+    img_detections.extend(detections)
 
 # Bounding-box colors
 cmap = plt.get_cmap('tab20b')
@@ -86,7 +83,7 @@ colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 
 print ('\nSaving images:')
 # Iterate through images and save plot of detections
-for img_i, path in enumerate(imgs):
+for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
 
     print ("(%d) Image: '%s'" % (img_i, path))
 
@@ -104,11 +101,11 @@ for img_i, path in enumerate(imgs):
     unpad_w = opt.img_size - pad_x
 
     # Draw bounding boxes and labels of detections
-    if img_i in img_detections:
-        unique_labels = np.unique([int(d[-1]) for d in img_detections[img_i]])
+    if detections is not None:
+        unique_labels = detections[:, -1].cpu().unique()
         n_cls_preds = len(unique_labels)
         bbox_colors = random.sample(colors, n_cls_preds)
-        for x1, y1, x2, y2, conf, cls_conf, cls_pred in img_detections[img_i]:
+        for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
 
             print ('\t+ Label: %s, Conf: %.5f' % (classes[int(cls_pred)], cls_conf.item()))
 
