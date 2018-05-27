@@ -8,26 +8,7 @@ import numpy as np
 
 from PIL import Image
 
-from utils import *
-
-def parse_config(path):
-    """Parses the yolo-v3 layer configuration file and returns module definitions"""
-    file = open(path, 'r')
-    lines = file.read().split('\n')
-    lines = [x for x in lines if x and not x.startswith('#')]
-    lines = [x.rstrip().lstrip() for x in lines] # get rid of fringe whitespaces
-    module_defs = []
-    for line in lines:
-        if line.startswith('['):        # This marks the start of a new block
-            module_defs.append({})           # re-init the block
-            module_defs[-1]['type'] = line[1:-1].rstrip()
-            if module_defs[-1]['type'] == 'convolutional':
-                module_defs[-1]['batch_normalize'] = 0
-        else:
-            key, value = line.split("=")
-            module_defs[-1][key.rstrip()] = value.lstrip()
-
-    return module_defs
+from utils.parse_config import *
 
 def create_modules(module_defs):
     """
@@ -56,7 +37,7 @@ def create_modules(module_defs):
                 modules.add_module('leaky_%d' % i, nn.LeakyReLU(0.1, inplace=True))
 
         elif module_def['type'] == 'upsample':
-            upsample = nn.Upsample( scale_factor=int(module_def['stride']), 
+            upsample = nn.Upsample( scale_factor=int(module_def['stride']),
                                     mode='bilinear',
                                     align_corners=True)
             modules.add_module('upsample_%d' % i, upsample)
@@ -148,7 +129,7 @@ class Darknet(nn.Module):
     """YOLOv3 object detection model"""
     def __init__(self, config_path, img_size=416):
         super(Darknet, self).__init__()
-        self.module_defs = parse_config(config_path)
+        self.module_defs = parse_model_config(config_path)
         self.hyperparams, self.module_list = create_modules(self.module_defs)
         self.img_size = img_size
 
@@ -171,12 +152,14 @@ class Darknet(nn.Module):
 
         return detections
 
+
     def load_weights(self, weights_path):
         """Parses and loads the weights stored in 'weights_path'"""
 
         #Open the weights file
         fp = open(weights_path, "rb")
         header = np.fromfile(fp, dtype=np.int32, count=5)   # First five are header values
+        self.seen = header[3]
         weights = np.fromfile(fp, dtype=np.float32)         # The rest are weights
         fp.close()
 
