@@ -1,5 +1,5 @@
 # PyTorch-YOLOv3
-Minimal implementation of YOLOv3 in PyTorch. 
+Minimal implementation of YOLOv3 in PyTorch.
 
 ## Table of Contents
 - [PyTorch-YOLOv3](#pytorch-yolov3)
@@ -9,7 +9,7 @@ Minimal implementation of YOLOv3 in PyTorch.
       + [Installation](#installation)
       + [Inference](#inference)
   * [Credit](#credit)
-  
+
 ## Paper
 ### YOLOv3: An Incremental Improvement
 _Joseph Redmon, Ali Farhadi_ <br>
@@ -34,7 +34,7 @@ https://pjreddie.com/yolo/.
 ### Installation
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
-    $ sudo pip3 install -r requirements.txt
+    $ sudo python3 setup.py install
     $ cd weights/
     $ bash download_weights.sh
 
