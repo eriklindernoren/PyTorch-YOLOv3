@@ -3,6 +3,7 @@
 build
 .git
 *.egg-info
+dist
 output
 data/coco
 backup

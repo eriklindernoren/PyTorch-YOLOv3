@@ -60,9 +60,8 @@ def create_modules(module_defs):
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def['classes'])
             img_height = int(hyperparams['height'])
-            thres = float(module_def['ignore_thresh'])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes, img_height, thres)
+            yolo_layer = YOLOLayer(anchors, num_classes, img_height)
             modules.add_module('yolo_%d' % i, yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -77,7 +76,7 @@ class EmptyLayer(nn.Module):
 
 class YOLOLayer(nn.Module):
     """Detection layer"""
-    def __init__(self, anchors, num_classes, image_dim, ignore_thres):
+    def __init__(self, anchors, num_classes, image_dim):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
         self.scaled_anchors = None
@@ -85,95 +84,97 @@ class YOLOLayer(nn.Module):
         self.num_classes = num_classes
         self.bbox_attrs = 5 + num_classes
         self.image_dim = image_dim
-        self.ignore_thres = ignore_thres
+        self.ignore_thres = 0.5
         self.coord_scale = 1
         self.noobject_scale = 1
         self.object_scale = 5
         self.class_scale = 1
-        self.thresh = 0.6
         self.seen = 0
 
     def forward(self, x, targets=None):
-        batch_size = x.size(0)
-        grid_dim = x.size(2)
-        stride =  self.image_dim / grid_dim
+        bs = x.size(0)
+        g_dim = x.size(2)
+        stride =  self.image_dim / g_dim
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
 
-        prediction = x.view(batch_size, self.bbox_attrs * self.num_anchors, grid_dim * grid_dim)
+        prediction = x.view(bs, self.bbox_attrs * self.num_anchors, g_dim * g_dim)
         prediction = prediction.transpose(1, 2).contiguous()
-        prediction = prediction.view(batch_size, grid_dim * grid_dim * self.num_anchors, self.bbox_attrs)
+        prediction = prediction.view(bs, g_dim * g_dim * self.num_anchors, self.bbox_attrs)
 
         # Get outputs
-        x = torch.sigmoid(prediction[:, :, 0])            # Center X
-        y = torch.sigmoid(prediction[:, :, 1])            # Center Y
-        w = prediction[:, :, 2]                           # Width
-        h = prediction[:, :, 3]                           # Height
-        conf = torch.sigmoid(prediction[:, :, 4])         # Object conf.
-        pred_cls = torch.sigmoid(prediction[:, :, 5:])    # Class preds.
+        x = torch.sigmoid(prediction[:, :, 0])          # Center x
+        y = torch.sigmoid(prediction[:, :, 1])          # Center y
+        w = prediction[:, :, 2]                         # Width
+        h = prediction[:, :, 3]                         # Height
+        conf = torch.sigmoid(prediction[:, :, 4])       # Conf
+        pred_cls = torch.sigmoid(prediction[:, :, 5:])  # Cls pred.
 
-        grid = np.arange(grid_dim)
+        # Get x and y offsets for each grid
+        grid = np.arange(g_dim)
         a, b = np.meshgrid(grid, grid)
-
         x_offset = FloatTensor(a).view(-1, 1)
         y_offset = FloatTensor(b).view(-1, 1)
-
-        pred_boxes = FloatTensor(prediction[:, :, :4].shape)
-        pred_boxes[:, :, 0] = x
-        pred_boxes[:, :, 1] = y
-        pred_boxes[:, :, 2] = w
-        pred_boxes[:, :, 3] = h
-        # Add offsets to center x and center y
         x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, self.num_anchors).view(-1, 2).unsqueeze(0)
-        pred_boxes[:, :, :2] = x_y_offset
 
-        anchors = FloatTensor([(a_w / stride, a_h / stride) for a_w, a_h in self.anchors])
-        anchors = anchors.repeat(grid_dim * grid_dim, 1).unsqueeze(0)
-        # Scale width and height by anchors
-        pred_boxes[:, :, 2:4] = torch.exp(pred_boxes[:, :,2:4]) * anchors
+        # Scale anchors
+        scaled_anchors = [(a_w / stride, a_h / stride) for a_w, a_h in self.anchors]
+        anchors = FloatTensor(scaled_anchors).repeat(g_dim * g_dim, 1).unsqueeze(0)
+
+        # Add offset and scale with anchors
+        pred_boxes = FloatTensor(prediction[:, :, :4].shape)
+        pred_boxes[:, :, 0] = x.data + x_y_offset[:, :, 0]
+        pred_boxes[:, :, 1] = y.data + x_y_offset[:, :, 1]
+        pred_boxes[:, :, 2] = torch.exp(w.data) * anchors[:, :, 0]
+        pred_boxes[:, :, 3] = torch.exp(h.data) * anchors[:, :, 1]
 
         # Training
         if targets is not None:
-            nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes.cpu().data,
+
+            nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes[:, :, :4].cpu().data,
                                                                                                         targets.cpu().data,
                                                                                                         scaled_anchors,
                                                                                                         self.num_anchors,
                                                                                                         self.num_classes,
-                                                                                                        grid_dim,
-                                                                                                        grid_dim,
+                                                                                                        g_dim,
+                                                                                                        g_dim,
                                                                                                         self.noobject_scale,
-                                                                                                        self.object_scale, self.thresh,
+                                                                                                        self.object_scale,
+                                                                                                        self.ignore_thres,
                                                                                                         self.image_dim,
                                                                                                         self.seen)
-            tx    = Variable(tx.type(FloatTensor))
-            ty    = Variable(ty.type(FloatTensor))
-            tw    = Variable(tw.type(FloatTensor))
-            th    = Variable(th.type(FloatTensor))
-            tconf = Variable(tconf.type(FloatTensor))
-            tcls  = Variable(tcls[cls_mask == 1].type(LongTensor))
-            coord_mask = Variable(coord_mask.type(FloatTensor))
-            conf_mask  = Variable(conf_mask.type(FloatTensor).sqrt())
 
-            pred_cls = pred_cls[cls_mask.view(batch_size, -1) == 1]
 
-            loss_x = self.coord_scale * nn.MSELoss(size_average=False)(x.view_as(tx)*coord_mask, tx*coord_mask)
-            loss_y = self.coord_scale * nn.MSELoss(size_average=False)(y.view_as(ty)*coord_mask, ty*coord_mask)
-            loss_w = self.coord_scale * nn.MSELoss(size_average=False)(w.view_as(tw)*coord_mask, tw*coord_mask)
-            loss_h = self.coord_scale * nn.MSELoss(size_average=False)(h.view_as(th)*coord_mask, th*coord_mask)
-            loss_conf = nn.MSELoss(size_average=False)(conf.view_as(tconf)*conf_mask, tconf*conf_mask)
+            nProposals = int((conf > 0.25).sum().data[0])
+
+            tx    = Variable(tx.type(FloatTensor), requires_grad=False)
+            ty    = Variable(ty.type(FloatTensor), requires_grad=False)
+            tw    = Variable(tw.type(FloatTensor), requires_grad=False)
+            th    = Variable(th.type(FloatTensor), requires_grad=False)
+            tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
+            tcls  = Variable(tcls[cls_mask == 1].type(LongTensor), requires_grad=False)
+            coord_mask = Variable(coord_mask.type(FloatTensor), requires_grad=False)
+            conf_mask  = Variable(conf_mask.type(FloatTensor).sqrt(), requires_grad=False)
+
+            pred_cls = pred_cls[cls_mask.view(bs, -1) == 1]
+
+            loss_x = self.coord_scale * nn.MSELoss(size_average=False)(x.view_as(tx)*coord_mask, tx*coord_mask) / 2
+            loss_y = self.coord_scale * nn.MSELoss(size_average=False)(y.view_as(ty)*coord_mask, ty*coord_mask) / 2
+            loss_w = self.coord_scale * nn.MSELoss(size_average=False)(w.view_as(tw)*coord_mask, tw*coord_mask) / 2
+            loss_h = self.coord_scale * nn.MSELoss(size_average=False)(h.view_as(th)*coord_mask, th*coord_mask) / 2
+            loss_conf = nn.MSELoss(size_average=False)(conf.view_as(tconf)*conf_mask, tconf*conf_mask) / 2
             loss_cls = self.class_scale * nn.CrossEntropyLoss(size_average=False)(pred_cls, tcls)
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
-            nProposals = int((conf > 0.25).sum().data[0])
             print('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), loss.item()))
 
             return loss
 
         else:
             # If not in training phase return predictions
-            predictions = torch.cat((pred_boxes * stride, conf.unsqueeze(2), pred_cls), -1)
-            return predictions
+            output = torch.cat((pred_boxes * stride, conf.unsqueeze(-1), pred_cls), -1)
+            return output
 
 
 class Darknet(nn.Module):

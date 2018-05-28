@@ -15,6 +15,14 @@ def load_classes(path):
     names = fp.read().split("\n")[:-1]
     return names
 
+def weights_init_normal(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm2d') != -1:
+        torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
+        torch.nn.init.constant_(m.bias.data, 0.0)
+
 def bbox_iou(box1, box2, x1y1x2y2=True):
     """
     Returns the IoU of two bounding boxes
@@ -118,32 +126,24 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
     tconf      = torch.zeros(nB, nA, nH, nW)
     tcls       = torch.zeros(nB, nA, nH, nW)
 
-    pred_boxes = pred_boxes.view(nB, nA, nH, nW, -1)
+    pred_boxes = pred_boxes.view(nB, nH, nW, nA, -1)
 
-    nPixels  = nH*nW
     for b in range(nB):
+        # Get sample predictions
         cur_pred_boxes = pred_boxes[b].view(-1, 4)
         cur_ious = torch.zeros(cur_pred_boxes.size(0))
         for t in range(target.shape[1]):
             if target[b, t, 1] == 0:
                 break
-            gx = target[b, t, 1]*nW
-            gy = target[b, t, 2]*nH
-            gw = target[b, t, 3]*nW
-            gh = target[b, t, 4]*nH
-            cur_gt_boxes = torch.FloatTensor([gx,gy,gw,gh]).unsqueeze(0)
+            # Convert to position relative to box
+            gx = target[b, t, 1] * nW
+            gy = target[b, t, 2] * nH
+            gw = target[b, t, 3] * nW
+            gh = target[b, t, 4] * nH
+            cur_gt_boxes = torch.FloatTensor([gx, gy, gw, gh]).unsqueeze(0)
             cur_ious = torch.max(cur_ious, bbox_iou(cur_pred_boxes.data, cur_gt_boxes.data, x1y1x2y2=False))
+        # Objects with highest confidence than threshold are set to zero
         conf_mask[b][cur_ious.view_as(conf_mask[b])>sil_thresh] = 0
-    # if seen < 12800:
-    #    if anchor_step == 4:
-    #        tx = torch.FloatTensor(anchors).view(nA, anchor_step).index_select(1, torch.LongTensor([2])).view(1,nA,1,1).repeat(nB,1,nH,nW)
-    #        ty = torch.FloatTensor(anchors).view(num_anchors, anchor_step).index_select(1, torch.LongTensor([2])).view(1,nA,1,1).repeat(nB,1,nH,nW)
-    #    else:
-    #        tx.fill_(0.5)
-    #        ty.fill_(0.5)
-    #    tw.zero_()
-    #    th.zero_()
-    #    coord_mask.fill_(1)
 
     nGT = 0
     nCorrect = 0
@@ -152,32 +152,40 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             if target[b, t, 1] == 0:
                 break
             nGT = nGT + 1
+            # Convert to position relative to box
             gx = target[b, t, 1] * nW
             gy = target[b, t, 2] * nH
-            gi = int(gx)
-            gj = int(gy)
             gw = target[b, t, 3] * nW
             gh = target[b, t, 4] * nH
+            # Get grid box indices
+            gi = int(gx)
+            gj = int(gy)
+            # Get shape of gt box
             gt_box = torch.FloatTensor(np.array([0, 0, gw, gh])).unsqueeze(0)
+            # Get shape of anchor box
             anchor_shapes = torch.FloatTensor(np.concatenate((np.zeros((len(anchors), 2)), np.array(anchors)), 1))
+            # Calculate iou between gt and anchor shape
             anch_ious = bbox_iou(gt_box, anchor_shapes)
+            # Find the best matching anchor box
             best_n = np.argmax(anch_ious)
             best_iou = anch_ious[best_n]
-
+            # Get the ground truth box and corresponding best prediction
             gt_box = torch.FloatTensor(np.array([gx, gy, gw, gh])).unsqueeze(0)
-            pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
-
+            pred_box = pred_boxes[b, gj, gi, best_n].unsqueeze(0)
+            # Masks
             coord_mask[b][best_n][gj][gi] = 1
             cls_mask[b][best_n][gj][gi] = 1
             conf_mask[b][best_n][gj][gi] = object_scale
-            tx[b][best_n][gj][gi] = target[b, t, 1] * nW - gi
-            ty[b][best_n][gj][gi] = target[b, t, 2] * nH - gj
+            # Coordinates
+            tx[b][best_n][gj][gi] = gx - gi
+            ty[b][best_n][gj][gi] = gy - gj
+            # Width and height
             tw[b][best_n][gj][gi] = math.log(gw/anchors[best_n][0])
             th[b][best_n][gj][gi] = math.log(gh/anchors[best_n][1])
-            iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False) # best_iou
-
+            # Calculate iou between ground truth and best matching prediction
+            iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False) # best_iou # gw * img_dim / a_w * g_dim
             tconf[b][best_n][gj][gi] = iou
-            tcls[b][best_n][gj][gi] = target[b, t, 4]
+            tcls[b][best_n][gj][gi] = target[b, t, 0]
             if iou > 0.5:
                 nCorrect = nCorrect + 1
 

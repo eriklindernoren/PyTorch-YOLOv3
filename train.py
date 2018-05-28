@@ -21,6 +21,7 @@ import torch.optim as optim
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, default=200, help='number of epochs')
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
+parser.add_argument('--batch_size', type=int, default=8, help='size of each image batch')
 parser.add_argument('--model_config_path', type=str, default='config/yolov3.cfg', help='path to model config file')
 parser.add_argument('--data_config_path', type=str, default='config/coco.data', help='path to data config file')
 parser.add_argument('--weights_path', type=str, default='weights/yolov3.weights', help='path to weights file')
@@ -62,11 +63,12 @@ if cuda:
 # Get dataloader
 dataloader = torch.utils.data.DataLoader(
     ListDataset(train_path),
-    batch_size=8, shuffle=False, num_workers=opt.n_cpu)
+    batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
 optimizer = optim.SGD(model.parameters(), lr=learning_rate/batch_size, momentum=momentum, dampening=0, weight_decay=decay*batch_size)
+
 for epoch in range(opt.epochs):
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
         imgs = Variable(imgs.type(Tensor))
@@ -79,4 +81,5 @@ for epoch in range(opt.epochs):
         optimizer.step()
 
     if epoch % opt.checkpoint_interval == 0:
+        pass
         #model.save_weights('%s/%d.weights' % (opt.checkpoint_dir, epoch))
