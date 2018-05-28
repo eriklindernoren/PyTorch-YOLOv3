@@ -5,10 +5,9 @@ Minimal implementation of YOLOv3 in PyTorch.
 - [PyTorch-YOLOv3](#pytorch-yolov3)
   * [Table of Contents](#table-of-contents)
   * [Paper](#paper)
-  * [Implementation](#implementation)
-      + [Installation](#installation)
-      + [Training](#training)
-      + [Inference](#inference)
+  * [Installation](#installation)
+  * [Training](#training)
+  * [Inference](#inference)
   * [Credit](#credit)
 
 ## Paper
@@ -30,22 +29,20 @@ https://pjreddie.com/yolo/.
 
 [[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Original Implementation]](https://pjreddie.com/yolo/)
 
-## Implementation
-
-### Installation
+## Installation
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
     $ sudo pip3 install -r requirements.txt
     
-#### Download pretrained weights
+##### Download pretrained weights
     $ cd weights/
     $ bash download_weights.sh
     
-#### Download COCO
+##### Download COCO
     $ cd data/
     $ bash get_coco_dataset.sh
     
-### Training
+## Training
 Currently supports training on COCO. 
 ```
     train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
@@ -59,7 +56,7 @@ Currently supports training on COCO.
                 [--checkpoint_dir CHECKPOINT_DIR]
 ```
 
-### Inference
+## Inference
 Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement shows the inference time of this implementation on my 1080ti card.
 
 | Backbone                | FPS      |
