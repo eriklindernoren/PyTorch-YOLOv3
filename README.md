@@ -7,6 +7,7 @@ Minimal implementation of YOLOv3 in PyTorch.
   * [Paper](#paper)
   * [Implementation](#implementation)
       + [Installation](#installation)
+      + [Training](#training)
       + [Inference](#inference)
   * [Credit](#credit)
 
@@ -35,8 +36,28 @@ https://pjreddie.com/yolo/.
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
     $ sudo pip3 install -r requirements.txt
+    
+#### Download pretrained weights
     $ cd weights/
     $ bash download_weights.sh
+    
+#### Download COCO
+    $ cd data/
+    $ bash get_coco_dataset.sh
+    
+### Training
+Currently supports training on COCO. 
+```
+    train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
+                [--batch_size BATCH_SIZE]
+                [--model_config_path MODEL_CONFIG_PATH]
+                [--data_config_path DATA_CONFIG_PATH]
+                [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
+                [--conf_thres CONF_THRES] [--nms_thres NMS_THRES]
+                [--n_cpu N_CPU] [--img_size IMG_SIZE]
+                [--checkpoint_interval CHECKPOINT_INTERVAL]
+                [--checkpoint_dir CHECKPOINT_DIR]
+```
 
 ### Inference
 Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement shows the inference time of this implementation on my 1080ti card.
@@ -55,4 +76,11 @@ Below table displays the inference times when using as inputs images scaled to 2
 <p align="center"><img src="assets/messi.png" width="480"\></p>
 
 ## Credit
-Inspired by https://github.com/ayooshkathuria/pytorch-yolo-v3
+```
+@article{yolov3,
+  title={YOLOv3: An Incremental Improvement},
+  author={Redmon, Joseph and Farhadi, Ali},
+  journal = {arXiv},
+  year={2018}
+}
+```
