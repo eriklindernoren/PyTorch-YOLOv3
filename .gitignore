@@ -1,6 +1,10 @@
 
 .DS_Store
-
+build
+.git
+*.egg-info
 output
+data/coco
+backup
 weights/*.weights
 __pycache__

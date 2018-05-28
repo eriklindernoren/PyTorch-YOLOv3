@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image
 
 from utils.parse_config import *
+from utils.utils import build_targets
 
 def create_modules(module_defs):
     """
@@ -57,8 +58,11 @@ def create_modules(module_defs):
             anchors = [int(x) for x in module_def["anchors"].split(",")]
             anchors = [(anchors[i], anchors[i+1]) for i in range(0, len(anchors),2)]
             anchors = [anchors[i] for i in anchor_idxs]
+            num_classes = int(module_def['classes'])
+            img_height = int(hyperparams['height'])
+            thres = float(module_def['ignore_thresh'])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, int(module_def['classes']), int(hyperparams['height']))
+            yolo_layer = YOLOLayer(anchors, num_classes, img_height, thres)
             modules.add_module('yolo_%d' % i, yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -73,56 +77,103 @@ class EmptyLayer(nn.Module):
 
 class YOLOLayer(nn.Module):
     """Detection layer"""
-    def __init__(self, anchors, num_classes, image_dim):
+    def __init__(self, anchors, num_classes, image_dim, ignore_thres):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
+        self.scaled_anchors = None
         self.num_anchors = len(anchors)
         self.num_classes = num_classes
         self.bbox_attrs = 5 + num_classes
         self.image_dim = image_dim
+        self.ignore_thres = ignore_thres
+        self.coord_scale = 1
+        self.noobject_scale = 1
+        self.object_scale = 5
+        self.class_scale = 1
+        self.thresh = 0.6
+        self.seen = 0
 
-    def forward(self, x):
+    def forward(self, x, targets=None):
         batch_size = x.size(0)
         grid_dim = x.size(2)
         stride =  self.image_dim / grid_dim
+        # Tensors for cuda support
+        FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
+        LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
 
         prediction = x.view(batch_size, self.bbox_attrs * self.num_anchors, grid_dim * grid_dim)
         prediction = prediction.transpose(1, 2).contiguous()
         prediction = prediction.view(batch_size, grid_dim * grid_dim * self.num_anchors, self.bbox_attrs)
 
-        # Sigmoid
-        prediction[:, :, 0] = torch.sigmoid(prediction[:, :, 0])    # Center X
-        prediction[:, :, 1] = torch.sigmoid(prediction[:, :, 1])    # Center Y
-        prediction[:, :, 4] = torch.sigmoid(prediction[:, :, 4])    # Object conf.
+        # Get outputs
+        x = torch.sigmoid(prediction[:, :, 0])            # Center X
+        y = torch.sigmoid(prediction[:, :, 1])            # Center Y
+        w = prediction[:, :, 2]                           # Width
+        h = prediction[:, :, 3]                           # Height
+        conf = torch.sigmoid(prediction[:, :, 4])         # Object conf.
+        pred_cls = torch.sigmoid(prediction[:, :, 5:])    # Class preds.
 
         grid = np.arange(grid_dim)
         a, b = np.meshgrid(grid, grid)
 
-        x_offset = torch.FloatTensor(a).view(-1, 1)
-        y_offset = torch.FloatTensor(b).view(-1, 1)
+        x_offset = FloatTensor(a).view(-1, 1)
+        y_offset = FloatTensor(b).view(-1, 1)
 
-        if prediction.is_cuda:
-            x_offset = x_offset.cuda()
-            y_offset = y_offset.cuda()
-
+        pred_boxes = FloatTensor(prediction[:, :, :4].shape)
+        pred_boxes[:, :, 0] = x
+        pred_boxes[:, :, 1] = y
+        pred_boxes[:, :, 2] = w
+        pred_boxes[:, :, 3] = h
         # Add offsets to center x and center y
         x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, self.num_anchors).view(-1, 2).unsqueeze(0)
-        prediction[:, :, :2] += x_y_offset
+        pred_boxes[:, :, :2] = x_y_offset
 
-        anchors = torch.FloatTensor([(a_h / stride, a_w / stride) for a_h, a_w in self.anchors])
-
-        if prediction.is_cuda:
-            anchors = anchors.cuda()
-
-        # Scale width and height by anchors
+        anchors = FloatTensor([(a_w / stride, a_h / stride) for a_w, a_h in self.anchors])
         anchors = anchors.repeat(grid_dim * grid_dim, 1).unsqueeze(0)
-        prediction[:, :, 2:4] = torch.exp(prediction[:, :, 2:4]) * anchors
-        # Rescale output dimension to image size
-        prediction[:, :, :4] *= stride
-        # Apply sigmoid to class scores
-        prediction[:, :, 5:self.bbox_attrs] = torch.sigmoid((prediction[:, :, 5:self.bbox_attrs]))
+        # Scale width and height by anchors
+        pred_boxes[:, :, 2:4] = torch.exp(pred_boxes[:, :,2:4]) * anchors
 
-        return prediction
+        # Training
+        if targets is not None:
+            nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes.cpu().data,
+                                                                                                        targets.cpu().data,
+                                                                                                        scaled_anchors,
+                                                                                                        self.num_anchors,
+                                                                                                        self.num_classes,
+                                                                                                        grid_dim,
+                                                                                                        grid_dim,
+                                                                                                        self.noobject_scale,
+                                                                                                        self.object_scale, self.thresh,
+                                                                                                        self.image_dim,
+                                                                                                        self.seen)
+            tx    = Variable(tx.type(FloatTensor))
+            ty    = Variable(ty.type(FloatTensor))
+            tw    = Variable(tw.type(FloatTensor))
+            th    = Variable(th.type(FloatTensor))
+            tconf = Variable(tconf.type(FloatTensor))
+            tcls  = Variable(tcls[cls_mask == 1].type(LongTensor))
+            coord_mask = Variable(coord_mask.type(FloatTensor))
+            conf_mask  = Variable(conf_mask.type(FloatTensor).sqrt())
+
+            pred_cls = pred_cls[cls_mask.view(batch_size, -1) == 1]
+
+            loss_x = self.coord_scale * nn.MSELoss(size_average=False)(x.view_as(tx)*coord_mask, tx*coord_mask)
+            loss_y = self.coord_scale * nn.MSELoss(size_average=False)(y.view_as(ty)*coord_mask, ty*coord_mask)
+            loss_w = self.coord_scale * nn.MSELoss(size_average=False)(w.view_as(tw)*coord_mask, tw*coord_mask)
+            loss_h = self.coord_scale * nn.MSELoss(size_average=False)(h.view_as(th)*coord_mask, th*coord_mask)
+            loss_conf = nn.MSELoss(size_average=False)(conf.view_as(tconf)*conf_mask, tconf*conf_mask)
+            loss_cls = self.class_scale * nn.CrossEntropyLoss(size_average=False)(pred_cls, tcls)
+            loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
+
+            nProposals = int((conf > 0.25).sum().data[0])
+            print('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), loss.item()))
+
+            return loss
+
+        else:
+            # If not in training phase return predictions
+            predictions = torch.cat((pred_boxes * stride, conf.unsqueeze(2), pred_cls), -1)
+            return predictions
 
 
 class Darknet(nn.Module):
@@ -133,8 +184,8 @@ class Darknet(nn.Module):
         self.hyperparams, self.module_list = create_modules(self.module_defs)
         self.img_size = img_size
 
-    def forward(self, x):
-        detections = None
+    def forward(self, x, targets=None):
+        detections = []
         outputs = []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def['type'] in ['convolutional', 'upsample']:
@@ -146,11 +197,11 @@ class Darknet(nn.Module):
                 layer_i = int(module_def['from'])
                 x = outputs[-1] + outputs[layer_i]
             elif module_def['type'] == 'yolo':
-                x = module(x)
-                detections = x if detections is None else torch.cat((detections, x), 1)
+                x = module[0](x, targets)
+                detections.append(x)
             outputs.append(x)
 
-        return detections
+        return torch.cat(detections, 1) if targets is None else sum(detections)
 
 
     def load_weights(self, weights_path):

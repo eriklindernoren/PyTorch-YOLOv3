@@ -30,7 +30,7 @@ class ImageFolder(Dataset):
         # Determine padding
         pad = ((pad1, pad2), (0, 0), (0, 0)) if h <= w else ((0, 0), (pad1, pad2), (0, 0))
         # Add padding
-        input_img = np.pad(img, pad, 'constant', constant_values=128) / 255.
+        input_img = np.pad(img, pad, 'constant', constant_values=127.5) / 255.
         # Resize and normalize
         input_img = resize(input_img, (*self.img_shape, 3), mode='reflect')
         # Channels-first
@@ -49,10 +49,10 @@ class ListDataset(Dataset):
         # Extract paths to images
         with open(list_path, 'r') as file:
             self.img_files = file.readlines()
-        # Extract paths to labels
+        # Extract paths to
         self.label_files = [path.replace('images', 'labels').replace('.png', '.txt').replace('.jpg', '.txt') for path in self.img_files]
         self.img_shape = (img_size, img_size)
-        self.max_objects = 80 # Maximum objects per image
+        self.max_objects = 50 # Maximum objects per image
 
     def __getitem__(self, index):
 
@@ -62,6 +62,10 @@ class ListDataset(Dataset):
 
         img_path = self.img_files[index % len(self.img_files)].rstrip()
         img = np.array(Image.open(img_path))
+        while len(img.shape) != 3:
+            index += 1
+            img_path = self.img_files[index % len(self.img_files)].rstrip()
+            img = np.array(Image.open(img_path))
         h, w, _ = img.shape
         dim_diff = np.abs(h - w)
         # Upper (left) and lower (right) padding
@@ -101,7 +105,7 @@ class ListDataset(Dataset):
         labels[:, 4] *= h / padded_h
         # Fill matrix
         filled_labels = np.zeros((self.max_objects, 5))
-        filled_labels[range(len(labels))] = labels
+        filled_labels[range(len(labels))[:self.max_objects]] = labels[:self.max_objects]
         filled_labels = torch.from_numpy(filled_labels)
 
         return img_path, input_img, filled_labels

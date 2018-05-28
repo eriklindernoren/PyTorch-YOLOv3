@@ -15,13 +15,20 @@ def load_classes(path):
     names = fp.read().split("\n")[:-1]
     return names
 
-def bbox_iou(box1, box2):
+def bbox_iou(box1, box2, x1y1x2y2=True):
     """
     Returns the IoU of two bounding boxes
     """
-    # Get the coordinates of bounding boxes
-    b1_x1, b1_y1, b1_x2, b1_y2 = box1[:,0], box1[:,1], box1[:,2], box1[:,3]
-    b2_x1, b2_y1, b2_x2, b2_y2 = box2[:,0], box2[:,1], box2[:,2], box2[:,3]
+    if not x1y1x2y2:
+        # Transform from center and width to exact coordinates
+        b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
+        b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
+        b2_x1, b2_x2 = box2[:, 0] - box1[:, 2] / 2, box2[:, 0] + box1[:, 2] / 2
+        b2_y1, b2_y2 = box2[:, 1] - box1[:, 3] / 2, box2[:, 1] + box1[:, 3] / 2
+    else:
+        # Get the coordinates of bounding boxes
+        b1_x1, b1_y1, b1_x2, b1_y2 = box1[:,0], box1[:,1], box1[:,2], box1[:,3]
+        b2_x1, b2_y1, b2_x2, b2_y2 = box2[:,0], box2[:,1], box2[:,2], box2[:,3]
     # get the corrdinates of the intersection rectangle
     inter_rect_x1 =  torch.max(b1_x1, b2_x1)
     inter_rect_y1 =  torch.max(b1_y1, b2_y1)
@@ -95,3 +102,83 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
             output[image_i] = max_detections if output[image_i] is None else torch.cat((output[image_i], max_detections))
 
     return output
+
+def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW, noobject_scale, object_scale, sil_thresh, img_dim, seen):
+    nB = target.size(0)
+    nA = num_anchors
+    nC = num_classes
+    anchor_step = len(anchors)/num_anchors
+    conf_mask  = torch.ones(nB, nA, nH, nW) * noobject_scale
+    coord_mask = torch.zeros(nB, nA, nH, nW)
+    cls_mask   = torch.zeros(nB, nA, nH, nW)
+    tx         = torch.zeros(nB, nA, nH, nW)
+    ty         = torch.zeros(nB, nA, nH, nW)
+    tw         = torch.zeros(nB, nA, nH, nW)
+    th         = torch.zeros(nB, nA, nH, nW)
+    tconf      = torch.zeros(nB, nA, nH, nW)
+    tcls       = torch.zeros(nB, nA, nH, nW)
+
+    pred_boxes = pred_boxes.view(nB, nA, nH, nW, -1)
+
+    nPixels  = nH*nW
+    for b in range(nB):
+        cur_pred_boxes = pred_boxes[b].view(-1, 4)
+        cur_ious = torch.zeros(cur_pred_boxes.size(0))
+        for t in range(target.shape[1]):
+            if target[b, t, 1] == 0:
+                break
+            gx = target[b, t, 1]*nW
+            gy = target[b, t, 2]*nH
+            gw = target[b, t, 3]*nW
+            gh = target[b, t, 4]*nH
+            cur_gt_boxes = torch.FloatTensor([gx,gy,gw,gh]).unsqueeze(0)
+            cur_ious = torch.max(cur_ious, bbox_iou(cur_pred_boxes.data, cur_gt_boxes.data, x1y1x2y2=False))
+        conf_mask[b][cur_ious.view_as(conf_mask[b])>sil_thresh] = 0
+    # if seen < 12800:
+    #    if anchor_step == 4:
+    #        tx = torch.FloatTensor(anchors).view(nA, anchor_step).index_select(1, torch.LongTensor([2])).view(1,nA,1,1).repeat(nB,1,nH,nW)
+    #        ty = torch.FloatTensor(anchors).view(num_anchors, anchor_step).index_select(1, torch.LongTensor([2])).view(1,nA,1,1).repeat(nB,1,nH,nW)
+    #    else:
+    #        tx.fill_(0.5)
+    #        ty.fill_(0.5)
+    #    tw.zero_()
+    #    th.zero_()
+    #    coord_mask.fill_(1)
+
+    nGT = 0
+    nCorrect = 0
+    for b in range(nB):
+        for t in range(target.shape[1]):
+            if target[b, t, 1] == 0:
+                break
+            nGT = nGT + 1
+            gx = target[b, t, 1] * nW
+            gy = target[b, t, 2] * nH
+            gi = int(gx)
+            gj = int(gy)
+            gw = target[b, t, 3] * nW
+            gh = target[b, t, 4] * nH
+            gt_box = torch.FloatTensor(np.array([0, 0, gw, gh])).unsqueeze(0)
+            anchor_shapes = torch.FloatTensor(np.concatenate((np.zeros((len(anchors), 2)), np.array(anchors)), 1))
+            anch_ious = bbox_iou(gt_box, anchor_shapes)
+            best_n = np.argmax(anch_ious)
+            best_iou = anch_ious[best_n]
+
+            gt_box = torch.FloatTensor(np.array([gx, gy, gw, gh])).unsqueeze(0)
+            pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
+
+            coord_mask[b][best_n][gj][gi] = 1
+            cls_mask[b][best_n][gj][gi] = 1
+            conf_mask[b][best_n][gj][gi] = object_scale
+            tx[b][best_n][gj][gi] = target[b, t, 1] * nW - gi
+            ty[b][best_n][gj][gi] = target[b, t, 2] * nH - gj
+            tw[b][best_n][gj][gi] = math.log(gw/anchors[best_n][0])
+            th[b][best_n][gj][gi] = math.log(gh/anchors[best_n][1])
+            iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False) # best_iou
+
+            tconf[b][best_n][gj][gi] = iou
+            tcls[b][best_n][gj][gi] = target[b, t, 4]
+            if iou > 0.5:
+                nCorrect = nCorrect + 1
+
+    return nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls

@@ -15,10 +15,8 @@ def parse_model_config(path):
                 module_defs[-1]['batch_normalize'] = 0
         else:
             key, value = line.split("=")
-            value = value.lstrip()
-            if value.replace('.', '').isdigit():
-                value = float(value) if '.' in value else int(value)
-            module_defs[-1][key.rstrip()] = value
+            value = value.strip()
+            module_defs[-1][key.rstrip()] = value.strip()
 
     return module_defs
 
@@ -34,8 +32,5 @@ def parse_data_config(path):
         if line == '' or line.startswith('#'):
             continue
         key, value = line.split('=')
-        value = value.strip()
-        if value.replace('.', '').isdigit():
-            value = float(value) if '.' in value else int(value)
-        options[key.strip()] = value
+        options[key.strip()] = value.strip()
     return options
