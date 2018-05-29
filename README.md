@@ -82,7 +82,7 @@ Evaluates the model on COCO test.
 
     $ python3 test.py --weights_path weights/yolov3.weights
 
-| Backbone                | mAP (min. 50 IoU) |
+| Model                   | mAP (min. 50 IoU) |
 | ----------------------- |:----------------:|
 | YOLOv3 (paper)          | 57.9             |
 | YOLOv3 (this impl.)     | 58.2             |
