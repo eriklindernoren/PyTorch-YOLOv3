@@ -56,11 +56,10 @@ imgs = []           # Stores image paths
 img_detections = [] # Stores detections for each image index
 
 print ('\nPerforming object detection:')
-
 prev_time = time.time()
 for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
     # Configure input
-    input_imgs = Variable(input_imgs.type(Tensor))
+    input_imgs = Variable(input_imgs.type(Tensor), volatile=True)
 
     # Get detections
     detections = model(input_imgs)

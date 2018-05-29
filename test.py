@@ -32,11 +32,7 @@ parser.add_argument('--img_size', type=int, default=416, help='size of each imag
 opt = parser.parse_args()
 print(opt)
 
-os.makedirs('output', exist_ok=True)
-
 cuda = True if torch.cuda.is_available else False
-
-classes = load_classes(opt.class_path)
 
 # Get data configuration
 data_config     = parse_data_config(opt.data_config_path)
@@ -58,30 +54,28 @@ dataloader = torch.utils.data.DataLoader(
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-mAPs = []
-nGT = 0
+n_gt = 0
 correct = 0
 for batch_i, (_, imgs, targets) in enumerate(dataloader):
-    imgs = Variable(imgs.type(Tensor))
+    imgs = Variable(imgs.type(Tensor), volatile=True)
     targets = targets.type(Tensor)
 
     output = model(imgs)
     output = non_max_suppression(output, 80, conf_thres=0.2)
 
-    for sample_i in range(opt.batch_size):
+    for sample_i in range(targets.size(0)):
         # Get labels for sample where width is not zero (dummies)
         target_sample = targets[sample_i, targets[sample_i, :, 3] != 0]
         for obj_cls, tx, ty, tw, th in target_sample:
             # Get rescaled gt coordinates
             tx1, tx2 = opt.img_size * (tx - tw / 2), opt.img_size * (tx + tw / 2)
             ty1, ty2 = opt.img_size * (ty - th / 2), opt.img_size * (ty + th / 2)
-            nGT += 1
+            n_gt += 1
             box_gt = torch.cat([coord.unsqueeze(0) for coord in [tx1, ty1, tx2, ty2]]).view(1, -1)
             sample_pred = output[sample_i]
             if sample_pred is not None:
-                for x1, y1, x2, y2, conf, obj_conf, obj_pred in sample_pred:
-                    if obj_pred != obj_cls:
-                        continue
+                # Iterate through predictions where the class predicted is same as gt
+                for x1, y1, x2, y2, conf, obj_conf, obj_pred in sample_pred[sample_pred[:, 6] == obj_cls]:
                     box_pred = torch.cat([coord.unsqueeze(0) for coord in [x1, y1, x2, y2]]).view(1, -1)
                     iou = bbox_iou(box_pred, box_gt)
                     if iou >= opt.iou_thres:
@@ -89,7 +83,7 @@ for batch_i, (_, imgs, targets) in enumerate(dataloader):
                         break
 
     if nGT:
-        print ('Batch [%d/%d] mAP: %.5f' % (batch_i, len(dataloader), float(correct / nGT)))
+        print ('Batch [%d/%d] mAP: %.5f' % (batch_i, len(dataloader), float(correct / n_gt)))
 
 
-print ('Mean Average Precision: %.5f' % float(correct / nGT))
+print ('Mean Average Precision: %.5f' % float(correct / n_gt))
