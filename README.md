@@ -44,7 +44,13 @@ https://pjreddie.com/yolo/.
     $ bash get_coco_dataset.sh
 
 ## Inference
-Uses pretrained weights to make predictions on images.
+Uses pretrained weights to make predictions on images. Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement shows the inference time of this implementation on my 1080ti card.
+
+| Backbone                | FPS      |
+| ----------------------- |:--------:|
+| ResNet-101 (Titan X)    | 53       |
+| ResNet-152 (Titan X)    | 37       |
+| Darknet-53 (1080ti)     | 76       |
 
     $ python3 detect.py --image_folder /data/samples
 
