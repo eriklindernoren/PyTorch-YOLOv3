@@ -5,9 +5,10 @@ Minimal implementation of YOLOv3 in PyTorch.
 - [PyTorch-YOLOv3](#pytorch-yolov3)
   * [Table of Contents](#table-of-contents)
   * [Paper](#paper)
-  * [Implementation](#implementation)
-      + [Installation](#installation)
-      + [Inference](#inference)
+  * [Installation](#installation)
+  * [Inference](#inference)
+  * [Test](#test)
+  * [Train](#train)
   * [Credit](#credit)
 
 ## Paper
@@ -27,18 +28,22 @@ to 57.5 AP50 in 198 ms by RetinaNet, similar performance
 but 3.8× faster. As always, all the code is online at
 https://pjreddie.com/yolo/.
 
-[[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Original Implementation]](https://pjreddie.com/yolo/)
+[[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Original Implementation]](https://github.com/pjreddie/darknet)
 
-## Implementation
-
-### Installation
+## Installation
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
     $ sudo pip3 install -r requirements.txt
+
+##### Download pretrained weights
     $ cd weights/
     $ bash download_weights.sh
 
-### Inference
+##### Download COCO
+    $ cd data/
+    $ bash get_coco_dataset.sh
+
+## Inference
 Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement shows the inference time of this implementation on my 1080ti card.
 
 | Backbone                | FPS      |
@@ -47,12 +52,43 @@ Below table displays the inference times when using as inputs images scaled to 2
 | ResNet-152 (Titan X)    | 37       |
 | Darknet-53 (1080ti)     | 76       |
 
-    $ python3 test.py --image_folder /data/samples
+    $ python3 detect.py --image_folder /data/samples
 
 <p align="center"><img src="assets/giraffe.png" width="480"\></p>
 <p align="center"><img src="assets/dog.png" width="480"\></p>
 <p align="center"><img src="assets/traffic.png" width="480"\></p>
 <p align="center"><img src="assets/messi.png" width="480"\></p>
 
+## Test
+Evaluates the model on COCO test.
+
+    $ python3 test.py --weights_path weights/yolov3.weights
+
+| Backbone                | AP (min. 50 IoU) |
+| ----------------------- |:----------------:|
+| YOLOv3 (paper)          | 57.9             |
+| YOLOv3 (this impl.)     | 58.2             |
+
+## Train
+Training on COCO.
+```
+    train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
+                [--batch_size BATCH_SIZE]
+                [--model_config_path MODEL_CONFIG_PATH]
+                [--data_config_path DATA_CONFIG_PATH]
+                [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
+                [--conf_thres CONF_THRES] [--nms_thres NMS_THRES]
+                [--n_cpu N_CPU] [--img_size IMG_SIZE]
+                [--checkpoint_interval CHECKPOINT_INTERVAL]
+                [--checkpoint_dir CHECKPOINT_DIR]
+```
+
 ## Credit
-Inspired by https://github.com/ayooshkathuria/pytorch-yolo-v3
+```
+@article{yolov3,
+  title={YOLOv3: An Incremental Improvement},
+  author={Redmon, Joseph and Farhadi, Ali},
+  journal = {arXiv},
+  year={2018}
+}
+```

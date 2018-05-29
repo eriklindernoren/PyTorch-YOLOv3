@@ -35,12 +35,11 @@ def create_modules(module_defs):
             if bn:
                 modules.add_module('batch_norm_%d' % i, nn.BatchNorm2d(filters))
             if module_def['activation'] == 'leaky':
-                modules.add_module('leaky_%d' % i, nn.LeakyReLU(0.1, inplace=True))
+                modules.add_module('leaky_%d' % i, nn.LeakyReLU(0.1))
 
         elif module_def['type'] == 'upsample':
             upsample = nn.Upsample( scale_factor=int(module_def['stride']),
-                                    mode='bilinear',
-                                    align_corners=True)
+                                    mode='nearest')
             modules.add_module('upsample_%d' % i, upsample)
 
         elif module_def['type'] == 'route':
@@ -91,6 +90,9 @@ class YOLOLayer(nn.Module):
         self.class_scale = 1
         self.seen = 0
 
+        self.mse_loss = nn.MSELoss(size_average=False)
+        self.ce_loss = nn.CrossEntropyLoss(size_average=False)
+
     def forward(self, x, targets=None):
         bs = x.size(0)
         g_dim = x.size(2)
@@ -98,6 +100,10 @@ class YOLOLayer(nn.Module):
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
+
+        if x.is_cuda:
+            self.mse_loss = self.mse_loss.cuda()
+            self.ce_loss = self.ce_loss.cuda()
 
         prediction = x.view(bs, self.bbox_attrs * self.num_anchors, g_dim * g_dim)
         prediction = prediction.transpose(1, 2).contiguous()
@@ -129,6 +135,8 @@ class YOLOLayer(nn.Module):
         pred_boxes[:, :, 2] = torch.exp(w.data) * anchors[:, :, 0]
         pred_boxes[:, :, 3] = torch.exp(h.data) * anchors[:, :, 1]
 
+        self.seen += prediction.size(0)
+
         # Training
         if targets is not None:
 
@@ -146,7 +154,7 @@ class YOLOLayer(nn.Module):
                                                                                                         self.seen)
 
 
-            nProposals = int((conf > 0.25).sum().data[0])
+            nProposals = int((conf > 0.25).sum().item())
 
             tx    = Variable(tx.type(FloatTensor), requires_grad=False)
             ty    = Variable(ty.type(FloatTensor), requires_grad=False)
@@ -155,19 +163,19 @@ class YOLOLayer(nn.Module):
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
             tcls  = Variable(tcls[cls_mask == 1].type(LongTensor), requires_grad=False)
             coord_mask = Variable(coord_mask.type(FloatTensor), requires_grad=False)
-            conf_mask  = Variable(conf_mask.type(FloatTensor).sqrt(), requires_grad=False)
+            conf_mask  = Variable(conf_mask.type(FloatTensor), requires_grad=False)
 
             pred_cls = pred_cls[cls_mask.view(bs, -1) == 1]
 
-            loss_x = self.coord_scale * nn.MSELoss(size_average=False)(x.view_as(tx)*coord_mask, tx*coord_mask) / 2
-            loss_y = self.coord_scale * nn.MSELoss(size_average=False)(y.view_as(ty)*coord_mask, ty*coord_mask) / 2
-            loss_w = self.coord_scale * nn.MSELoss(size_average=False)(w.view_as(tw)*coord_mask, tw*coord_mask) / 2
-            loss_h = self.coord_scale * nn.MSELoss(size_average=False)(h.view_as(th)*coord_mask, th*coord_mask) / 2
-            loss_conf = nn.MSELoss(size_average=False)(conf.view_as(tconf)*conf_mask, tconf*conf_mask) / 2
-            loss_cls = self.class_scale * nn.CrossEntropyLoss(size_average=False)(pred_cls, tcls)
+            loss_x = self.coord_scale * self.mse_loss(x.view_as(tx)*coord_mask, tx*coord_mask) / 2
+            loss_y = self.coord_scale * self.mse_loss(y.view_as(ty)*coord_mask, ty*coord_mask) / 2
+            loss_w = self.coord_scale * self.mse_loss(w.view_as(tw)*coord_mask, tw*coord_mask) / 2
+            loss_h = self.coord_scale * self.mse_loss(h.view_as(th)*coord_mask, th*coord_mask) / 2
+            loss_conf = self.mse_loss(conf.view_as(tconf)*conf_mask, tconf*conf_mask)
+            loss_cls = self.class_scale * self.ce_loss(pred_cls, tcls)
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
-            print('%d: nGT %d, recall %d, proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), loss.item()))
+            print('%d: nGT %d, recall %d, AP %.2f%% proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, 100*float(nCorrect/nGT), nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), loss.item()))
 
             return loss
 
@@ -186,23 +194,24 @@ class Darknet(nn.Module):
         self.img_size = img_size
 
     def forward(self, x, targets=None):
-        detections = []
-        outputs = []
+        output = [] if targets is None else 0   # Model outputs
+        layer_outputs = []                      # Layer outputs
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def['type'] in ['convolutional', 'upsample']:
                 x = module(x)
             elif module_def['type'] == 'route':
                 layer_i = [int(x) for x in module_def['layers'].split(',')]
-                x = torch.cat([outputs[i] for i in layer_i], 1)
+                x = torch.cat([layer_outputs[i] for i in layer_i], 1)
             elif module_def['type'] == 'shortcut':
                 layer_i = int(module_def['from'])
-                x = outputs[-1] + outputs[layer_i]
+                x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def['type'] == 'yolo':
                 x = module[0](x, targets)
-                detections.append(x)
-            outputs.append(x)
+                # If predictions: concatenate / if loss: add to total loss
+                output = output + [x] if targets is None else output + x
+            layer_outputs.append(x)
 
-        return torch.cat(detections, 1) if targets is None else sum(detections)
+        return torch.cat(output, 1) if targets is None else output
 
 
     def load_weights(self, weights_path):

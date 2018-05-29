@@ -59,7 +59,7 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     Removes detections with lower object confidence score than 'conf_thres' and performs
     Non-Maximum Suppression to further filter detections.
     Returns detections with shape:
-        (object_confidence, x1, y1, x2, y2, class_score, class_pred)
+        (x1, y1, x2, y2, object_conf, class_score, class_pred)
     """
 
     # From (center x, center y, width, height) to (x1, y1, x2, y2)
@@ -149,8 +149,8 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
     nCorrect = 0
     for b in range(nB):
         for t in range(target.shape[1]):
-            if target[b, t, 1] == 0:
-                break
+            if target[b, t].sum() == 0:
+                continue
             nGT = nGT + 1
             # Convert to position relative to box
             gx = target[b, t, 1] * nW
@@ -180,12 +180,13 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             tx[b][best_n][gj][gi] = gx - gi
             ty[b][best_n][gj][gi] = gy - gj
             # Width and height
-            tw[b][best_n][gj][gi] = math.log(gw/anchors[best_n][0])
-            th[b][best_n][gj][gi] = math.log(gh/anchors[best_n][1])
+            tw[b][best_n][gj][gi] = math.log(gw/anchors[best_n][0] + 1e-8)
+            th[b][best_n][gj][gi] = math.log(gh/anchors[best_n][1] + 1e-8)
             # Calculate iou between ground truth and best matching prediction
             iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False) # best_iou # gw * img_dim / a_w * g_dim
             tconf[b][best_n][gj][gi] = iou
             tcls[b][best_n][gj][gi] = target[b, t, 0]
+
             if iou > 0.5:
                 nCorrect = nCorrect + 1
 

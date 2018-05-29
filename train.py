@@ -48,6 +48,8 @@ train_path      = data_config['train']
 # Get hyper parameters
 hyperparams     = parse_model_config(opt.model_config_path)[0]
 batch_size      = int(hyperparams['batch'])
+subdivisions    = int(hyperparams['subdivisions'])
+sub_batch       = batch_size // subdivisions
 learning_rate   = float(hyperparams['learning_rate'])
 momentum        = float(hyperparams['momentum'])
 decay           = float(hyperparams['decay'])
@@ -56,14 +58,17 @@ burn_in         = int(hyperparams['burn_in'])
 # Initiate model
 model = Darknet(opt.model_config_path)
 model.load_weights(opt.weights_path)
+#model.apply(weights_init_normal)
 
 if cuda:
-    model.cuda()
+    model = model.cuda()
+
+model.train()
 
 # Get dataloader
 dataloader = torch.utils.data.DataLoader(
     ListDataset(train_path),
-    batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
+    batch_size=batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
@@ -73,9 +78,14 @@ for epoch in range(opt.epochs):
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
         imgs = Variable(imgs.type(Tensor))
         targets = Variable(targets.type(Tensor), requires_grad=False)
-        optimizer.zero_grad()
 
-        loss = model(imgs, targets)
+        loss = 0
+        for i in range(subdivisions):
+            optimizer.zero_grad()
+            sub_imgs = imgs[i*sub_batch: (i+1)*sub_batch]
+            sub_targets = targets[i*sub_batch: (i+1)*sub_batch]
+
+            loss += model(sub_imgs, sub_targets)
 
         loss.backward()
         optimizer.step()
