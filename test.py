@@ -57,11 +57,12 @@ Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 n_gt = 0
 correct = 0
 for batch_i, (_, imgs, targets) in enumerate(dataloader):
-    imgs = Variable(imgs.type(Tensor), volatile=True)
+    imgs = Variable(imgs.type(Tensor))
     targets = targets.type(Tensor)
 
-    output = model(imgs)
-    output = non_max_suppression(output, 80, conf_thres=0.2)
+    with torch.no_grad():
+        output = model(imgs)
+        output = non_max_suppression(output, 80, conf_thres=0.2)
 
     for sample_i in range(targets.size(0)):
         # Get labels for sample where width is not zero (dummies)
@@ -82,7 +83,7 @@ for batch_i, (_, imgs, targets) in enumerate(dataloader):
                         correct += 1
                         break
 
-    if nGT:
+    if n_gt:
         print ('Batch [%d/%d] mAP: %.5f' % (batch_i, len(dataloader), float(correct / n_gt)))
 
 
