@@ -43,24 +43,6 @@ https://pjreddie.com/yolo/.
     $ cd data/
     $ bash get_coco_dataset.sh
 
-## Training
-Currently supports training on COCO.
-```
-    train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
-                [--batch_size BATCH_SIZE]
-                [--model_config_path MODEL_CONFIG_PATH]
-                [--data_config_path DATA_CONFIG_PATH]
-                [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
-                [--conf_thres CONF_THRES] [--nms_thres NMS_THRES]
-                [--n_cpu N_CPU] [--img_size IMG_SIZE]
-                [--checkpoint_interval CHECKPOINT_INTERVAL]
-                [--checkpoint_dir CHECKPOINT_DIR]
-```
-
-##### Download COCO
-    $ cd data/
-    $ bash get_coco_dataset.sh
-
 ## Inference
 Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement shows the inference time of this implementation on my 1080ti card.
 
