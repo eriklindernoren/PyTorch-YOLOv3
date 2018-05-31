@@ -91,5 +91,4 @@ for epoch in range(opt.epochs):
         optimizer.step()
 
     if epoch % opt.checkpoint_interval == 0:
-        pass
-        #model.save_weights('%s/%d.weights' % (opt.checkpoint_dir, epoch))
+        model.save_weights('%s/%d.weights' % (opt.checkpoint_dir, epoch))
