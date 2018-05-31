@@ -220,6 +220,10 @@ class Darknet(nn.Module):
         #Open the weights file
         fp = open(weights_path, "rb")
         header = np.fromfile(fp, dtype=np.int32, count=5)   # First five are header values
+
+        # Needed to write header when saving weights
+        self.header_info = header
+
         self.seen = header[3]
         weights = np.fromfile(fp, dtype=np.float32)         # The rest are weights
         fp.close()
@@ -259,3 +263,41 @@ class Darknet(nn.Module):
                 conv_w = torch.from_numpy(weights[ptr:ptr + num_w]).view_as(conv_layer.weight)
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
+
+    """
+        @:param path    - path of the new weights file
+        @:param cutoff  - save layers between 0 and cutoff (cutoff = -1 -> all are saved)
+    """
+    def save_weights(self, path, cutoff=-1):
+
+        # Load only cutoff layers, if cutoff != -1
+        if cutoff:
+            num_layers = len(self.module_list)
+        else:
+            num_layers = cutoff
+
+        fp = open(path, 'wb')
+        self.header_info[3] = self.seen
+        self.header_info.tofile(fp)
+
+        # Iterate through layers
+        for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+            if module_def['type'] == 'convolutional':
+                conv_layer = module[0]
+
+                # If batch norm, load bn first
+                if module_def['batch_normalize']:
+                    bn_layer = module[1]
+
+                    bn_layer.bias.data.cpu().numpy().tofile(fp)
+                    bn_layer.weight.data.cpu().numpy().tofile(fp)
+                    bn_layer.running_mean.data.cpu().numpy().tofile(fp)
+                    bn_layer.running_var.data.cpu().numpy().tofile(fp)
+                # Load conv bias
+                else:
+                    conv_layer.bias.data.cpu().numpy().tofile(fp)
+
+                # Load conv weights
+                conv_layer.weight.data.cpu().numpy().tofile(fp)
+
+        fp.close()
