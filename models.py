@@ -10,6 +10,7 @@ from PIL import Image
 
 from utils.parse_config import *
 from utils.utils import build_targets
+from collections import defaultdict
 
 def create_modules(module_defs):
     """
@@ -165,14 +166,12 @@ class YOLOLayer(nn.Module):
             loss_cls = self.class_scale * self.bce_loss(pred_cls[cls_mask == 1], tcls)
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
-            print('%d: nGT %d, recall %d, AP %.2f%% proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, 100*float(nCorrect/nGT), nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), loss.item()))
-
-            return loss
+            return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item()
 
         else:
             # If not in training phase return predictions
             output = torch.cat((pred_boxes.view(bs, -1, 4) * stride, conf.view(bs, -1, 1), pred_cls.view(bs, -1, self.num_classes)), -1)
-            return output
+            return output.data
 
 
 class Darknet(nn.Module):
@@ -182,10 +181,13 @@ class Darknet(nn.Module):
         self.module_defs = parse_model_config(config_path)
         self.hyperparams, self.module_list = create_modules(self.module_defs)
         self.img_size = img_size
+        self.loss_names = ['x', 'y', 'w', 'h', 'conf', 'cls']
 
     def forward(self, x, targets=None):
-        output = [] if targets is None else 0   # Model outputs
-        layer_outputs = []                      # Layer outputs
+        is_training = targets is not None
+        output = []
+        self.losses = defaultdict(float)
+        layer_outputs = []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def['type'] in ['convolutional', 'upsample']:
                 x = module(x)
@@ -196,12 +198,18 @@ class Darknet(nn.Module):
                 layer_i = int(module_def['from'])
                 x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def['type'] == 'yolo':
-                x = module[0](x, targets)
-                # If predictions: concatenate / if loss: add to total loss
-                output = output + [x] if targets is None else output + x
+                # Train phase: get loss
+                if is_training:
+                    x, *losses = module[0](x, targets)
+                    for name, loss in zip(self.loss_names, losses):
+                        self.losses[name] += loss
+                # Test phase: Get detections
+                else:
+                    x = module(x)
+                output.append(x)
             layer_outputs.append(x)
 
-        return torch.cat(output, 1) if targets is None else output
+        return sum(output) if is_training else torch.cat(output, 1)
 
 
     def load_weights(self, weights_path):
@@ -260,12 +268,6 @@ class Darknet(nn.Module):
     """
     def save_weights(self, path, cutoff=-1):
 
-        # Load only cutoff layers, if cutoff != -1
-        if cutoff:
-            num_layers = len(self.module_list)
-        else:
-            num_layers = cutoff
-
         fp = open(path, 'wb')
         self.header_info[3] = self.seen
         self.header_info.tofile(fp)
@@ -274,7 +276,6 @@ class Darknet(nn.Module):
         for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
             if module_def['type'] == 'convolutional':
                 conv_layer = module[0]
-
                 # If batch norm, load bn first
                 if module_def['batch_normalize']:
                     bn_layer = module[1]
@@ -286,7 +287,6 @@ class Darknet(nn.Module):
                 # Load conv bias
                 else:
                     conv_layer.bias.data.cpu().numpy().tofile(fp)
-
                 # Load conv weights
                 conv_layer.weight.data.cpu().numpy().tofile(fp)
 

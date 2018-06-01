@@ -19,9 +19,9 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epochs', type=int, default=200, help='number of epochs')
+parser.add_argument('--epochs', type=int, default=30, help='number of epochs')
 parser.add_argument('--image_folder', type=str, default='data/samples', help='path to dataset')
-parser.add_argument('--batch_size', type=int, default=8, help='size of each image batch')
+parser.add_argument('--batch_size', type=int, default=16, help='size of each image batch')
 parser.add_argument('--model_config_path', type=str, default='config/yolov3.cfg', help='path to model config file')
 parser.add_argument('--data_config_path', type=str, default='config/coco.data', help='path to data config file')
 parser.add_argument('--weights_path', type=str, default='weights/yolov3.weights', help='path to weights file')
@@ -47,9 +47,6 @@ train_path      = data_config['train']
 
 # Get hyper parameters
 hyperparams     = parse_model_config(opt.model_config_path)[0]
-batch_size      = int(hyperparams['batch'])
-subdivisions    = int(hyperparams['subdivisions'])
-sub_batch       = batch_size // subdivisions
 learning_rate   = float(hyperparams['learning_rate'])
 momentum        = float(hyperparams['momentum'])
 decay           = float(hyperparams['decay'])
@@ -57,8 +54,7 @@ burn_in         = int(hyperparams['burn_in'])
 
 # Initiate model
 model = Darknet(opt.model_config_path)
-#model.load_weights(opt.weights_path)
-#model.apply(weights_init_normal)
+model.apply(weights_init_normal)
 
 if cuda:
     model = model.cuda()
@@ -68,27 +64,30 @@ model.train()
 # Get dataloader
 dataloader = torch.utils.data.DataLoader(
     ListDataset(train_path),
-    batch_size=batch_size, shuffle=False, num_workers=opt.n_cpu)
+    batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-optimizer = optim.SGD(model.parameters(), lr=learning_rate/batch_size, momentum=momentum, dampening=0, weight_decay=decay*batch_size)
+optimizer = optim.SGD(model.parameters(), lr=learning_rate/opt.batch_size, momentum=momentum, dampening=0, weight_decay=decay*opt.batch_size)
 
 for epoch in range(opt.epochs):
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
         imgs = Variable(imgs.type(Tensor))
         targets = Variable(targets.type(Tensor), requires_grad=False)
 
-        loss = 0
-        for i in range(subdivisions):
-            optimizer.zero_grad()
-            sub_imgs = imgs[i*sub_batch: (i+1)*sub_batch]
-            sub_targets = targets[i*sub_batch: (i+1)*sub_batch]
+        optimizer.zero_grad()
 
-            loss += model(sub_imgs, sub_targets)
+        loss = model(imgs, targets)
 
         loss.backward()
         optimizer.step()
+
+        print('[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f]' %
+                                    (epoch, opt.epochs, batch_i, len(dataloader),
+                                    model.losses['x'], model.losses['y'], model.losses['w'],
+                                    model.losses['h'], model.losses['conf'], model.losses['cls'],
+                                    loss.item()))
+
 
     if epoch % opt.checkpoint_interval == 0:
         model.save_weights('%s/%d.weights' % (opt.checkpoint_dir, epoch))

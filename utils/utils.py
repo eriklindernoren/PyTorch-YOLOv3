@@ -111,11 +111,11 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
 
     return output
 
-def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, grid_dim, ignore_thres):
+def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ignore_thres):
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
-    dim = grid_dim
+    dim = dim
     anchor_step = len(anchors)/num_anchors
     conf_mask  = torch.ones(nB, nA, dim, dim)
     coord_mask = torch.zeros(nB, nA, dim, dim)
