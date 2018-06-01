@@ -161,7 +161,7 @@ class YOLOLayer(nn.Module):
             loss_y = self.coord_scale * self.mse_loss(y[coord_mask == 1], ty[coord_mask == 1]) / 2
             loss_w = self.coord_scale * self.mse_loss(w[coord_mask == 1], tw[coord_mask == 1]) / 2
             loss_h = self.coord_scale * self.mse_loss(h[coord_mask == 1], th[coord_mask == 1]) / 2
-            loss_conf = self.bce_loss(conf_mask[conf_mask == 1], tconf[conf_mask == 1])
+            loss_conf = self.bce_loss(conf[conf_mask == 1], tconf[conf_mask == 1])
             loss_cls = self.class_scale * self.bce_loss(pred_cls[cls_mask == 1], tcls)
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
