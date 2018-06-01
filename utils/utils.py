@@ -111,22 +111,21 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
 
     return output
 
-def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW, noobject_scale, object_scale, sil_thresh, img_dim, seen):
+def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, grid_dim, ignore_thres):
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
+    dim = grid_dim
     anchor_step = len(anchors)/num_anchors
-    conf_mask  = torch.ones(nB, nA, nH, nW) * noobject_scale
-    coord_mask = torch.zeros(nB, nA, nH, nW)
-    cls_mask   = torch.zeros(nB, nA, nH, nW)
-    tx         = torch.zeros(nB, nA, nH, nW)
-    ty         = torch.zeros(nB, nA, nH, nW)
-    tw         = torch.zeros(nB, nA, nH, nW)
-    th         = torch.zeros(nB, nA, nH, nW)
-    tconf      = torch.zeros(nB, nA, nH, nW)
-    tcls       = torch.zeros(nB, nA, nH, nW)
-
-    pred_boxes = pred_boxes.view(nB, nH, nW, nA, -1)
+    conf_mask  = torch.ones(nB, nA, dim, dim)
+    coord_mask = torch.zeros(nB, nA, dim, dim)
+    cls_mask   = torch.zeros(nB, nA, dim, dim)
+    tx         = torch.zeros(nB, nA, dim, dim)
+    ty         = torch.zeros(nB, nA, dim, dim)
+    tw         = torch.zeros(nB, nA, dim, dim)
+    th         = torch.zeros(nB, nA, dim, dim)
+    tconf      = torch.zeros(nB, nA, dim, dim)
+    tcls       = torch.zeros(nB, nA, dim, dim, num_classes)
 
     for b in range(nB):
         # Get sample predictions
@@ -136,14 +135,14 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             if target[b, t, 1] == 0:
                 break
             # Convert to position relative to box
-            gx = target[b, t, 1] * nW
-            gy = target[b, t, 2] * nH
-            gw = target[b, t, 3] * nW
-            gh = target[b, t, 4] * nH
+            gx = target[b, t, 1] * dim
+            gy = target[b, t, 2] * dim
+            gw = target[b, t, 3] * dim
+            gh = target[b, t, 4] * dim
             cur_gt_boxes = torch.FloatTensor([gx, gy, gw, gh]).unsqueeze(0)
             cur_ious = torch.max(cur_ious, bbox_iou(cur_pred_boxes.data, cur_gt_boxes.data, x1y1x2y2=False))
         # Objects with highest confidence than threshold are set to zero
-        conf_mask[b][cur_ious.view_as(conf_mask[b])>sil_thresh] = 0
+        conf_mask[b][cur_ious.view_as(conf_mask[b]) > ignore_thres] = 0
 
     nGT = 0
     nCorrect = 0
@@ -153,10 +152,10 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
                 continue
             nGT = nGT + 1
             # Convert to position relative to box
-            gx = target[b, t, 1] * nW
-            gy = target[b, t, 2] * nH
-            gw = target[b, t, 3] * nW
-            gh = target[b, t, 4] * nH
+            gx = target[b, t, 1] * dim
+            gy = target[b, t, 2] * dim
+            gw = target[b, t, 3] * dim
+            gh = target[b, t, 4] * dim
             # Get grid box indices
             gi = int(gx)
             gj = int(gy)
@@ -171,11 +170,12 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             best_iou = anch_ious[best_n]
             # Get the ground truth box and corresponding best prediction
             gt_box = torch.FloatTensor(np.array([gx, gy, gw, gh])).unsqueeze(0)
-            pred_box = pred_boxes[b, gj, gi, best_n].unsqueeze(0)
+            pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
+
             # Masks
             coord_mask[b][best_n][gj][gi] = 1
             cls_mask[b][best_n][gj][gi] = 1
-            conf_mask[b][best_n][gj][gi] = object_scale
+            conf_mask[b][best_n][gj][gi] = 1
             # Coordinates
             tx[b][best_n][gj][gi] = gx - gi
             ty[b][best_n][gj][gi] = gy - gj
@@ -183,11 +183,15 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, nH, nW,
             tw[b][best_n][gj][gi] = math.log(gw/anchors[best_n][0] + 1e-8)
             th[b][best_n][gj][gi] = math.log(gh/anchors[best_n][1] + 1e-8)
             # Calculate iou between ground truth and best matching prediction
-            iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False) # best_iou # gw * img_dim / a_w * g_dim
+            iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
             tconf[b][best_n][gj][gi] = iou
-            tcls[b][best_n][gj][gi] = target[b, t, 0]
+            tcls[b][best_n][gj][gi] = to_categorical(int(target[b, t, 0]), num_classes)
 
             if iou > 0.5:
                 nCorrect = nCorrect + 1
 
     return nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls
+
+def to_categorical(y, num_classes):
+    """ 1-hot encodes a tensor """
+    return torch.from_numpy(np.eye(num_classes, dtype='uint8')[y])

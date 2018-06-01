@@ -90,8 +90,9 @@ class YOLOLayer(nn.Module):
         self.class_scale = 1
         self.seen = 0
 
-        self.mse_loss = nn.MSELoss(size_average=False)
-        self.ce_loss = nn.CrossEntropyLoss(size_average=False)
+        self.mse_loss = nn.MSELoss()
+        self.bce_loss = nn.BCELoss()
+        self.bce_logits_loss = nn.BCEWithLogitsLoss()
 
     def forward(self, x, targets=None):
         bs = x.size(0)
@@ -101,57 +102,48 @@ class YOLOLayer(nn.Module):
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
 
-        if x.is_cuda:
-            self.mse_loss = self.mse_loss.cuda()
-            self.ce_loss = self.ce_loss.cuda()
-
-        prediction = x.view(bs, self.bbox_attrs * self.num_anchors, g_dim * g_dim)
-        prediction = prediction.transpose(1, 2).contiguous()
-        prediction = prediction.view(bs, g_dim * g_dim * self.num_anchors, self.bbox_attrs)
+        prediction = x.view(bs,  self.num_anchors, self.bbox_attrs, g_dim, g_dim).permute(0, 1, 3, 4, 2).contiguous()
 
         # Get outputs
-        x = torch.sigmoid(prediction[:, :, 0])          # Center x
-        y = torch.sigmoid(prediction[:, :, 1])          # Center y
-        w = prediction[:, :, 2]                         # Width
-        h = prediction[:, :, 3]                         # Height
-        conf = torch.sigmoid(prediction[:, :, 4])       # Conf
-        pred_cls = torch.sigmoid(prediction[:, :, 5:])  # Cls pred.
+        x = torch.sigmoid(prediction[..., 0])          # Center x
+        y = torch.sigmoid(prediction[..., 1])          # Center y
+        w = prediction[..., 2]                         # Width
+        h = prediction[..., 3]                         # Height
+        conf = torch.sigmoid(prediction[..., 4])       # Conf
+        pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
 
-        # Get x and y offsets for each grid
-        grid = np.arange(g_dim)
-        a, b = np.meshgrid(grid, grid)
-        x_offset = FloatTensor(a).view(-1, 1)
-        y_offset = FloatTensor(b).view(-1, 1)
-        x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, self.num_anchors).view(-1, 2).unsqueeze(0)
-
-        # Scale anchors
+        # Calculate offsets for each grid
+        grid_x = torch.linspace(0, g_dim-1, g_dim).repeat(g_dim,1).repeat(bs*self.num_anchors, 1, 1).view(x.shape).type(FloatTensor)
+        grid_y = torch.linspace(0, g_dim-1, g_dim).repeat(g_dim,1).t().repeat(bs*self.num_anchors, 1, 1).view(y.shape).type(FloatTensor)
         scaled_anchors = [(a_w / stride, a_h / stride) for a_w, a_h in self.anchors]
-        anchors = FloatTensor(scaled_anchors).repeat(g_dim * g_dim, 1).unsqueeze(0)
+        anchor_w = FloatTensor(scaled_anchors).index_select(1, LongTensor([0]))
+        anchor_h = FloatTensor(scaled_anchors).index_select(1, LongTensor([1]))
+        anchor_w = anchor_w.repeat(bs, 1).repeat(1, 1, g_dim*g_dim).view(w.shape)
+        anchor_h = anchor_h.repeat(bs, 1).repeat(1, 1, g_dim*g_dim).view(h.shape)
 
         # Add offset and scale with anchors
-        pred_boxes = FloatTensor(prediction[:, :, :4].shape)
-        pred_boxes[:, :, 0] = x.data + x_y_offset[:, :, 0]
-        pred_boxes[:, :, 1] = y.data + x_y_offset[:, :, 1]
-        pred_boxes[:, :, 2] = torch.exp(w.data) * anchors[:, :, 0]
-        pred_boxes[:, :, 3] = torch.exp(h.data) * anchors[:, :, 1]
+        pred_boxes = FloatTensor(prediction[..., :4].shape)
+        pred_boxes[..., 0] = x.data + grid_x
+        pred_boxes[..., 1] = y.data + grid_y
+        pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
+        pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
 
         self.seen += prediction.size(0)
 
         # Training
         if targets is not None:
 
-            nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes[:, :, :4].cpu().data,
+            if x.is_cuda:
+                self.mse_loss = self.mse_loss.cuda()
+                self.bce_loss = self.bce_loss.cuda()
+
+            nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes.cpu().data,
                                                                                                         targets.cpu().data,
                                                                                                         scaled_anchors,
                                                                                                         self.num_anchors,
                                                                                                         self.num_classes,
                                                                                                         g_dim,
-                                                                                                        g_dim,
-                                                                                                        self.noobject_scale,
-                                                                                                        self.object_scale,
-                                                                                                        self.ignore_thres,
-                                                                                                        self.image_dim,
-                                                                                                        self.seen)
+                                                                                                        self.ignore_thres)
 
 
             nProposals = int((conf > 0.25).sum().item())
@@ -161,18 +153,16 @@ class YOLOLayer(nn.Module):
             tw    = Variable(tw.type(FloatTensor), requires_grad=False)
             th    = Variable(th.type(FloatTensor), requires_grad=False)
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
-            tcls  = Variable(tcls[cls_mask == 1].type(LongTensor), requires_grad=False)
+            tcls  = Variable(tcls[cls_mask == 1].type(FloatTensor), requires_grad=False)
             coord_mask = Variable(coord_mask.type(FloatTensor), requires_grad=False)
             conf_mask  = Variable(conf_mask.type(FloatTensor), requires_grad=False)
 
-            pred_cls = pred_cls[cls_mask.view(bs, -1) == 1]
-
-            loss_x = self.coord_scale * self.mse_loss(x.view_as(tx)*coord_mask, tx*coord_mask) / 2
-            loss_y = self.coord_scale * self.mse_loss(y.view_as(ty)*coord_mask, ty*coord_mask) / 2
-            loss_w = self.coord_scale * self.mse_loss(w.view_as(tw)*coord_mask, tw*coord_mask) / 2
-            loss_h = self.coord_scale * self.mse_loss(h.view_as(th)*coord_mask, th*coord_mask) / 2
-            loss_conf = self.mse_loss(conf.view_as(tconf)*conf_mask, tconf*conf_mask)
-            loss_cls = self.class_scale * self.ce_loss(pred_cls, tcls)
+            loss_x = self.coord_scale * self.mse_loss(x[coord_mask == 1], tx[coord_mask == 1]) / 2
+            loss_y = self.coord_scale * self.mse_loss(y[coord_mask == 1], ty[coord_mask == 1]) / 2
+            loss_w = self.coord_scale * self.mse_loss(w[coord_mask == 1], tw[coord_mask == 1]) / 2
+            loss_h = self.coord_scale * self.mse_loss(h[coord_mask == 1], th[coord_mask == 1]) / 2
+            loss_conf = self.bce_loss(conf_mask[conf_mask == 1], tconf[conf_mask == 1])
+            loss_cls = self.class_scale * self.bce_loss(pred_cls[cls_mask == 1], tcls)
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
             print('%d: nGT %d, recall %d, AP %.2f%% proposals %d, loss: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f' % (self.seen, nGT, nCorrect, 100*float(nCorrect/nGT), nProposals, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), loss.item()))
@@ -181,7 +171,7 @@ class YOLOLayer(nn.Module):
 
         else:
             # If not in training phase return predictions
-            output = torch.cat((pred_boxes * stride, conf.unsqueeze(-1), pred_cls), -1)
+            output = torch.cat((pred_boxes.view(bs, -1, 4) * stride, conf.view(bs, -1, 1), pred_cls.view(bs, -1, self.num_classes)), -1)
             return output
 
 
