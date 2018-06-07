@@ -7,6 +7,9 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
 def load_classes(path):
     """
     Loads class labels at 'path'
@@ -31,12 +34,13 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
         # Transform from center and width to exact coordinates
         b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
         b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
-        b2_x1, b2_x2 = box2[:, 0] - box1[:, 2] / 2, box2[:, 0] + box1[:, 2] / 2
-        b2_y1, b2_y2 = box2[:, 1] - box1[:, 3] / 2, box2[:, 1] + box1[:, 3] / 2
+        b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
+        b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
     else:
         # Get the coordinates of bounding boxes
         b1_x1, b1_y1, b1_x2, b1_y2 = box1[:,0], box1[:,1], box1[:,2], box1[:,3]
         b2_x1, b2_y1, b2_x2, b2_y2 = box2[:,0], box2[:,1], box2[:,2], box2[:,3]
+
     # get the corrdinates of the intersection rectangle
     inter_rect_x1 =  torch.max(b1_x1, b2_x1)
     inter_rect_y1 =  torch.max(b1_y1, b2_y1)
@@ -49,7 +53,7 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
     b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
 
-    iou = inter_area / (b1_area + b2_area - inter_area)
+    iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
     return iou
 
@@ -111,38 +115,18 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
 
     return output
 
-def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ignore_thres):
+def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ignore_thres, img_dim):
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
     dim = dim
-    anchor_step = len(anchors)/num_anchors
-    conf_mask  = torch.ones(nB, nA, dim, dim)
-    coord_mask = torch.zeros(nB, nA, dim, dim)
-    cls_mask   = torch.zeros(nB, nA, dim, dim)
+    mask        = torch.zeros(nB, nA, dim, dim)
     tx         = torch.zeros(nB, nA, dim, dim)
     ty         = torch.zeros(nB, nA, dim, dim)
     tw         = torch.zeros(nB, nA, dim, dim)
     th         = torch.zeros(nB, nA, dim, dim)
     tconf      = torch.zeros(nB, nA, dim, dim)
     tcls       = torch.zeros(nB, nA, dim, dim, num_classes)
-
-    for b in range(nB):
-        # Get sample predictions
-        cur_pred_boxes = pred_boxes[b].view(-1, 4)
-        cur_ious = torch.zeros(cur_pred_boxes.size(0))
-        for t in range(target.shape[1]):
-            if target[b, t, 1] == 0:
-                break
-            # Convert to position relative to box
-            gx = target[b, t, 1] * dim
-            gy = target[b, t, 2] * dim
-            gw = target[b, t, 3] * dim
-            gh = target[b, t, 4] * dim
-            cur_gt_boxes = torch.FloatTensor([gx, gy, gw, gh]).unsqueeze(0)
-            cur_ious = torch.max(cur_ious, bbox_iou(cur_pred_boxes.data, cur_gt_boxes.data, x1y1x2y2=False))
-        # Objects with highest confidence than threshold are set to zero
-        conf_mask[b][cur_ious.view_as(conf_mask[b]) > ignore_thres] = 0
 
     nGT = 0
     nCorrect = 0
@@ -173,24 +157,23 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ig
             pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
 
             # Masks
-            coord_mask[b][best_n][gj][gi] = 1
-            cls_mask[b][best_n][gj][gi] = 1
-            conf_mask[b][best_n][gj][gi] = 1
+            mask[b, best_n, gj, gi] = 1
             # Coordinates
-            tx[b][best_n][gj][gi] = gx - gi
-            ty[b][best_n][gj][gi] = gy - gj
+            tx[b, best_n, gj, gi] = gx - gi
+            ty[b, best_n, gj, gi] = gy - gj
             # Width and height
-            tw[b][best_n][gj][gi] = math.log(gw/anchors[best_n][0] + 1e-8)
-            th[b][best_n][gj][gi] = math.log(gh/anchors[best_n][1] + 1e-8)
+            tw[b, best_n, gj, gi] = math.log(gw/anchors[best_n][0] + 1e-16)
+            th[b, best_n, gj, gi] = math.log(gh/anchors[best_n][1] + 1e-16)
+            # One-hot encoding of label
+            tcls[b, best_n, gj, gi, int(target[b, t, 0])] = 1
             # Calculate iou between ground truth and best matching prediction
             iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
-            tconf[b][best_n][gj][gi] = iou
-            tcls[b][best_n][gj][gi] = to_categorical(int(target[b, t, 0]), num_classes)
+            tconf[b, best_n, gj, gi] = 1
 
             if iou > 0.5:
                 nCorrect = nCorrect + 1
 
-    return nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls
+    return nGT, nCorrect, mask, tx, ty, tw, th, tconf, tcls
 
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """

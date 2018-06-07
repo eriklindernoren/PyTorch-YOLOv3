@@ -63,9 +63,11 @@ class ListDataset(Dataset):
         img_path = self.img_files[index % len(self.img_files)].rstrip()
         img = np.array(Image.open(img_path))
 
-        # Black and white images
-        if len(img.shape) == 2:
-            img = np.repeat(img[:, :, np.newaxis], 3, axis=2)
+        # Handles images with less than three channels
+        while len(img.shape) != 3:
+            index += 1
+            img_path = self.img_files[index % len(self.img_files)].rstrip()
+            img = np.array(Image.open(img_path))
 
         h, w, _ = img.shape
         dim_diff = np.abs(h - w)

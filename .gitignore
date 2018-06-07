@@ -9,3 +9,4 @@ data/coco
 backup
 weights/*.weights
 __pycache__
+checkpoints

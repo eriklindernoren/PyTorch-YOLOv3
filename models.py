@@ -12,6 +12,9 @@ from utils.parse_config import *
 from utils.utils import build_targets
 from collections import defaultdict
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
 def create_modules(module_defs):
     """
     Constructs module list of layer blocks from module configuration in module_defs
@@ -76,29 +79,24 @@ class EmptyLayer(nn.Module):
 
 class YOLOLayer(nn.Module):
     """Detection layer"""
-    def __init__(self, anchors, num_classes, image_dim):
+    def __init__(self, anchors, num_classes, img_dim):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
-        self.scaled_anchors = None
         self.num_anchors = len(anchors)
         self.num_classes = num_classes
         self.bbox_attrs = 5 + num_classes
-        self.image_dim = image_dim
+        self.img_dim = img_dim
         self.ignore_thres = 0.5
-        self.coord_scale = 1
-        self.noobject_scale = 1
-        self.object_scale = 5
-        self.class_scale = 1
-        self.seen = 0
+        self.lambda_coord = 5
+        self.lambda_noobj = 0.5
 
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
-        self.bce_logits_loss = nn.BCEWithLogitsLoss()
 
     def forward(self, x, targets=None):
         bs = x.size(0)
         g_dim = x.size(2)
-        stride =  self.image_dim / g_dim
+        stride =  self.img_dim / g_dim
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
@@ -129,8 +127,6 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
 
-        self.seen += prediction.size(0)
-
         # Training
         if targets is not None:
 
@@ -138,35 +134,38 @@ class YOLOLayer(nn.Module):
                 self.mse_loss = self.mse_loss.cuda()
                 self.bce_loss = self.bce_loss.cuda()
 
-            nGT, nCorrect, coord_mask, conf_mask, cls_mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes.cpu().data,
-                                                                                                        targets.cpu().data,
-                                                                                                        scaled_anchors,
-                                                                                                        self.num_anchors,
-                                                                                                        self.num_classes,
-                                                                                                        g_dim,
-                                                                                                        self.ignore_thres)
+            nGT, nCorrect, mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes.cpu().data,
+                                                                            targets.cpu().data,
+                                                                            scaled_anchors,
+                                                                            self.num_anchors,
+                                                                            self.num_classes,
+                                                                            g_dim,
+                                                                            self.ignore_thres,
+                                                                            self.img_dim)
 
 
             nProposals = int((conf > 0.25).sum().item())
+
+            mask = Variable(mask.type(FloatTensor))
 
             tx    = Variable(tx.type(FloatTensor), requires_grad=False)
             ty    = Variable(ty.type(FloatTensor), requires_grad=False)
             tw    = Variable(tw.type(FloatTensor), requires_grad=False)
             th    = Variable(th.type(FloatTensor), requires_grad=False)
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
-            tcls  = Variable(tcls[cls_mask == 1].type(FloatTensor), requires_grad=False)
-            coord_mask = Variable(coord_mask.type(FloatTensor), requires_grad=False)
-            conf_mask  = Variable(conf_mask.type(FloatTensor), requires_grad=False)
+            tcls  = Variable(tcls.type(FloatTensor), requires_grad=False)
 
-            loss_x = self.coord_scale * self.mse_loss(x[coord_mask == 1], tx[coord_mask == 1]) / 2
-            loss_y = self.coord_scale * self.mse_loss(y[coord_mask == 1], ty[coord_mask == 1]) / 2
-            loss_w = self.coord_scale * self.mse_loss(w[coord_mask == 1], tw[coord_mask == 1]) / 2
-            loss_h = self.coord_scale * self.mse_loss(h[coord_mask == 1], th[coord_mask == 1]) / 2
-            loss_conf = self.bce_loss(conf[conf_mask == 1], tconf[conf_mask == 1])
-            loss_cls = self.class_scale * self.bce_loss(pred_cls[cls_mask == 1], tcls)
+            # Mask outputs to ignore non-existing objects (but keep confidence predictions)
+            loss_x = self.lambda_coord * self.bce_loss(x * mask, tx * mask) / 2
+            loss_y = self.lambda_coord * self.bce_loss(y * mask, ty * mask) / 2
+            loss_w = self.lambda_coord * self.mse_loss(w * mask, tw * mask) / 2
+            loss_h = self.lambda_coord * self.mse_loss(h * mask, th * mask) / 2
+            loss_conf = self.bce_loss(conf * mask, mask) + \
+                        self.lambda_noobj * self.bce_loss(conf * (1 - mask), mask * (1 - mask))
+            loss_cls = self.bce_loss(pred_cls[mask == 1], tcls[mask == 1])
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
-            return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item()
+            return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), float(nCorrect / nGT)
 
         else:
             # If not in training phase return predictions
@@ -181,7 +180,9 @@ class Darknet(nn.Module):
         self.module_defs = parse_model_config(config_path)
         self.hyperparams, self.module_list = create_modules(self.module_defs)
         self.img_size = img_size
-        self.loss_names = ['x', 'y', 'w', 'h', 'conf', 'cls']
+        self.seen = 0
+        self.header_info = np.array([0, 0, 0, self.seen, 0])
+        self.loss_names = ['x', 'y', 'w', 'h', 'conf', 'cls', 'AP']
 
     def forward(self, x, targets=None):
         is_training = targets is not None
@@ -209,6 +210,7 @@ class Darknet(nn.Module):
                 output.append(x)
             layer_outputs.append(x)
 
+        self.losses['AP'] /= 3
         return sum(output) if is_training else torch.cat(output, 1)
 
 
@@ -279,7 +281,6 @@ class Darknet(nn.Module):
                 # If batch norm, load bn first
                 if module_def['batch_normalize']:
                     bn_layer = module[1]
-
                     bn_layer.bias.data.cpu().numpy().tofile(fp)
                     bn_layer.weight.data.cpu().numpy().tofile(fp)
                     bn_layer.running_mean.data.cpu().numpy().tofile(fp)

@@ -30,12 +30,13 @@ parser.add_argument('--conf_thres', type=float, default=0.8, help='object confid
 parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresshold for non-maximum suppression')
 parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
 parser.add_argument('--img_size', type=int, default=416, help='size of each image dimension')
-parser.add_argument('--checkpoint_interval', type=int, default=10, help='interval between saving model weights')
+parser.add_argument('--checkpoint_interval', type=int, default=1, help='interval between saving model weights')
 parser.add_argument('--checkpoint_dir', type=str, default='checkpoints', help='directory where model checkpoints are saved')
 opt = parser.parse_args()
 print(opt)
 
 os.makedirs('output', exist_ok=True)
+os.makedirs('checkpoints', exist_ok=True)
 
 cuda = True if torch.cuda.is_available else False
 
@@ -54,6 +55,7 @@ burn_in         = int(hyperparams['burn_in'])
 
 # Initiate model
 model = Darknet(opt.model_config_path)
+#model.load_weights(opt.weights_path)
 model.apply(weights_init_normal)
 
 if cuda:
@@ -68,7 +70,7 @@ dataloader = torch.utils.data.DataLoader(
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-optimizer = optim.SGD(model.parameters(), lr=learning_rate/opt.batch_size, momentum=momentum, dampening=0, weight_decay=decay*opt.batch_size)
+optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, dampening=0, weight_decay=decay)
 
 for epoch in range(opt.epochs):
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
@@ -82,12 +84,13 @@ for epoch in range(opt.epochs):
         loss.backward()
         optimizer.step()
 
-        print('[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f]' %
+        print('[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f, AP: %.5f]' %
                                     (epoch, opt.epochs, batch_i, len(dataloader),
                                     model.losses['x'], model.losses['y'], model.losses['w'],
                                     model.losses['h'], model.losses['conf'], model.losses['cls'],
-                                    loss.item()))
+                                    loss.item(), model.losses['AP']))
 
+        model.seen += imgs.size(0)
 
     if epoch % opt.checkpoint_interval == 0:
         model.save_weights('%s/%d.weights' % (opt.checkpoint_dir, epoch))
