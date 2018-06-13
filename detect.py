@@ -29,12 +29,13 @@ parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresshold
 parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
 parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
 parser.add_argument('--img_size', type=int, default=416, help='size of each image dimension')
+parser.add_argument('--use_cuda', type=bool, default=True, help='whether to use cuda if available')
 opt = parser.parse_args()
 print(opt)
 
-os.makedirs('output', exist_ok=True)
+cuda = torch.cuda.is_available() and opt.use_cuda
 
-cuda = torch.cuda.is_available()
+os.makedirs('output', exist_ok=True)
 
 # Set up model
 model = Darknet(opt.config_path, img_size=opt.img_size)
