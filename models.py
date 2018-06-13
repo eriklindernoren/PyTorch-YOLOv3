@@ -143,8 +143,8 @@ class YOLOLayer(nn.Module):
                                                                             self.ignore_thres,
                                                                             self.img_dim)
 
-
             nProposals = int((conf > 0.25).sum().item())
+            recall = float(nCorrect / nGT) if nGT else 1
 
             mask = Variable(mask.type(FloatTensor))
 
@@ -165,7 +165,7 @@ class YOLOLayer(nn.Module):
             loss_cls = self.bce_loss(pred_cls[mask == 1], tcls[mask == 1])
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
-            return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), float(nCorrect / nGT)
+            return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), recall
 
         else:
             # If not in training phase return predictions
@@ -182,7 +182,7 @@ class Darknet(nn.Module):
         self.img_size = img_size
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0])
-        self.loss_names = ['x', 'y', 'w', 'h', 'conf', 'cls', 'AP']
+        self.loss_names = ['x', 'y', 'w', 'h', 'conf', 'cls', 'recall']
 
     def forward(self, x, targets=None):
         is_training = targets is not None
@@ -210,7 +210,7 @@ class Darknet(nn.Module):
                 output.append(x)
             layer_outputs.append(x)
 
-        self.losses['AP'] /= 3
+        self.losses['recall'] /= 3
         return sum(output) if is_training else torch.cat(output, 1)
 
 

@@ -85,11 +85,11 @@ for epoch in range(opt.epochs):
         loss.backward()
         optimizer.step()
 
-        print('[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f, AP: %.5f]' %
+        print('[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, h %f, conf %f, cls %f, total %f, recall: %.5f]' %
                                     (epoch, opt.epochs, batch_i, len(dataloader),
                                     model.losses['x'], model.losses['y'], model.losses['w'],
                                     model.losses['h'], model.losses['conf'], model.losses['cls'],
-                                    loss.item(), model.losses['AP']))
+                                    loss.item(), model.losses['recall']))
 
         model.seen += imgs.size(0)
 

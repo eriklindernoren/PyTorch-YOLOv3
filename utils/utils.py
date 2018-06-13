@@ -51,7 +51,7 @@ def compute_ap(recall, precision):
 
     # and sum (\Delta recall) * prec
     ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
-    return ap 
+    return ap
 
 def bbox_iou(box1, box2, x1y1x2y2=True):
     """
@@ -161,7 +161,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ig
         for t in range(target.shape[1]):
             if target[b, t].sum() == 0:
                 continue
-            nGT = nGT + 1
+            nGT += 1
             # Convert to position relative to box
             gx = target[b, t, 1] * dim
             gy = target[b, t, 2] * dim
@@ -198,7 +198,7 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ig
             tconf[b, best_n, gj, gi] = 1
 
             if iou > 0.5:
-                nCorrect = nCorrect + 1
+                nCorrect += 1
 
     return nGT, nCorrect, mask, tx, ty, tw, th, tconf, tcls
 
