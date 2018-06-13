@@ -58,7 +58,7 @@ num_batches = len(dataloader)
 
 # template to output progress
 num_batch_digits = len(str(num_batches))
-output_template = 'Batch [{0: ' + str(num_batch_digits) + '}/{1}]'
+output_template = 'Batch [{0:' + str(num_batch_digits) + '}/{1}]'
 
 annotations = []
 detections  = []
@@ -70,7 +70,7 @@ for batch_i, (_, imgs, targets) in enumerate(dataloader):
 
     with torch.no_grad():
         output = model(imgs)
-        output = non_max_suppression(output, num_classes, conf_thres=0.2)
+        output = non_max_suppression(output, num_classes, conf_thres=0.01)
 
     for sample_i in range(batch_size):
         # add targets to annotations:
@@ -94,7 +94,7 @@ for batch_i, (_, imgs, targets) in enumerate(dataloader):
         else:
             detections.append([sample_pred[sample_pred[:, -1] == label, :5]
                     for label in range(num_classes)])
-    print(output_template.format(batch_i, num_batches), end='\r')
+    print(output_template.format(batch_i+1, num_batches), end='\r')
 print()
 
 ap = evaluate(detections, annotations, opt.iou_thres)

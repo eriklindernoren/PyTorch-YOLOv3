@@ -197,6 +197,9 @@ def compare_boxes(detections, annotations, iou_threshold):
         # all detections are false positives
         return true_positives
 
+    if num_detections == 0:
+        return true_positives
+
     # binary mask of detected annotations
     detected_annotations = np.zeros(num_annotations, dtype=np.bool)
 
@@ -206,19 +209,47 @@ def compare_boxes(detections, annotations, iou_threshold):
     detections = detections[order]
 
     # construct reverse mapping to restore the original ordering
-    rev_order = np.empty(num_detections)
+    rev_order = np.empty(num_detections, dtype=int)
     rev_order[order] = np.arange(num_detections)
 
     for i, d in enumerate(detections):
-        overlaps            = compute_overlap(np.expand_dims(d, axis=0), annotations)
-        assigned_annotation = np.argmax(overlaps, axis=1)
-        max_overlap         = overlaps[0, assigned_annotation]
+        overlaps            = bbox_iou(d[None, :], annotations)
+        assigned_annotation = torch.argmax(overlaps)
+        max_overlap         = overlaps[assigned_annotation]
 
         if max_overlap >= iou_threshold and not detected_annotations[assigned_annotation]:
             true_positives[i] = True
             detected_annotations[assigned_annotation] = True
     # return true positives in  ordering of the input
     return true_positives[rev_order]
+
+def _compute_ap(recall, precision):
+    """ Compute the average precision, given the recall and precision curves.
+
+    Code originally from https://github.com/rbgirshick/py-faster-rcnn.
+
+    # Arguments
+        recall:    The recall curve (list).
+        precision: The precision curve (list).
+    # Returns
+        The average precision as computed in py-faster-rcnn.
+    """
+    # correct AP calculation
+    # first append sentinel values at the end
+    mrec = np.concatenate(([0.], recall, [1.]))
+    mpre = np.concatenate(([0.], precision, [0.]))
+
+    # compute the precision envelope
+    for i in range(mpre.size - 1, 0, -1):
+        mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
+
+    # to calculate area under PR curve, look for points
+    # where X axis (recall) changes value
+    i = np.where(mrec[1:] != mrec[:-1])[0]
+
+    # and sum (\Delta recall) * prec
+    ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
+    return ap
 
 def evaluate(detections, annotations, iou_threshold=0.5):
     """ Evaluate a given dataset using a given model results.
@@ -233,31 +264,34 @@ def evaluate(detections, annotations, iou_threshold=0.5):
     average_precisions = dict()
 
     num_images  = len(detections)
-    assert(len(annotations) == num_images,
-            "Number of images in detections and annotations " +
-            "does not match ({0} vs {1})".format(num_images, len(annotations)))
+    assert len(annotations) == num_images,\
+            "Number of images in detections and annotations does not match ({0} vs {1})".format(num_images, len(annotations))
     if num_images == 0:
         return average_precisions
 
     num_classes = len(detections[0])
-    assert(all([len(el) == num_classes for el in detections]),
-            "Number of detected classes is not constant among images")
-    assert(all([len(el) == len(annotations[0]) for el in annotations]),
-            "Number of annotated classes is not constant among images")
-    assert(len(annotations[0]) == num_images,
-            "Number of classes in detections and annotations " +
-            "does not match ({0} vs {1})".format(num_classes, len(annotations[0])))
+    assert all([len(el) == num_classes for el in detections]),\
+            "Number of detected classes is not constant among images"
+    assert all([len(el) == len(annotations[0]) for el in annotations]),\
+            "Number of annotated classes is not constant among images"
+    assert len(annotations[0]) == num_classes,\
+            "Number of classes in detections and annotations does not match ({0} vs {1})".format(num_classes, len(annotations[0]))
 
     # process detections and annotations
     for label in range(num_classes):
         true_positives  = np.hstack(list(map(
             lambda d, a: compare_boxes(d[label], a[label], iou_threshold),
             detections, annotations)))
-        scores          = np.hstack([el[label][:, 4] for el in detections])
+        scores          = np.hstack([el[label][:, 4]
+            if el[label].shape[0] > 0
+            else []
+            for el in detections])
         num_annotations = sum([el[label].shape[0] for el in annotations])
+        num_detections  = true_positives.size
 
         # no image_annotations -> AP for this class is 0 (is this correct?)
         if num_annotations == 0:
+            #average_precisions[label] = 1 if num_detections == 0 else 0
             average_precisions[label] = 0
             continue
 
@@ -274,7 +308,6 @@ def evaluate(detections, annotations, iou_threshold=0.5):
         precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
 
         # compute average precision
-        average_precision  = _compute_ap(recall, precision)
-        average_precisions[label] = average_precision
+        average_precisions[label] = _compute_ap(recall, precision)
 
     return average_precisions
