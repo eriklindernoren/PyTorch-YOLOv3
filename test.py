@@ -70,7 +70,7 @@ for batch_i, (_, imgs, targets) in enumerate(dataloader):
 
     with torch.no_grad():
         output = model(imgs)
-        output = non_max_suppression(output, num_classes, conf_thres=0.01)
+        output = non_max_suppression(output, num_classes, conf_thres=0.05)
 
     for sample_i in range(batch_size):
         # add targets to annotations:
