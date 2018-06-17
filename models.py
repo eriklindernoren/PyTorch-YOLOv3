@@ -87,8 +87,7 @@ class YOLOLayer(nn.Module):
         self.bbox_attrs = 5 + num_classes
         self.img_dim = img_dim
         self.ignore_thres = 0.5
-        self.lambda_coord = 5
-        self.lambda_noobj = 0.5
+        self.lambda_coord = 1
 
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
@@ -134,7 +133,7 @@ class YOLOLayer(nn.Module):
                 self.mse_loss = self.mse_loss.cuda()
                 self.bce_loss = self.bce_loss.cuda()
 
-            nGT, nCorrect, mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes.cpu().data,
+            nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls = build_targets(pred_boxes.cpu().data,
                                                                             targets.cpu().data,
                                                                             scaled_anchors,
                                                                             self.num_anchors,
@@ -146,8 +145,12 @@ class YOLOLayer(nn.Module):
             nProposals = int((conf > 0.25).sum().item())
             recall = float(nCorrect / nGT) if nGT else 1
 
+            # Handle masks
             mask = Variable(mask.type(FloatTensor))
+            cls_mask = Variable(mask.unsqueeze(-1).repeat(1, 1, 1, 1, self.num_classes).type(FloatTensor))
+            conf_mask = Variable(conf_mask.type(FloatTensor))
 
+            # Handle target variables
             tx    = Variable(tx.type(FloatTensor), requires_grad=False)
             ty    = Variable(ty.type(FloatTensor), requires_grad=False)
             tw    = Variable(tw.type(FloatTensor), requires_grad=False)
@@ -155,14 +158,13 @@ class YOLOLayer(nn.Module):
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
             tcls  = Variable(tcls.type(FloatTensor), requires_grad=False)
 
-            # Mask outputs to ignore non-existing objects (but keep confidence predictions)
-            loss_x = self.lambda_coord * self.bce_loss(x * mask, tx * mask) / 2
-            loss_y = self.lambda_coord * self.bce_loss(y * mask, ty * mask) / 2
+            # Mask outputs to ignore non-existing objects
+            loss_x = self.lambda_coord * self.bce_loss(x * mask, tx * mask)
+            loss_y = self.lambda_coord * self.bce_loss(y * mask, ty * mask)
             loss_w = self.lambda_coord * self.mse_loss(w * mask, tw * mask) / 2
             loss_h = self.lambda_coord * self.mse_loss(h * mask, th * mask) / 2
-            loss_conf = self.bce_loss(conf * mask, mask) + \
-                        self.lambda_noobj * self.bce_loss(conf * (1 - mask), mask * (1 - mask))
-            loss_cls = self.bce_loss(pred_cls[mask == 1], tcls[mask == 1])
+            loss_conf = self.bce_loss(conf * conf_mask, tconf * conf_mask)
+            loss_cls = self.bce_loss(pred_cls * cls_mask, tcls * cls_mask)
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
             return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item(), recall
