@@ -159,7 +159,6 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ig
     nGT = 0
     nCorrect = 0
     for b in range(nB):
-        sample_preds = pred_boxes[b].view(-1, 4)
         for t in range(target.shape[1]):
             if target[b, t].sum() == 0:
                 continue
@@ -174,14 +173,12 @@ def build_targets(pred_boxes, target, anchors, num_anchors, num_classes, dim, ig
             gj = int(gy)
             # Get shape of gt box
             gt_box = torch.FloatTensor(np.array([0, 0, gw, gh])).unsqueeze(0)
-            # Get ious of ground truth box and sample predictios
-            ious = bbox_iou(gt_box, sample_preds)
-            # Where the overlap is larger than threshold set mask to zero (ignore)
-            conf_mask[b, ious.view(conf_mask.shape[1:]) > ignore_thres] = 0
             # Get shape of anchor box
             anchor_shapes = torch.FloatTensor(np.concatenate((np.zeros((len(anchors), 2)), np.array(anchors)), 1))
             # Calculate iou between gt and anchor shapes
             anch_ious = bbox_iou(gt_box, anchor_shapes)
+            # Where the overlap is larger than threshold set mask to zero (ignore)
+            conf_mask[b, anch_ious > ignore_thres] = 0
             # Find the best matching anchor box
             best_n = np.argmax(anch_ious)
             # Get ground truth box
