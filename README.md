@@ -34,6 +34,8 @@ https://pjreddie.com/yolo/.
 ## What's new in this fork
 We added a pascal_voc liked dataloader in the /utils/datasets.py, which makes the project can also fit and trained on the pascal_voc liked dataset.
 
+For more detail, you can read the datasets.py carefully and change some specific arguments in /config/ to adapt to your environment.
+
 ## Installation
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
