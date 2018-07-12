@@ -30,6 +30,10 @@ https://pjreddie.com/yolo/.
 
 [[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Original Implementation]](https://github.com/pjreddie/darknet)
 
+
+## What's new in this fork
+We added a pascal_voc liked dataloader in the /utils/datasets.py, which makes the project can also fit and trained on the pascal_voc liked dataset.
+
 ## Installation
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
