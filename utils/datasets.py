@@ -2,19 +2,22 @@ import glob
 import random
 import os
 import numpy as np
-
 import torch
-
 from torch.utils.data import Dataset
 from PIL import Image
 import torchvision.transforms as transforms
-
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-
 from skimage.transform import resize
-
 import sys
+import torch.utils.data as data
+import os
+import os.path
+import copy
+if sys.version_info[0] == 2:
+    import xml.etree.cElementTree as ET
+else:
+    import xml.etree.ElementTree as ET
 
 class ImageFolder(Dataset):
     def __init__(self, folder_path, img_size=416):
@@ -209,42 +212,7 @@ class VOCDetection(data.Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
         labels = None
-        """
-        if len(target) == 1:
-            print('{} only contain one object'.format(img_id))
-            label =  np.array(target)
-            cls = label[0,0]
-            x1 = label[0,1]
-            y1 = label[0,2]
-            x2 = label[0,3]
-            y2 = label[0,4]
-
-            labels = np.zeros((1,5))
-            labels[0,0] = cls
-            labels[0,1] = (x1 + x2) / (2 * w)
-            labels[0,2] = (y1 + y2) / (2 * h)
-            labels[0,3] = (x2 - x1) / w
-            labels[0,4] = (y2 - y1) / h
-
-
-
-            x1 = w * (labels[0, 1] - labels[0, 3]/2)
-            y1 = h * (labels[0, 2] - labels[0, 4]/2)
-            x2 = w * (labels[0, 1] + labels[0, 3]/2)
-            y2 = h * (labels[0, 2] + labels[0, 4]/2)
-
-            
-            x1 += pad[1][0]
-            y1 += pad[0][0]
-            x2 += pad[1][0]
-            y2 += pad[0][0]
-
-            labels[0,1] = ((x1 + x2) / 2) / padded_w
-            labels[0,2] = ((y1 + y2) / 2) / padded_h
-            labels[0,3] *= float(w) / float(padded_w)
-            labels[0,4] *= float(h) / float(padded_h)
-            
-        """ 
+        
         if len(target) > 0:
             target = np.array(target)
             x1 = target[:,1]
