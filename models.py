@@ -20,7 +20,7 @@ def create_modules(module_defs):
     Constructs module list of layer blocks from module configuration in module_defs
     """
     hyperparams = module_defs.pop(0)
-    output_filters = [int(hyperparams['channels'])]
+    output_filters = []
     module_list = nn.ModuleList()
     for i, module_def in enumerate(module_defs):
         modules = nn.Sequential()
@@ -30,7 +30,8 @@ def create_modules(module_defs):
             filters = int(module_def['filters'])
             kernel_size = int(module_def['size'])
             pad = (kernel_size - 1) // 2 if int(module_def['pad']) else 0
-            modules.add_module('conv_%d' % i, nn.Conv2d(in_channels=output_filters[-1],
+            modules.add_module('conv_%d' % i, nn.Conv2d(in_channels=(output_filters[-1] if len(output_filters) > 0
+                                                                     else int(hyperparams['channels'])),
                                                         out_channels=filters,
                                                         kernel_size=kernel_size,
                                                         stride=int(module_def['stride']),
@@ -40,6 +41,16 @@ def create_modules(module_defs):
                 modules.add_module('batch_norm_%d' % i, nn.BatchNorm2d(filters))
             if module_def['activation'] == 'leaky':
                 modules.add_module('leaky_%d' % i, nn.LeakyReLU(0.1))
+
+        elif module_def['type'] == 'maxpool':
+            kernel_size = int(module_def['size'])
+            stride = int(module_def['stride'])
+            if kernel_size == 2 and stride == 1:
+                padding = nn.ZeroPad2d((0, 1, 0, 1))
+                modules.add_module('_debug_padding_%d' % i, padding)
+            maxpool = nn.MaxPool2d(kernel_size=int(module_def['size']),
+                                   stride=int(module_def['stride']), padding=int((kernel_size-1)//2))
+            modules.add_module('maxpool_%d' % i, maxpool)
 
         elif module_def['type'] == 'upsample':
             upsample = nn.Upsample( scale_factor=int(module_def['stride']),
@@ -192,7 +203,7 @@ class Darknet(nn.Module):
         self.losses = defaultdict(float)
         layer_outputs = []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
-            if module_def['type'] in ['convolutional', 'upsample']:
+            if module_def['type'] in ['convolutional', 'upsample', 'maxpool']:
                 x = module(x)
             elif module_def['type'] == 'route':
                 layer_i = [int(x) for x in module_def['layers'].split(',')]
