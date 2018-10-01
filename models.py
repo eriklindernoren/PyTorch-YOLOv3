@@ -156,6 +156,7 @@ class YOLOLayer(nn.Module):
             if x.is_cuda:
                 self.mse_loss = self.mse_loss.cuda()
                 self.bce_loss = self.bce_loss.cuda()
+                self.ce_loss = self.ce_loss.cuda()
 
             nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls = build_targets(
                 pred_boxes=pred_boxes.cpu().data,
@@ -170,8 +171,9 @@ class YOLOLayer(nn.Module):
                 img_dim=self.image_dim,
             )
 
-            nProposals = int((pred_conf > 0.25).sum().item())
+            nProposals = int((pred_conf > 0.5).sum().item())
             recall = float(nCorrect / nGT) if nGT else 1
+            precision = float(nCorrect / nProposals)
 
             # Handle masks
             mask = Variable(mask.type(ByteTensor))
@@ -210,6 +212,7 @@ class YOLOLayer(nn.Module):
                 loss_conf.item(),
                 loss_cls.item(),
                 recall,
+                precision,
             )
 
         else:
@@ -235,7 +238,7 @@ class Darknet(nn.Module):
         self.img_size = img_size
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0])
-        self.loss_names = ["x", "y", "w", "h", "conf", "cls", "recall"]
+        self.loss_names = ["x", "y", "w", "h", "conf", "cls", "recall", "precision"]
 
     def forward(self, x, targets=None):
         is_training = targets is not None
@@ -264,6 +267,7 @@ class Darknet(nn.Module):
             layer_outputs.append(x)
 
         self.losses["recall"] /= 3
+        self.losses["precision"] /= 3
         return sum(output) if is_training else torch.cat(output, 1)
 
     def load_weights(self, weights_path):

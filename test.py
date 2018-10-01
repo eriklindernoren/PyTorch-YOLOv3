@@ -20,26 +20,26 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--batch_size', type=int, default=16, help='size of each image batch')
-parser.add_argument('--model_config_path', type=str, default='config/yolov3.cfg', help='path to model config file')
-parser.add_argument('--data_config_path', type=str, default='config/coco.data', help='path to data config file')
-parser.add_argument('--weights_path', type=str, default='weights/yolov3.weights', help='path to weights file')
-parser.add_argument('--class_path', type=str, default='data/coco.names', help='path to class label file')
-parser.add_argument('--iou_thres', type=float, default=0.5, help='iou threshold required to qualify as detected')
-parser.add_argument('--conf_thres', type=float, default=0.5, help='object confidence threshold')
-parser.add_argument('--nms_thres', type=float, default=0.45, help='iou thresshold for non-maximum suppression')
-parser.add_argument('--n_cpu', type=int, default=0, help='number of cpu threads to use during batch generation')
-parser.add_argument('--img_size', type=int, default=416, help='size of each image dimension')
-parser.add_argument('--use_cuda', type=bool, default=True, help='whether to use cuda if available')
+parser.add_argument("--batch_size", type=int, default=16, help="size of each image batch")
+parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
+parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
+parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
+parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
+parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
+parser.add_argument("--conf_thres", type=float, default=0.5, help="object confidence threshold")
+parser.add_argument("--nms_thres", type=float, default=0.45, help="iou thresshold for non-maximum suppression")
+parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
+parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
+parser.add_argument("--use_cuda", type=bool, default=True, help="whether to use cuda if available")
 opt = parser.parse_args()
 print(opt)
 
 cuda = torch.cuda.is_available() and opt.use_cuda
 
 # Get data configuration
-data_config     = parse_data_config(opt.data_config_path)
-test_path       = data_config['valid']
-num_classes     = int(data_config['classes'])
+data_config = parse_data_config(opt.data_config_path)
+test_path = data_config["valid"]
+num_classes = int(data_config["classes"])
 
 # Initiate model
 model = Darknet(opt.model_config_path)
@@ -52,19 +52,11 @@ model.eval()
 
 # Get dataloader
 dataset = ListDataset(test_path)
-dataloader = torch.utils.data.DataLoader(dataset,
-    batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
+dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
-n_gt = 0
-correct = 0
-
-print ('Compute mAP...')
-
-outputs = []
-targets = None
-APs = []
+print("Compute mAP...")
 
 all_detections = []
 all_annotations = []
@@ -102,10 +94,10 @@ for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecti
 
             # Reformat to x1, y1, x2, y2 and rescale to image dimensions
             annotation_boxes = np.empty_like(_annotation_boxes)
-            annotation_boxes[:, 0] = (_annotation_boxes[:, 0] - _annotation_boxes[:, 2] / 2)
-            annotation_boxes[:, 1] = (_annotation_boxes[:, 1] - _annotation_boxes[:, 3] / 2)
-            annotation_boxes[:, 2] = (_annotation_boxes[:, 0] + _annotation_boxes[:, 2] / 2)
-            annotation_boxes[:, 3] = (_annotation_boxes[:, 1] + _annotation_boxes[:, 3] / 2)
+            annotation_boxes[:, 0] = _annotation_boxes[:, 0] - _annotation_boxes[:, 2] / 2
+            annotation_boxes[:, 1] = _annotation_boxes[:, 1] - _annotation_boxes[:, 3] / 2
+            annotation_boxes[:, 2] = _annotation_boxes[:, 0] + _annotation_boxes[:, 2] / 2
+            annotation_boxes[:, 3] = _annotation_boxes[:, 1] + _annotation_boxes[:, 3] / 2
             annotation_boxes *= opt.img_size
 
             for label in range(num_classes):
