@@ -71,7 +71,7 @@ Evaluates the model on COCO test.
 | YOLOv3 (this impl.)     | 58.2             |
 
 ## Train
-Model does not converge yet during training. Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
+Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
     train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
                 [--batch_size BATCH_SIZE]
