@@ -10,7 +10,7 @@ import sys
 import time
 import datetime
 import argparse
-from tqdm import tqdm
+import tqdm
 
 import torch
 from torch.utils.data import DataLoader
@@ -20,7 +20,6 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epochs', type=int, default=200, help='number of epochs')
 parser.add_argument('--batch_size', type=int, default=16, help='size of each image batch')
 parser.add_argument('--model_config_path', type=str, default='config/yolov3.cfg', help='path to model config file')
 parser.add_argument('--data_config_path', type=str, default='config/coco.data', help='path to data config file')
@@ -66,75 +65,109 @@ print ('Compute mAP...')
 outputs = []
 targets = None
 APs = []
-for batch_i, (_, imgs, targets) in enumerate(dataloader):
+
+all_detections = []
+all_annotations = []
+
+for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
+
     imgs = Variable(imgs.type(Tensor))
-    targets = targets.type(Tensor)
 
     with torch.no_grad():
-        output = model(imgs)
-        output = non_max_suppression(output, 80, conf_thres=opt.conf_thres, nms_thres=opt.nms_thres)
+        outputs = model(imgs)
+        outputs = non_max_suppression(outputs, 80, conf_thres=opt.conf_thres, nms_thres=opt.nms_thres)
 
-    # Compute average precision for each sample
-    for sample_i in range(targets.size(0)):
-        correct = []
+    for output, annotations in zip(outputs, targets):
 
-        # Get labels for sample where width is not zero (dummies)
-        annotations = targets[sample_i, targets[sample_i, :, 3] != 0]
-        # Extract detections
-        detections = output[sample_i]
+        all_detections.append([np.array([]) for _ in range(num_classes)])
+        if output is not None:
+            # Get predicted boxes, confidence scores and labels
+            pred_boxes = output[:, :5].cpu().numpy()
+            scores = output[:, 4].cpu().numpy()
+            pred_labels = output[:, -1].cpu().numpy()
 
-        if detections is None:
-            # If there are no detections but there are annotations mask as zero AP
-            if annotations.size(0) != 0:
-                APs.append(0)
-            continue
+            # Order by confidence
+            sort_i = np.argsort(scores)
+            pred_labels = pred_labels[sort_i]
+            pred_boxes = pred_boxes[sort_i]
 
-        # Get detections sorted by decreasing confidence scores
-        detections = detections[np.argsort(-detections[:, 4])]
+            for label in range(num_classes):
+                all_detections[-1][label] = pred_boxes[pred_labels == label]
 
-        # If no annotations add number of detections as incorrect
-        if annotations.size(0) == 0:
-            correct.extend([0 for _ in range(len(detections))])
-        else:
-            # Extract target boxes as (x1, y1, x2, y2)
-            target_boxes = torch.FloatTensor(annotations[:, 1:].shape)
-            target_boxes[:, 0] = (annotations[:, 1] - annotations[:, 3] / 2)
-            target_boxes[:, 1] = (annotations[:, 2] - annotations[:, 4] / 2)
-            target_boxes[:, 2] = (annotations[:, 1] + annotations[:, 3] / 2)
-            target_boxes[:, 3] = (annotations[:, 2] + annotations[:, 4] / 2)
-            target_boxes *= opt.img_size
+        all_annotations.append([np.array([]) for _ in range(num_classes)])
+        if any(annotations[:, -1] > 0):
 
-            detected = []
-            for *pred_bbox, conf, obj_conf, obj_pred in detections:
+            annotation_labels = annotations[annotations[:, -1] > 0, 0].numpy()
+            _annotation_boxes = annotations[annotations[:, -1] > 0, 1:]
 
-                pred_bbox = torch.FloatTensor(pred_bbox).view(1, -1)
-                # Compute iou with target boxes
-                iou = bbox_iou(pred_bbox, target_boxes)
-                # Extract index of largest overlap
-                best_i = np.argmax(iou)
-                # If overlap exceeds threshold and classification is correct mark as correct
-                if iou[best_i] > opt.iou_thres and obj_pred == annotations[best_i, 0] and best_i not in detected:
-                    correct.append(1)
-                    detected.append(best_i)
-                else:
-                    correct.append(0)
+            # Reformat to x1, y1, x2, y2 and rescale to image dimensions
+            annotation_boxes = np.empty_like(_annotation_boxes)
+            annotation_boxes[:, 0] = (_annotation_boxes[:, 0] - _annotation_boxes[:, 2] / 2)
+            annotation_boxes[:, 1] = (_annotation_boxes[:, 1] - _annotation_boxes[:, 3] / 2)
+            annotation_boxes[:, 2] = (_annotation_boxes[:, 0] + _annotation_boxes[:, 2] / 2)
+            annotation_boxes[:, 3] = (_annotation_boxes[:, 1] + _annotation_boxes[:, 3] / 2)
+            annotation_boxes *= opt.img_size
 
-        # Extract true and false positives
-        true_positives  = np.array(correct)
-        false_positives = 1 - true_positives
+            for label in range(num_classes):
+                all_annotations[-1][label] = annotation_boxes[annotation_labels == label, :]
 
-        # Compute cumulative false positives and true positives
-        false_positives = np.cumsum(false_positives)
-        true_positives  = np.cumsum(true_positives)
+average_precisions = {}
+for label in range(num_classes):
+    true_positives = []
+    scores = []
+    num_annotations = 0
 
-        # Compute recall and precision at all ranks
-        recall    = true_positives / annotations.size(0) if annotations.size(0) else true_positives
-        precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+    for i in tqdm.tqdm(range(len(all_annotations)), desc=f"Computing AP for class '{label}'"):
+        detections = all_detections[i][label]
+        annotations = all_annotations[i][label]
 
-        # Compute average precision
-        AP = compute_ap(recall, precision)
-        APs.append(AP)
+        num_annotations += annotations.shape[0]
+        detected_annotations = []
 
-        print ("+ Sample [%d/%d] AP: %.4f (%.4f)" % (len(APs), len(dataset), AP, np.mean(APs)))
+        for *bbox, score in detections:
+            scores.append(score)
 
-print("Mean Average Precision: %.4f" % np.mean(APs))
+            if annotations.shape[0] == 0:
+                true_positives.append(0)
+                continue
+
+            overlaps = bbox_iou_numpy(np.expand_dims(bbox, axis=0), annotations)
+            assigned_annotation = np.argmax(overlaps, axis=1)
+            max_overlap = overlaps[0, assigned_annotation]
+
+            if max_overlap >= opt.iou_thres and assigned_annotation not in detected_annotations:
+                true_positives.append(1)
+                detected_annotations.append(assigned_annotation)
+            else:
+                true_positives.append(0)
+
+    # no annotations -> AP for this class is 0
+    if num_annotations == 0:
+        average_precisions[label] = 0
+        continue
+
+    true_positives = np.array(true_positives)
+    false_positives = np.ones_like(true_positives) - true_positives
+    # sort by score
+    indices = np.argsort(-np.array(scores))
+    false_positives = false_positives[indices]
+    true_positives = true_positives[indices]
+
+    # compute false positives and true positives
+    false_positives = np.cumsum(false_positives)
+    true_positives = np.cumsum(true_positives)
+
+    # compute recall and precision
+    recall = true_positives / num_annotations
+    precision = true_positives / np.maximum(true_positives + false_positives, np.finfo(np.float64).eps)
+
+    # compute average precision
+    average_precision = compute_ap(recall, precision)
+    average_precisions[label] = average_precision
+
+print("Average Precisions:")
+for c, ap in average_precisions.items():
+    print(f"+ Class '{c}' - AP: {ap}")
+
+mAP = np.mean(list(average_precisions.values()))
+print(f"mAP: {mAP}")
