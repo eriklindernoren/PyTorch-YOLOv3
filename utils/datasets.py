@@ -144,8 +144,8 @@ class ListDataset(Dataset):
             # Get height and width after padding, and normalize it, TODO: what OBB should give height normalization of 1?
             val1 = np.sqrt(((p2_x - p1_x) ** 2) + ((p2_y - p1_y) ** 2))
             val2 = np.sqrt(((p3_x - p2_x) ** 2) + ((p3_y - p2_y) ** 2))
-            labels[:, 3] = np.max([val1, val2], axis=0) / (1.5*padded_w)  # height
-            labels[:, 4] = np.min([val1, val2], axis=0) / (1.5*padded_h)  # width
+            labels[:, 3] = np.min([val1, val2], axis=0) / (1.5*max(padded_h, padded_w))  # width
+            labels[:, 4] = np.max([val1, val2], axis=0) / (1.5*max(padded_h, padded_w))  # height
 
             # For debugging
             visualize = False
@@ -180,8 +180,8 @@ class ListDataset(Dataset):
         filled_labels = np.zeros((self.max_objects, 6))
         if labels is not None:
             filled_labels[range(len(labels))[:self.max_objects]] = labels[:self.max_objects]
-        filled_labels = torch.from_numpy(filled_labels[:,:5])  # to ignore orientation
-        # filled_labels = torch.from_numpy(filled_labels)
+        # filled_labels = torch.from_numpy(filled_labels[:,:5])  # to ignore orientation
+        filled_labels = torch.from_numpy(filled_labels) # class_id,x,y,w,h,theta
 
         return img_path, input_img, filled_labels
 

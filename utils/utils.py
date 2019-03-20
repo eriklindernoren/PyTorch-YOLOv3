@@ -197,6 +197,7 @@ def build_targets(
     ty = torch.zeros(nB, nA, nG, nG)
     tw = torch.zeros(nB, nA, nG, nG)
     th = torch.zeros(nB, nA, nG, nG)
+    ttheta = torch.zeros(nB, nA, nG, nG)
     tconf = torch.ByteTensor(nB, nA, nG, nG).fill_(0)
     tcls = torch.ByteTensor(nB, nA, nG, nG, nC).fill_(0)
 
@@ -250,7 +251,7 @@ def build_targets(
             if iou > 0.5 and pred_label == target_label and score > 0.5:
                 nCorrect += 1
 
-    return nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls
+    return nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, ttheta, tconf, tcls
 
 
 def to_categorical(y, num_classes):
