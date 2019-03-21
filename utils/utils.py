@@ -11,13 +11,14 @@ import shapely.geometry
 import shapely.affinity
 
 import matplotlib.pyplot as plt
+from descartes import PolygonPatch
 import matplotlib.patches as patches
 
 
 class OBB:
     def __init__(self, cx, cy, w, h, angle):
         self.cx = cx
-        self.cy = cy
+        self.cy = -cy  # minus because y is defined downside
         self.w = max(w, h)
         self.h = min(w, h)
         self.angle = angle
@@ -40,17 +41,17 @@ class OBB:
         union_area = self.union(other).area
 
         if visualize:
-            fig = plt.figure(1, figsize=(10, 4))
-            ax = fig.add_subplot(121)
-            ax.set_xlim(0, 30)
-            ax.set_ylim(0, 30)
-            from descartes import PolygonPatch
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.set_xlim(-30, 30)
+            ax.set_ylim(-30, 30)
             ax.add_patch(PolygonPatch(self.get_contour(), fc='#990000', alpha=0.7))
             ax.add_patch(PolygonPatch(other.get_contour(), fc='#000099', alpha=0.7))
             ax.add_patch(PolygonPatch(self.intersection(other), fc='#009900', alpha=1))
             plt.show()
 
         return intersect_area / (union_area + 1e-16)
+
 
 def load_classes(path):
     """
@@ -103,9 +104,9 @@ def bbox_iou(box1, box2, theta_of_box1, x1y1x2y2=True):  # x1y1x2y2=True means x
     Returns the IoU of two bounding boxes
     """
 
-    r1 = OBB(10, 15, 10, 15, 30)  #TODO: Fix y coordinate
+    r1 = OBB(10, 15, 10, 15, 30)
     r2 = OBB(15, 15, 10, 20, -45)
-    iou = r1.iou(r2, visualize=False)
+    iou = r1.iou(r2, visualize=True)
 
 
 
