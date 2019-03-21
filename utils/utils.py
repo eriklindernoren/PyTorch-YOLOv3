@@ -7,9 +7,50 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
+import shapely.geometry
+import shapely.affinity
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
+
+class OBB:
+    def __init__(self, cx, cy, w, h, angle):
+        self.cx = cx
+        self.cy = cy
+        self.w = max(w, h)
+        self.h = min(w, h)
+        self.angle = angle
+
+    def get_contour(self):
+        w = self.w
+        h = self.h
+        c = shapely.geometry.box(-w/2.0, -h/2.0, w/2.0, h/2.0)
+        rc = shapely.affinity.rotate(c, self.angle)
+        return shapely.affinity.translate(rc, self.cx, self.cy)
+
+    def intersection(self, other):
+        return self.get_contour().intersection(other.get_contour())
+
+    def union(self, other):
+        return self.get_contour().union(other.get_contour())
+
+    def iou(self, other, visualize=False):
+        intersect_area = self.intersection(other).area
+        union_area = self.union(other).area
+
+        if visualize:
+            fig = plt.figure(1, figsize=(10, 4))
+            ax = fig.add_subplot(121)
+            ax.set_xlim(0, 30)
+            ax.set_ylim(0, 30)
+            from descartes import PolygonPatch
+            ax.add_patch(PolygonPatch(self.get_contour(), fc='#990000', alpha=0.7))
+            ax.add_patch(PolygonPatch(other.get_contour(), fc='#000099', alpha=0.7))
+            ax.add_patch(PolygonPatch(self.intersection(other), fc='#009900', alpha=1))
+            plt.show()
+
+        return intersect_area / (union_area + 1e-16)
 
 def load_classes(path):
     """
@@ -57,30 +98,37 @@ def compute_ap(recall, precision):
     return ap
 
 
-def bbox_iou(box1, box2, x1y1x2y2=True):
+def bbox_iou(box1, box2, theta_of_box1, x1y1x2y2=True):  # x1y1x2y2=True means x1y1x2y2 format
     """
     Returns the IoU of two bounding boxes
     """
-    if not x1y1x2y2:
+
+    r1 = OBB(10, 15, 10, 15, 30)  #TODO: Fix y coordinate
+    r2 = OBB(15, 15, 10, 20, -45)
+    iou = r1.iou(r2, visualize=False)
+
+
+
+
+    if not x1y1x2y2:  # boxes format: x,y,w,h
         # Transform from center and width to exact coordinates
         b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
         b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
         b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
         b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
-    else:
+    else:  # boxes format: p1x,p1y,p2x,p2y
         # Get the coordinates of bounding boxes
         b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
         b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
 
-    # get the corrdinates of the intersection rectangle
+    # get the coordinates of the intersection rectangle
     inter_rect_x1 = torch.max(b1_x1, b2_x1)
     inter_rect_y1 = torch.max(b1_y1, b2_y1)
     inter_rect_x2 = torch.min(b1_x2, b2_x2)
     inter_rect_y2 = torch.min(b1_y2, b2_y2)
     # Intersection area
     inter_area = torch.clamp(inter_rect_x2 - inter_rect_x1 + 1, min=0) * torch.clamp(
-        inter_rect_y2 - inter_rect_y1 + 1, min=0
-    )
+        inter_rect_y2 - inter_rect_y1 + 1, min=0)
     # Union Area
     b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
     b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
@@ -187,6 +235,9 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
 def build_targets(
     pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres, img_dim
 ):
+
+    # target is batch_size X max_number_of_objects_in_image X 6 (class_id,x,y,w,h,theta)
+
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
@@ -203,16 +254,17 @@ def build_targets(
 
     nGT = 0
     nCorrect = 0
-    for b in range(nB):
-        for t in range(target.shape[1]):
-            if target[b, t].sum() == 0:
+    for b in range(nB):  # For all sample in the batch
+        for t in range(target.shape[1]):  # For all the objects in this sample
+            if target[b, t].sum() == 0:  # all zeros, means no object (#TODO: should be break instead?)
                 continue
             nGT += 1
-            # Convert to position relative to box
+            # Convert to position relative to box (because they are from 0 to 1 from datasets.py)
             gx = target[b, t, 1] * nG
             gy = target[b, t, 2] * nG
             gw = target[b, t, 3] * nG
             gh = target[b, t, 4] * nG
+            gtheta = target[b, t, 5]
             # Get grid box indices
             gi = int(gx)
             gj = int(gy)
@@ -221,7 +273,7 @@ def build_targets(
             # Get shape of anchor box
             anchor_shapes = torch.FloatTensor(np.concatenate((np.zeros((len(anchors), 2)), np.array(anchors)), 1))
             # Calculate iou between gt and anchor shapes
-            anch_ious = bbox_iou(gt_box, anchor_shapes)
+            anch_ious = bbox_iou(gt_box, anchor_shapes, gtheta)
             # Where the overlap is larger than threshold set mask to zero (ignore)
             conf_mask[b, anch_ious > ignore_thres, gj, gi] = 0
             # Find the best matching anchor box
@@ -236,7 +288,7 @@ def build_targets(
             # Coordinates
             tx[b, best_n, gj, gi] = gx - gi
             ty[b, best_n, gj, gi] = gy - gj
-            # Width and height
+            # Width, height, and theta
             tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16)
             th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16)
             # One-hot encoding of label
@@ -245,7 +297,7 @@ def build_targets(
             tconf[b, best_n, gj, gi] = 1
 
             # Calculate iou between ground truth and best matching prediction
-            iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
+            iou = bbox_iou(gt_box, pred_box, gtheta, x1y1x2y2=False)
             pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
             score = pred_conf[b, best_n, gj, gi]
             if iou > 0.5 and pred_label == target_label and score > 0.5:

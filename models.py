@@ -119,14 +119,15 @@ class YOLOLayer(nn.Module):
         nA = self.num_anchors  # number of anchors
         nB = x.size(0)  # batch size
         nG = x.size(2)  # input feature map dimension 258
-        stride = self.image_dim / nG
+        stride = self.image_dim / nG  # the scale the input image is reduced by till this featuremap named x
 
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
         ByteTensor = torch.cuda.ByteTensor if x.is_cuda else torch.ByteTensor
 
-        # prediction is the output from the 1x1 convolutional layer (anchors x bbox_attrs linear neurons):
+        # prediction is the output from the 1x1 (to reduce the depth to the number of neurons) convolutional layer
+        # (anchors x bbox_attrs linear neurons):
         # For each sample in the batch, each anchors*featuremap volume
         # 16 samples x 3 anchors x (13x13) featuremap x (6+20) bbox_attrs
         prediction = x.view(nB, nA, self.bbox_attrs, nG, nG).permute(0, 1, 3, 4, 2).contiguous()
@@ -138,7 +139,7 @@ class YOLOLayer(nn.Module):
         w = prediction[..., 2]  # Width
         h = prediction[..., 3]  # Height
         theta = prediction[..., 4]  # Theta
-        pred_conf = torch.sigmoid(prediction[..., 5])  # Conf
+        pred_conf = torch.sigmoid(prediction[..., 5])  # Conf (objectness score)
         pred_cls = torch.sigmoid(prediction[..., 6:])  # Cls pred.
 
         # Calculate offsets for each grid
@@ -149,11 +150,13 @@ class YOLOLayer(nn.Module):
         anchor_h = scaled_anchors[:, 1:2].view((1, nA, 1, 1))
 
         # Add offset and scale with anchors
-        pred_boxes = FloatTensor(prediction[..., :4].shape)
+        pred_boxes = FloatTensor(prediction[..., :5].shape)
         pred_boxes[..., 0] = x.data + grid_x
         pred_boxes[..., 1] = y.data + grid_y
+        # The network predicts a number to be multiplied by anchor_w (actually a numbers for each anchor)
         pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
+        pred_boxes[..., 4] = torch.exp(theta.data)  # theta is predicted independently
 
         # Training
         if targets is not None:
@@ -163,6 +166,8 @@ class YOLOLayer(nn.Module):
                 self.bce_loss = self.bce_loss.cuda()
                 self.ce_loss = self.ce_loss.cuda()
 
+            # Building ground-truths
+            # nGT: number of objects in all the batch samples
             nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, ttheta, tconf, tcls = build_targets(
                 pred_boxes=pred_boxes.cpu().data,
                 pred_conf=pred_conf.cpu().data,
@@ -226,7 +231,7 @@ class YOLOLayer(nn.Module):
             # If not in training phase return predictions
             output = torch.cat(
                 (
-                    pred_boxes.view(nB, -1, 4) * stride,
+                    pred_boxes.view(nB, -1, 5) * stride,
                     pred_conf.view(nB, -1, 1),
                     pred_cls.view(nB, -1, self.num_classes),
                 ),

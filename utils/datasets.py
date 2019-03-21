@@ -51,7 +51,7 @@ class ListDataset(Dataset):
         self.img_files = [data_folder + '/' + s for s in os.listdir(data_folder) if s.endswith('.jpg')]
         self.label_files = [path.replace('.jpg', '.txt') for path in self.img_files]
         self.img_shape = (img_size, img_size)
-        self.max_objects = 50
+        self.max_objects = 50  # TODO: should be reduced?
 
     def __getitem__(self, index):
 
@@ -97,7 +97,7 @@ class ListDataset(Dataset):
         #   y (centre, starting from image upper limit),
         #   height (longest dimension),
         #   width (smallest dimension),
-        #   orientation (/ 45 , \ -45 , | -90 or 90)
+        #   orientation (- 0, / 45 , \ -45 , | -90 or 90)
         # In coco 2014 dataset (82K+40K images train and test): class_id,x,y,width,height (all normalized from 0 to 1)
 
         label_path = self.label_files[index % len(self.img_files)].rstrip()
