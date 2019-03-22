@@ -77,7 +77,7 @@ def create_modules(module_defs):
             anchor_idxs = [int(x) for x in module_def["mask"].split(",")]  # Selected anchors from the cfg file
             # Extract anchors
             anchors = [int(x) for x in module_def["anchors"].split(",")]
-            anchors = [(anchors[i], anchors[i + 1]) for i in range(0, len(anchors), 2)]
+            anchors = [(anchors[i], anchors[i + 1], anchors[i + 2]) for i in range(0, len(anchors), 3)]
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def["classes"])
             img_height = int(hyperparams["height"])
@@ -145,7 +145,7 @@ class YOLOLayer(nn.Module):
         # Calculate offsets for each grid
         grid_x = torch.arange(nG).repeat(nG, 1).view([1, 1, nG, nG]).type(FloatTensor)
         grid_y = torch.arange(nG).repeat(nG, 1).t().view([1, 1, nG, nG]).type(FloatTensor)
-        scaled_anchors = FloatTensor([(a_w / stride, a_h / stride) for a_w, a_h in self.anchors])
+        scaled_anchors = FloatTensor([(a_w / stride, a_h / stride, a_theta) for a_w, a_h, a_theta in self.anchors])
         anchor_w = scaled_anchors[:, 0:1].view((1, nA, 1, 1))
         anchor_h = scaled_anchors[:, 1:2].view((1, nA, 1, 1))
 
@@ -167,7 +167,19 @@ class YOLOLayer(nn.Module):
                 self.ce_loss = self.ce_loss.cuda()
 
             # Building ground-truths
+            # it takes also the predictions to choose the right anchor boxes that looks most like the prediction
             # nGT: number of objects in all the batch samples
+            # nCorrect: number of correctly detected objects
+            # target size is batch_size X max_number_of_objects_in_image X 6 (class_id,x,y,w,h,theta -scaled 0 to 1-)
+            # pred_boxes size is nBatch X nAnchors X featuremap X 5 (x,y,w,h,theta)
+            # pred_cls size is nBatch X nAnchors X featuremap X nClasses
+            # pred_conf size is nBatch X nAnchors X featuremap X 1
+            # anchors size is nAnchors X 3 (w,h,theta)
+
+            # The following is the same size as pred_conf
+            # mask: each cell has a GT and 3 anchors, mask is all zeros except for the anchor nearest to GT
+            # conf_mask: all ones except for anchors with IoU>0.5 & not nearest
+            # tconf: similar to mask
             nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, ttheta, tconf, tcls = build_targets(
                 pred_boxes=pred_boxes.cpu().data,
                 pred_conf=pred_conf.cpu().data,

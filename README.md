@@ -11,6 +11,10 @@ Minimal implementation of YOLOv3 in PyTorch.
   * [Train](#train)
   * [Credit](#credit)
 
+## Todo
+- Fix bbox_iou and bbox_iou_numpy calls
+- Fix bbox_iou_numpy
+
 ## Paper
 ### YOLOv3: An Incremental Improvement
 _Joseph Redmon, Ali Farhadi_ <br>
