@@ -20,11 +20,15 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--image_folder", type=str,
+                    default="/mnt/7A0C2F9B0C2F5185/heraqi/data/cu-obb-roadway-features/train", help="path to dataset")
+parser.add_argument("--weights_path", type=str, default="checkpoints/9.weights", help="path to weights file")
 parser.add_argument("--batch_size", type=int, default=16, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
-parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
-parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
+# parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
+parser.add_argument("--class_path", type=str,
+                    default="/mnt/7A0C2F9B0C2F5185/heraqi/data/cu-obb-roadway-features/train/classes.txt",
+                    help="path to class label file")
 parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
 parser.add_argument("--conf_thres", type=float, default=0.5, help="object confidence threshold")
 parser.add_argument("--nms_thres", type=float, default=0.45, help="iou thresshold for non-maximum suppression")
@@ -37,9 +41,8 @@ print(opt)
 cuda = torch.cuda.is_available() and opt.use_cuda
 
 # Get data configuration
-data_config = parse_data_config(opt.data_config_path)
-test_path = data_config["valid"]
-num_classes = int(data_config["classes"])
+classes = load_classes(opt.class_path)
+num_classes = len(classes)
 
 # Initiate model
 model = Darknet(opt.model_config_path)
@@ -51,7 +54,7 @@ if cuda:
 model.eval()
 
 # Get dataloader
-dataset = ListDataset(test_path)
+dataset = ListDataset(opt.image_folder, classes=classes)
 dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
 Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
@@ -67,6 +70,8 @@ for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecti
 
     with torch.no_grad():
         outputs = model(imgs)
+        # outputs shape is: 16 (batch size) X 10647 (52X52+26X26+13X13, 3 fetaure maps output from YOLOv3) X 3 (anchors)
+        #                   X 26 (x,y,w,l,theta,objectiveness, 20 classes)
         outputs = non_max_suppression(outputs, 80, conf_thres=opt.conf_thres, nms_thres=opt.nms_thres)
 
     for output, annotations in zip(outputs, targets):

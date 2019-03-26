@@ -106,7 +106,7 @@ class YOLOLayer(nn.Module):
         self.anchors = anchors
         self.num_anchors = len(anchors)
         self.num_classes = num_classes
-        self.bbox_attrs = 6 + num_classes  # x,y,w,h,theta,objectness_score,class
+        self.bbox_attrs = 6 + num_classes  # x,y,w,l,theta,objectness_score,class
         self.image_dim = img_dim
         self.ignore_thres = 0.5
         self.lambda_coord = 1
@@ -133,11 +133,11 @@ class YOLOLayer(nn.Module):
         prediction = x.view(nB, nA, self.bbox_attrs, nG, nG).permute(0, 1, 3, 4, 2).contiguous()
 
         # Get outputs (for the batch)
-        # For each image in batch, for each cell in the feature map, 3 anchors each has x,y,w,h,.....
+        # For each image in batch, for each cell in the feature map, 3 anchors each has x,y,w,l,.....
         x = torch.sigmoid(prediction[..., 0])  # Center x, shape: 16 samples x 3 anchors x 13x13
         y = torch.sigmoid(prediction[..., 1])  # Center y
         w = prediction[..., 2]  # Width
-        h = prediction[..., 3]  # Height
+        l = prediction[..., 3]  # Length
         theta = prediction[..., 4]  # Theta
         pred_conf = torch.sigmoid(prediction[..., 5])  # Conf (objectness score)
         pred_cls = torch.sigmoid(prediction[..., 6:])  # Cls pred.
@@ -147,16 +147,16 @@ class YOLOLayer(nn.Module):
         grid_y = torch.arange(nG).repeat(nG, 1).t().view([1, 1, nG, nG]).type(FloatTensor)
         scaled_anchors = FloatTensor([(a_w / stride, a_h / stride, a_theta) for a_w, a_h, a_theta in self.anchors])
         anchor_w = scaled_anchors[:, 0:1].view((1, nA, 1, 1))
-        anchor_h = scaled_anchors[:, 1:2].view((1, nA, 1, 1))
+        anchor_l = scaled_anchors[:, 1:2].view((1, nA, 1, 1))
 
         # Add offset and scale with anchors
         pred_boxes = FloatTensor(prediction[..., :5].shape)
         pred_boxes[..., 0] = x.data + grid_x
         pred_boxes[..., 1] = y.data + grid_y
         # The network predicts a number to be multiplied by anchor_w (actually a numbers for each anchor)
-        pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
-        pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
-        pred_boxes[..., 4] = torch.exp(theta.data)  # theta is predicted independently
+        pred_boxes[..., 2] = torch.exp(w.data) * anchor_w  # Exp to make it positive value
+        pred_boxes[..., 3] = torch.exp(l.data) * anchor_l
+        pred_boxes[..., 4] = theta.data*90  # theta is predicted independently of anchor box, TODO: change this?
 
         # Training
         if targets is not None:
@@ -170,17 +170,17 @@ class YOLOLayer(nn.Module):
             # it takes also the predictions to choose the right anchor boxes that looks most like the prediction
             # nGT: number of objects in all the batch samples
             # nCorrect: number of correctly detected objects
-            # target size is batch_size X max_number_of_objects_in_image X 6 (class_id,x,y,w,h,theta -scaled 0 to 1-)
-            # pred_boxes size is nBatch X nAnchors X featuremap X 5 (x,y,w,h,theta)
+            # target size is batch_size X max_number_of_objects_in_image X 6 (class_id,x,y,w,l,theta -scaled 0 to 1-)
+            # pred_boxes size is nBatch X nAnchors X featuremap X 5 (x,y,w,l,theta)
             # pred_cls size is nBatch X nAnchors X featuremap X nClasses
             # pred_conf size is nBatch X nAnchors X featuremap X 1
-            # anchors size is nAnchors X 3 (w,h,theta)
+            # anchors size is nAnchors X 3 (w,l,theta)
 
             # The following is the same size as pred_conf
             # mask: each cell has a GT and 3 anchors, mask is all zeros except for the anchor nearest to GT
             # conf_mask: all ones except for anchors with IoU>0.5 & not nearest
             # tconf: similar to mask
-            nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, ttheta, tconf, tcls = build_targets(
+            nGT, nCorrect, mask, conf_mask, tx, ty, tw, tl, ttheta, tconf, tcls = build_targets(
                 pred_boxes=pred_boxes.cpu().data,
                 pred_conf=pred_conf.cpu().data,
                 pred_cls=pred_cls.cpu().data,
@@ -205,33 +205,34 @@ class YOLOLayer(nn.Module):
             tx = Variable(tx.type(FloatTensor), requires_grad=False)
             ty = Variable(ty.type(FloatTensor), requires_grad=False)
             tw = Variable(tw.type(FloatTensor), requires_grad=False)
-            th = Variable(th.type(FloatTensor), requires_grad=False)
+            tl = Variable(tl.type(FloatTensor), requires_grad=False)
             ttheta = Variable(ttheta.type(FloatTensor), requires_grad=False)
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
             tcls = Variable(tcls.type(LongTensor), requires_grad=False)
 
             # Get conf mask where gt and where there is no gt
             conf_mask_true = mask
+            # invert of mask, also has additional 0's for boxes predictions overlapped well with some non-winner anchor
             conf_mask_false = conf_mask - mask
 
             # Mask outputs to ignore non-existing objects
             loss_x = self.mse_loss(x[mask], tx[mask])
             loss_y = self.mse_loss(y[mask], ty[mask])
             loss_w = self.mse_loss(w[mask], tw[mask])
-            loss_h = self.mse_loss(h[mask], th[mask])
+            loss_l = self.mse_loss(l[mask], tl[mask])
             loss_theta = self.mse_loss(theta[mask], ttheta[mask])
-            loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + self.bce_loss(
-                pred_conf[conf_mask_true], tconf[conf_mask_true]
+            loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + \
+                        self.bce_loss(pred_conf[conf_mask_true], tconf[conf_mask_true]
             )
             loss_cls = (1 / nB) * self.ce_loss(pred_cls[mask], torch.argmax(tcls[mask], 1))
-            loss = loss_x + loss_y + loss_w + loss_h + loss_theta + loss_conf + loss_cls
+            loss = loss_x + loss_y + loss_w + loss_l + loss_theta + loss_conf + loss_cls
 
             return (
                 loss,
                 loss_x.item(),
                 loss_y.item(),
                 loss_w.item(),
-                loss_h.item(),
+                loss_l.item(),
                 loss_theta.item(),
                 loss_conf.item(),
                 loss_cls.item(),

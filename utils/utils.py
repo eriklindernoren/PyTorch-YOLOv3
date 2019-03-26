@@ -15,20 +15,18 @@ from descartes import PolygonPatch
 import matplotlib.patches as patches
 
 
-class OBB:
-    def __init__(self, cx, cy, w, h, angle):
+class OBB:  # Takes angle in degrees
+    def __init__(self, cx, cy, w, l, angle):
         self.cx = cx
         self.cy = -cy  # minus because y is defined downside
-        self.w = max(w, h)
-        self.h = min(w, h)
+        self.w = max(w, l)
+        self.l = min(w, l)
         self.angle = angle
 
     def get_contour(self):
-        w = self.w
-        h = self.h
-        c = shapely.geometry.box(-w/2.0, -h/2.0, w/2.0, h/2.0)
-        rc = shapely.affinity.rotate(c, self.angle)
-        return shapely.affinity.translate(rc, self.cx, self.cy)
+        c = shapely.geometry.box(-self.w/2.0, -self.l/2.0, self.w/2.0, self.l/2.0)
+        rc = shapely.affinity.rotate(c, self.angle.copy())
+        return shapely.affinity.translate(rc, self.cx.copy(), self.cy.copy())
 
     def intersection(self, other):
         return self.get_contour().intersection(other.get_contour())
@@ -48,7 +46,8 @@ class OBB:
             ax.add_patch(PolygonPatch(self.get_contour(), fc='#990000', alpha=0.7))
             ax.add_patch(PolygonPatch(other.get_contour(), fc='#000099', alpha=0.7))
             ax.add_patch(PolygonPatch(self.intersection(other), fc='#009900', alpha=1))
-            plt.show()
+            # plt.show()
+            plt.show(block=False)
 
         return intersect_area / (union_area + 1e-16)
 
@@ -99,14 +98,14 @@ def compute_ap(recall, precision):
     return ap
 
 
-def bbox_iou(box1, box2, visualize=False):  # box format is: x,y,w,h,theta
+def bbox_iou(box1, box2, visualize=False):  # box format is: x,y,w,l,theta(degrees)
     """
     Returns the IoU of two bounding boxes
     """
     ious = torch.empty(box2.shape[0])
-    r1 = OBB(box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3], math.degrees(box1[:, 4]))
+    r1 = OBB(box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3], box1[:, 4])
     for i in range(box2.shape[0]):
-        r2 = OBB(box2[i, 0], box2[i, 1], box2[i, 2], box2[i, 3], math.degrees(box2[i, 4]))
+        r2 = OBB(box2[i, 0], box2[i, 1], box2[i, 2], box2[i, 3], box2[i, 4])
         ious[i] = r1.iou(r2, visualize=visualize)
     return ious
 
@@ -146,6 +145,11 @@ def bbox_iou_numpy(box1, box2):
 
 
 def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
+
+
+
+    conf_thres = 0.1  # TODO: Remove this
+
     """
     Removes detections with lower object confidence score than 'conf_thres' and performs
     Non-Maximum Suppression to further filter detections.
@@ -153,7 +157,7 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
         (x1, y1, x2, y2, object_conf, class_score, class_pred)
     """
 
-    # From (center x, center y, width, height) to (x1, y1, x2, y2)
+    # From (center x, center y, width, height, theta) to (x1, y1, x2, y2)
     box_corner = prediction.new(prediction.shape)
     box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
     box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
@@ -162,9 +166,9 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     prediction[:, :, :4] = box_corner[:, :, :4]
 
     output = [None for _ in range(len(prediction))]
-    for image_i, image_pred in enumerate(prediction):
+    for image_i, image_pred in enumerate(prediction): # For each image in the test batch
         # Filter out confidence scores below threshold
-        conf_mask = (image_pred[:, 4] >= conf_thres).squeeze()
+        conf_mask = (image_pred[:, 6] >= conf_thres).squeeze()  # selects specific boxes (featuremap cells)
         image_pred = image_pred[conf_mask]
         # If none are remaining => process next image
         if not image_pred.size(0):
@@ -209,11 +213,11 @@ def build_targets(
     pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres, img_dim
 ):
 
-    # target size is batch_size X max_number_of_objects_in_image X 6 (class_id,x,y,w,h,theta)
-    # pred_boxes size is nBatch X nAnchors X featuremap X 5 (x,y,w,h,theta)
+    # target size is batch_size X max_number_of_objects_in_image X 6 (class_id,x,y,w,l,theta) (normalized GT)
+    # pred_boxes size is nBatch X nAnchors X featuremap X 5 (x,y,w,l,theta), after demoralizing with respect to anchors
     # pred_cls size is nBatch X nAnchors X featuremap X nClasses
     # pred_conf size is nBatch X nAnchors X featuremap X 1
-    # anchors size is nAnchors X 3 (w,h)
+    # anchors size is nAnchors X 3 (w,l,theta)
 
     nB = target.size(0)
     nA = num_anchors
@@ -226,7 +230,7 @@ def build_targets(
     tx = torch.zeros(nB, nA, nG, nG)
     ty = torch.zeros(nB, nA, nG, nG)
     tw = torch.zeros(nB, nA, nG, nG)
-    th = torch.zeros(nB, nA, nG, nG)
+    tl = torch.zeros(nB, nA, nG, nG)
     ttheta = torch.zeros(nB, nA, nG, nG)
     tconf = torch.ByteTensor(nB, nA, nG, nG).fill_(0)  # similar to mask
     tcls = torch.ByteTensor(nB, nA, nG, nG, nC).fill_(0)
@@ -234,57 +238,62 @@ def build_targets(
     nGT = 0
     nCorrect = 0  # will store the number of correctly detected objects in the batch out of nGT
     for b in range(nB):  # For all sample in the batch
-        for t in range(target.shape[1]):  # For all the objects in this sample
-            if target[b, t].sum() == 0:  # all zeros, means no object (#TODO: should be break instead?)
+        for t in range(target.shape[1]):  # For all the GT objects in this sample
+            if target[b, t].sum() == 0:  # all zeros, means no object (should be break instead?)
                 continue
             nGT += 1
             # Convert to position relative to box (because they are from 0 to 1 from datasets.py)
             gx = target[b, t, 1] * nG
             gy = target[b, t, 2] * nG
-            gw = target[b, t, 3] * nG
-            gh = target[b, t, 4] * nG
-            gtheta = target[b, t, 5]
-            # Get grid box indices
-            gi = int(gx)
-            gj = int(gy)
+            gw = target[b, t, 3] * np.sqrt(2)*nG
+            gl = target[b, t, 4] * np.sqrt(2)*nG
+            gtheta = target[b, t, 5] * 90.
+
             # Get shape of gt box
-            gt_box = torch.FloatTensor(np.array([0, 0, gw, gh, gtheta])).unsqueeze(0)
+            gt_box = torch.FloatTensor(np.array([0, 0, gw, gl, gtheta])).unsqueeze(0)
             # Get shape of anchor box
             anchor_shapes = torch.FloatTensor(np.concatenate((np.zeros((len(anchors), 2)), np.array(anchors)), 1))
             # Calculate iou between gt and anchor shapes
-            anch_ious = bbox_iou(gt_box, anchor_shapes)
-            # Where the overlap is larger than threshold set mask to zero (ignore)
-            conf_mask[b, anch_ious > ignore_thres, gj, gi] = 0
+            anch_ious = bbox_iou(gt_box.numpy(), anchor_shapes.numpy(), visualize=False)
+
+            # Get nearest anchor to GT, then corresponding prediction
+            # Get grid box indices
+            gi = int(gx)
+            gj = int(gy)
             # Find the best matching anchor box
             best_n = np.argmax(anch_ious)
             # Get ground truth box
-            gt_box = torch.FloatTensor(np.array([gx, gy, gw, gh, gtheta])).unsqueeze(0)
+            gt_box = torch.FloatTensor(np.array([gx, gy, gw, gl, gtheta])).unsqueeze(0)
             # Get the best prediction
             pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
-            # Masks
-            mask[b, best_n, gj, gi] = 1
-            conf_mask[b, best_n, gj, gi] = 1
+            # Calculate iou between ground truth and best matching prediction
+            iou = bbox_iou(gt_box.numpy(), pred_box.numpy(), visualize=False)
+
+            # Correct or not, and return GT of classes, objectiveness, x,y,w,l,theta
+            pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
+            # One-hot encoding of label
+            target_label = int(target[b, t, 0])
+            score = pred_conf[b, best_n, gj, gi]
+            if iou > 0.5 and pred_label == target_label and score > 0.5:
+                nCorrect += 1
+            tcls[b, best_n, gj, gi, target_label] = 1
+            tconf[b, best_n, gj, gi] = 1
             # Coordinates (ground-truth fraction part)
             tx[b, best_n, gj, gi] = gx - gi
             ty[b, best_n, gj, gi] = gy - gj
             # Width, height, and theta (if equal to best anchor give 0, positive if bigger than best anchor, negative
             # otherwise)
             tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16)
-            th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16)
-            ttheta[b, best_n, gj, gi] = gtheta
-            # One-hot encoding of label
-            target_label = int(target[b, t, 0])
-            tcls[b, best_n, gj, gi, target_label] = 1
-            tconf[b, best_n, gj, gi] = 1
+            tl[b, best_n, gj, gi] = math.log(gl / anchors[best_n][1] + 1e-16)
+            ttheta[b, best_n, gj, gi] = gtheta / 90.
 
-            # Calculate iou between ground truth and best matching prediction
-            iou = bbox_iou(gt_box, pred_box, visualize=False)
-            pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
-            score = pred_conf[b, best_n, gj, gi]
-            if iou > 0.5 and pred_label == target_label and score > 0.5:
-                nCorrect += 1
+            # Masks for YOLO loss
+            mask[b, best_n, gj, gi] = 1
+            # Where the overlap is larger than threshold for non-winner anchor set mask to zero (ignore)
+            conf_mask[b, anch_ious > ignore_thres, gj, gi] = 0  # applicable on Pytorch tensors unlike numpy or lists
+            conf_mask[b, best_n, gj, gi] = 1
 
-    return nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, ttheta, tconf, tcls
+    return nGT, nCorrect, mask, conf_mask, tx, ty, tw, tl, ttheta, tconf, tcls
 
 
 def to_categorical(y, num_classes):

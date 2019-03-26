@@ -47,15 +47,16 @@ class ImageFolder(Dataset):
 
 
 class ListDataset(Dataset):
-    def __init__(self, data_folder, img_size=416):
+    def __init__(self, data_folder, img_size=416, classes=None):
         self.img_files = [data_folder + '/' + s for s in os.listdir(data_folder) if s.endswith('.jpg')]
         self.label_files = [path.replace('.jpg', '.txt') for path in self.img_files]
         self.img_shape = (img_size, img_size)
         self.max_objects = 50  # TODO: should be reduced?
+        self.classes = classes
 
     def __getitem__(self, index):
 
-        index = 1
+        index = 644
 
         #---------
         #  Image
@@ -105,8 +106,10 @@ class ListDataset(Dataset):
         labels = None
         if os.path.exists(label_path):
             labels = np.loadtxt(label_path, delimiter=' ', skiprows=1)
+            if len(labels.shape) == 1:  # only 1 object
+                labels = labels.reshape(1,-1)
 
-            # Get OBB 4 vertices
+            # Get OBB 4 vertices from[boxes, x,y,l,w,theta] that is the same order as in the labelImg_OBB tool
             p1_x = labels[:,1] + labels[:,3] * np.cos(np.radians(labels[:,5]     )) / 2.0 + \
                                  labels[:,4] * np.cos(np.radians(90 + labels[:,5])) / 2.0
             p1_y = labels[:,2] - labels[:,3] * np.sin(np.radians(labels[:,5]     )) / 2.0 - \
@@ -141,47 +144,22 @@ class ListDataset(Dataset):
             labels[:, 1] = (p1_x+p2_x+p3_x+p4_x) / (4*padded_w)
             labels[:, 2] = (p1_y+p2_y+p3_y+p4_y) / (4*padded_h)
 
-            # Get height and width after padding, and normalize it, TODO: what OBB should give height normalization of 1?
+            # Get height and width after padding, and normalize it
+            diagonal_length = np.sqrt(padded_w**2+padded_h**2)
             val1 = np.sqrt(((p2_x - p1_x) ** 2) + ((p2_y - p1_y) ** 2))
             val2 = np.sqrt(((p3_x - p2_x) ** 2) + ((p3_y - p2_y) ** 2))
-            labels[:, 3] = np.min([val1, val2], axis=0) / (1.5*max(padded_h, padded_w))  # width
-            labels[:, 4] = np.max([val1, val2], axis=0) / (1.5*max(padded_h, padded_w))  # height
+            labels[:, 3] = np.min([val1, val2], axis=0) / diagonal_length  # width
+            labels[:, 4] = np.max([val1, val2], axis=0) / diagonal_length  # length
 
-            # For debugging
-            visualize = False
-            if visualize:
-                import matplotlib as mpl
-                import matplotlib.pyplot as plt
-                import matplotlib.collections as collections
-                from matplotlib.path import Path
-                fig = plt.figure()
-                ax = fig.add_subplot(111)
-                plt.imshow((image_before_tensor * 255.).astype(np.uint8))
-
-                patches = []
-                for i in range(labels.shape[0]):
-                    verts = [(self.img_shape[0]*p1_x[i]/padded_w, self.img_shape[1]*p1_y[i]/padded_h),
-                             (self.img_shape[0]*p2_x[i]/padded_w, self.img_shape[1]*p2_y[i]/padded_h),
-                             (self.img_shape[0]*p3_x[i]/padded_w, self.img_shape[1]*p3_y[i]/padded_h),
-                             (self.img_shape[0]*p4_x[i]/padded_w, self.img_shape[1]*p4_y[i]/padded_h),
-                             (0., 0.), ]  # ignored
-                    codes = [Path.MOVETO,
-                             Path.LINETO,
-                             Path.LINETO,
-                             Path.LINETO,
-                             Path.CLOSEPOLY, ]
-                    path = Path(verts, codes)
-                    patches.append(mpl.patches.PathPatch(path, linewidth=1, edgecolor='r', facecolor='none'))
-
-                ax.add_collection(collections.PatchCollection(patches))
-                plt.show(block=False)
+            # Normalize theta
+            labels[:, 5] /= 90
 
         # Fill matrix
-        filled_labels = np.zeros((self.max_objects, 6))
+        filled_labels = np.zeros((self.max_objects, 6))  # remaining objects until max_objects are represented in zeros
         if labels is not None:
             filled_labels[range(len(labels))[:self.max_objects]] = labels[:self.max_objects]
         # filled_labels = torch.from_numpy(filled_labels[:,:5])  # to ignore orientation
-        filled_labels = torch.from_numpy(filled_labels) # class_id,x,y,w,h,theta
+        filled_labels = torch.from_numpy(filled_labels)  # class_id,x,y,w,l,theta
 
         return img_path, input_img, filled_labels
 
