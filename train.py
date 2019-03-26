@@ -138,7 +138,7 @@ def visualize_data(imgs, targets):
 for epoch in range(opt.epochs):
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
 
-        # TODO: REMOVE THIS! FOR DEBUGGING
+        # Remove this, it's for debugging specific GT box
         #imgs = imgs[1:]
         #targets = targets[1:]
         #targets[0][0] = targets[0][6]

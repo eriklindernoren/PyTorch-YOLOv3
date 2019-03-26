@@ -55,9 +55,6 @@ class ListDataset(Dataset):
         self.classes = classes
 
     def __getitem__(self, index):
-
-        index = 644
-
         #---------
         #  Image
         #---------
