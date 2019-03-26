@@ -137,7 +137,7 @@ class YOLOLayer(nn.Module):
         x = torch.sigmoid(prediction[..., 0])  # Center x, shape: 16 samples x 3 anchors x 13x13
         y = torch.sigmoid(prediction[..., 1])  # Center y
         w = prediction[..., 2]  # Width
-        l = prediction[..., 3]  # Length
+        le = prediction[..., 3]  # Length (named le instead of l to make variable name not ambiguous)
         theta = prediction[..., 4]  # Theta
         pred_conf = torch.sigmoid(prediction[..., 5])  # Conf (objectness score)
         pred_cls = torch.sigmoid(prediction[..., 6:])  # Cls pred.
@@ -155,7 +155,7 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 1] = y.data + grid_y
         # The network predicts a number to be multiplied by anchor_w (actually a numbers for each anchor)
         pred_boxes[..., 2] = torch.exp(w.data) * anchor_w  # Exp to make it positive value
-        pred_boxes[..., 3] = torch.exp(l.data) * anchor_l
+        pred_boxes[..., 3] = torch.exp(le.data) * anchor_l
         pred_boxes[..., 4] = theta.data*90  # theta is predicted independently of anchor box, TODO: change this?
 
         # Training
@@ -219,7 +219,7 @@ class YOLOLayer(nn.Module):
             loss_x = self.mse_loss(x[mask], tx[mask])
             loss_y = self.mse_loss(y[mask], ty[mask])
             loss_w = self.mse_loss(w[mask], tw[mask])
-            loss_l = self.mse_loss(l[mask], tl[mask])
+            loss_l = self.mse_loss(le[mask], tl[mask])
             loss_theta = self.mse_loss(theta[mask], ttheta[mask])
             loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + \
                         self.bce_loss(pred_conf[conf_mask_true], tconf[conf_mask_true]
@@ -263,7 +263,7 @@ class Darknet(nn.Module):
         self.img_size = img_size
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0])
-        self.loss_names = ["x", "y", "w", "h", "theta", "conf", "cls", "recall", "precision"]
+        self.loss_names = ["x", "y", "w", "l", "theta", "conf", "cls", "recall", "precision"]
 
     def forward(self, x, targets=None):
         is_training = targets is not None

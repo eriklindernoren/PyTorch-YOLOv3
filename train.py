@@ -158,7 +158,7 @@ for epoch in range(opt.epochs):
         optimizer.step()
 
         print(
-            "[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, h %f, theta %f, conf %f, cls %f, total %f, recall: %.5f, precision: %.5f]"
+            "[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, l %f, theta %f, conf %f, cls %f, total %f, recall: %.5f, precision: %.5f]"
             % (
                 epoch,
                 opt.epochs,
