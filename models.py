@@ -138,7 +138,7 @@ class YOLOLayer(nn.Module):
         y = torch.sigmoid(prediction[..., 1])  # Center y
         w = prediction[..., 2]  # Width
         le = prediction[..., 3]  # Length (named le instead of l to make variable name not ambiguous)
-        theta = prediction[..., 4]  # Theta
+        theta = torch.tanh(prediction[..., 4])  # Theta
         pred_conf = torch.sigmoid(prediction[..., 5])  # Conf (objectness score)
         pred_cls = torch.sigmoid(prediction[..., 6:])  # Cls pred.
 

@@ -16,15 +16,15 @@ import matplotlib.patches as patches
 
 
 class OBB:  # Takes angle in degrees
-    def __init__(self, cx, cy, w, l, angle):
+    def __init__(self, cx, cy, w, le, angle):
         self.cx = cx
         self.cy = -cy  # minus because y is defined downside
-        self.w = max(w, l)
-        self.l = min(w, l)
+        self.w = le
+        self.le = w
         self.angle = angle
 
     def get_contour(self):
-        c = shapely.geometry.box(-self.w/2.0, -self.l/2.0, self.w/2.0, self.l/2.0)
+        c = shapely.geometry.box(-self.w/2.0, -self.le/2.0, self.w/2.0, self.le/2.0)
         rc = shapely.affinity.rotate(c, self.angle.copy())
         return shapely.affinity.translate(rc, self.cx.copy(), self.cy.copy())
 
@@ -249,33 +249,35 @@ def build_targets(
             gl = target[b, t, 4] * np.sqrt(2)*nG
             gtheta = target[b, t, 5] * 90.
 
+            # Select anchor box with the most similar shape to this object
             # Get shape of gt box
             gt_box = torch.FloatTensor(np.array([0, 0, gw, gl, gtheta])).unsqueeze(0)
             # Get shape of anchor box
             anchor_shapes = torch.FloatTensor(np.concatenate((np.zeros((len(anchors), 2)), np.array(anchors)), 1))
             # Calculate iou between gt and anchor shapes
             anch_ious = bbox_iou(gt_box.numpy(), anchor_shapes.numpy(), visualize=False)
+            # Find the best matching anchor box
+            best_n = np.argmax(anch_ious)
 
             # Get nearest anchor to GT, then corresponding prediction
             # Get grid box indices
             gi = int(gx)
             gj = int(gy)
-            # Find the best matching anchor box
-            best_n = np.argmax(anch_ious)
             # Get ground truth box
             gt_box = torch.FloatTensor(np.array([gx, gy, gw, gl, gtheta])).unsqueeze(0)
             # Get the best prediction
+            # Todo: why pred_boxes[b, best_n, gj, gi] 3 boxes seems sorted in terms of area in start of training?
             pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
             # Calculate iou between ground truth and best matching prediction
             iou = bbox_iou(gt_box.numpy(), pred_box.numpy(), visualize=False)
 
             # Correct or not, and return GT of classes, objectiveness, x,y,w,l,theta
             pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
-            # One-hot encoding of label
-            target_label = int(target[b, t, 0])
             score = pred_conf[b, best_n, gj, gi]
+            target_label = int(target[b, t, 0])
             if iou > 0.5 and pred_label == target_label and score > 0.5:
                 nCorrect += 1
+            # One-hot encoding of label
             tcls[b, best_n, gj, gi, target_label] = 1
             tconf[b, best_n, gj, gi] = 1
             # Coordinates (ground-truth fraction part)

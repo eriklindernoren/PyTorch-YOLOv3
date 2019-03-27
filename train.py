@@ -22,10 +22,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str,
                     default="/mnt/7A0C2F9B0C2F5185/heraqi/data/cu-obb-roadway-features/train", help="path to dataset")
 parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
-parser.add_argument("--batch_size", type=int, default=16, help="size of each image batch")
-parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
+parser.add_argument("--batch_size", type=int, default=64, help="size of each image batch")
+# yolov3.cfg or yolov3-tiny.cfg
+parser.add_argument("--model_config_path", type=str, default="config/yolov3-tiny.cfg", help="path to model config file")
 # parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
-parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
+# parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
 parser.add_argument("--class_path", type=str,
                     default="/mnt/7A0C2F9B0C2F5185/heraqi/data/cu-obb-roadway-features/train/classes.txt",
                     help="path to class label file")
@@ -141,7 +142,6 @@ for epoch in range(opt.epochs):
         # Remove this, it's for debugging specific GT box
         #imgs = imgs[1:]
         #targets = targets[1:]
-        #targets[0][0] = targets[0][6]
 
         # For debugging visualize batch data
         # visualize_data(imgs, targets)
@@ -158,7 +158,7 @@ for epoch in range(opt.epochs):
         optimizer.step()
 
         print(
-            "[Epoch %d/%d, Batch %d/%d] [Losses: x %f, y %f, w %f, l %f, theta %f, conf %f, cls %f, total %f, recall: %.5f, precision: %.5f]"
+            "[Epoch %2d/%d, Batch %2d/%d] [Losses: x %f, y %f, w %f, l %f, theta %f, conf %f, cls %f, total %f, recall: %.5f, precision: %.5f]"
             % (
                 epoch,
                 opt.epochs,
@@ -180,4 +180,5 @@ for epoch in range(opt.epochs):
         model.seen += imgs.size(0)
 
     if epoch % opt.checkpoint_interval == 0:
-        model.save_weights("%s/%d.weights" % (opt.checkpoint_dir, epoch))
+        #model.save_weights("%s/%d.weights" % (opt.checkpoint_dir, epoch))
+        model.save_weights("%s/latest.weights" % (opt.checkpoint_dir))

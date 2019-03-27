@@ -22,7 +22,7 @@ import torch.optim as optim
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str,
                     default="/mnt/7A0C2F9B0C2F5185/heraqi/data/cu-obb-roadway-features/train", help="path to dataset")
-parser.add_argument("--weights_path", type=str, default="checkpoints/9.weights", help="path to weights file")
+parser.add_argument("--weights_path", type=str, default="checkpoints/latest.weights", help="path to weights file")
 parser.add_argument("--batch_size", type=int, default=16, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
 # parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
