@@ -145,19 +145,18 @@ def bbox_iou_numpy(box1, box2):
 
 
 def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
-
-
-
-    conf_thres = 0.1  # TODO: Remove this
-
     """
     Removes detections with lower object confidence score than 'conf_thres' and performs
     Non-Maximum Suppression to further filter detections.
+
+    prediction shape is: 16 (batch size) X 10647 (52X52+26X26+13X13 feature maps outputs from YOLOv3 X 3 anchors)
+                                         X 26 (x,y,w,l,theta,objectiveness, 20 classes)
+
     Returns detections with shape:
         (x1, y1, x2, y2, object_conf, class_score, class_pred)
     """
 
-    # From (center x, center y, width, height, theta) to (x1, y1, x2, y2)
+    # From (center x, center y, width, length, theta) to (x1, y1, x2, y2)
     box_corner = prediction.new(prediction.shape)
     box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
     box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
@@ -166,8 +165,8 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     prediction[:, :, :4] = box_corner[:, :, :4]
 
     output = [None for _ in range(len(prediction))]
-    for image_i, image_pred in enumerate(prediction): # For each image in the test batch
-        # Filter out confidence scores below threshold
+    for image_i, image_pred in enumerate(prediction):  # For each image in the test batch
+        # Filter out confidence scores below threshold (should be )
         conf_mask = (image_pred[:, 6] >= conf_thres).squeeze()  # selects specific boxes (featuremap cells)
         image_pred = image_pred[conf_mask]
         # If none are remaining => process next image

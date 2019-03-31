@@ -22,6 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str,
                     default="/mnt/7A0C2F9B0C2F5185/heraqi/data/cu-obb-roadway-features/train", help="path to dataset")
 parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
+# 16 or 64
 parser.add_argument("--batch_size", type=int, default=64, help="size of each image batch")
 # yolov3.cfg or yolov3-tiny.cfg
 parser.add_argument("--model_config_path", type=str, default="config/yolov3-tiny.cfg", help="path to model config file")
@@ -58,6 +59,9 @@ burn_in = int(hyperparams["burn_in"])
 # Initiate model
 model = Darknet(opt.model_config_path)
 # model.load_weights(opt.weights_path)
+
+# Intialize weights
+# model.load_weights("checkpoints/latest.weights")
 model.apply(weights_init_normal)
 
 if cuda:
@@ -144,7 +148,7 @@ for epoch in range(opt.epochs):
         #targets = targets[1:]
 
         # For debugging visualize batch data
-        # visualize_data(imgs, targets)
+        visualize_data(imgs, targets)
 
         imgs = Variable(imgs.type(Tensor))  # batchsamples X 3,image_w,image_h
         targets = Variable(targets.type(Tensor),  # batchsamples X class,x,y,w,l,theta(normalized in degrees)
@@ -160,9 +164,9 @@ for epoch in range(opt.epochs):
         print(
             "[Epoch %2d/%d, Batch %2d/%d] [Losses: x %f, y %f, w %f, l %f, theta %f, conf %f, cls %f, total %f, recall: %.5f, precision: %.5f]"
             % (
-                epoch,
+                epoch+1,
                 opt.epochs,
-                batch_i,
+                batch_i+1,
                 len(dataloader),
                 model.losses["x"],
                 model.losses["y"],
@@ -180,5 +184,5 @@ for epoch in range(opt.epochs):
         model.seen += imgs.size(0)
 
     if epoch % opt.checkpoint_interval == 0:
-        #model.save_weights("%s/%d.weights" % (opt.checkpoint_dir, epoch))
+        #model.save_weights("%s/epoch%d.weights" % (opt.checkpoint_dir, epoch+1))
         model.save_weights("%s/latest.weights" % (opt.checkpoint_dir))

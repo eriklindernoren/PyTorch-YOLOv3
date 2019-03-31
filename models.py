@@ -291,6 +291,9 @@ class Darknet(nn.Module):
                 output.append(x)
             layer_outputs.append(x)
 
+            # import math
+            # len([v for v in x.flatten().cpu().numpy() if not (math.isinf(v) or math.isnan(v))])
+
         self.losses["recall"] /= 3
         self.losses["precision"] /= 3
         return sum(output) if is_training else torch.cat(output, 1)
