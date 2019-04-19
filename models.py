@@ -111,8 +111,8 @@ class YOLOLayer(nn.Module):
         self.ignore_thres = 0.5
         self.lambda_coord = 1
 
-        self.mse_loss = nn.MSELoss(size_average=True)  # Coordinate loss
-        self.bce_loss = nn.BCELoss(size_average=True)  # Confidence loss
+        self.mse_loss = nn.MSELoss()  # Coordinate loss
+        self.bce_loss = nn.BCELoss()  # Confidence loss
         self.ce_loss = nn.CrossEntropyLoss()  # Class loss
 
     def forward(self, x, targets=None):
@@ -199,7 +199,7 @@ class YOLOLayer(nn.Module):
             loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + self.bce_loss(
                 pred_conf[conf_mask_true], tconf[conf_mask_true]
             )
-            loss_cls = (1 / nB) * self.ce_loss(pred_cls[mask], torch.argmax(tcls[mask], 1))
+            loss_cls = self.ce_loss(pred_cls[mask], torch.argmax(tcls[mask], 1))
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
             return (
