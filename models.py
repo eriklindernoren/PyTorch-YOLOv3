@@ -61,7 +61,7 @@ def create_modules(module_defs):
             modules.add_module("maxpool_%d" % i, maxpool)
 
         elif module_def["type"] == "upsample":
-            upsample = nn.Upsample(scale_factor=int(module_def["stride"]), mode="nearest")
+            upsample = Upsample(scale_factor=int(module_def["stride"]), mode="nearest")
             modules.add_module("upsample_%d" % i, upsample)
 
         elif module_def["type"] == "route":
@@ -89,6 +89,19 @@ def create_modules(module_defs):
         output_filters.append(filters)
 
     return hyperparams, module_list
+
+
+class Upsample(nn.Module):
+    """ nn.Upsample is deprecated """
+
+    def __init__(self, scale_factor, mode="nearest"):
+        super(Upsample, self).__init__()
+        self.scale_factor = scale_factor
+        self.mode = mode
+
+    def forward(self, x):
+        x = F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
+        return x
 
 
 class EmptyLayer(nn.Module):
@@ -158,7 +171,7 @@ class YOLOLayer(nn.Module):
                 self.bce_loss = self.bce_loss.cuda()
                 self.ce_loss = self.ce_loss.cuda()
 
-            nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls = build_targets(
+            num_targets, num_correct, mask, conf_mask, tx, ty, tw, th, tconf, tcls = build_targets(
                 pred_boxes=pred_boxes.cpu().data,
                 pred_conf=pred_conf.cpu().data,
                 pred_cls=pred_cls.cpu().data,
@@ -171,9 +184,9 @@ class YOLOLayer(nn.Module):
                 img_dim=self.image_dim,
             )
 
-            nProposals = int((pred_conf > 0.5).sum().item())
-            recall = float(nCorrect / nGT) if nGT else 1
-            precision = float(nCorrect / nProposals)
+            num_proposals = int((pred_conf > 0.5).sum().item())
+            recall = float(num_correct / num_targets) if num_targets else 1
+            precision = float(num_correct / num_proposals)
 
             # Handle masks
             mask = Variable(mask.type(ByteTensor))
@@ -204,14 +217,17 @@ class YOLOLayer(nn.Module):
 
             return (
                 loss,
-                loss_x.item(),
-                loss_y.item(),
-                loss_w.item(),
-                loss_h.item(),
-                loss_conf.item(),
-                loss_cls.item(),
-                recall,
-                precision,
+                {
+                    "loss": loss.item(),
+                    "x": loss_x.item(),
+                    "y": loss_y.item(),
+                    "w": loss_w.item(),
+                    "h": loss_h.item(),
+                    "conf": loss_conf.item(),
+                    "cls": loss_cls.item(),
+                    "recall": recall,
+                    "precision": precision,
+                },
             )
 
         else:
@@ -237,7 +253,6 @@ class Darknet(nn.Module):
         self.img_size = img_size
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0])
-        self.loss_names = ["x", "y", "w", "h", "conf", "cls", "recall", "precision"]
 
     def forward(self, x, targets=None):
         is_training = targets is not None
@@ -256,8 +271,8 @@ class Darknet(nn.Module):
             elif module_def["type"] == "yolo":
                 # Train phase: get loss
                 if is_training:
-                    x, *losses = module[0](x, targets)
-                    for name, loss in zip(self.loss_names, losses):
+                    x, losses = module[0](x, targets)
+                    for name, loss in losses.items():
                         self.losses[name] += loss
                 # Test phase: Get detections
                 else:
@@ -269,7 +284,7 @@ class Darknet(nn.Module):
         self.losses["precision"] /= 3
         return sum(output) if is_training else torch.cat(output, 1)
 
-    def load_weights(self, weights_path):
+    def load_darknet_weights(self, weights_path):
         """Parses and loads the weights stored in 'weights_path'"""
 
         # Open the weights file

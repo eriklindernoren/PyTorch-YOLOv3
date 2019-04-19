@@ -78,10 +78,20 @@ Data augmentation as well as additional training tricks remains to be implemente
                 [--model_config_path MODEL_CONFIG_PATH]
                 [--data_config_path DATA_CONFIG_PATH]
                 [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
-                [--conf_thres CONF_THRES] [--nms_thres NMS_THRES]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
+                [--checkpoint_model CHECKPOINT_MODEL]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
                 [--checkpoint_dir CHECKPOINT_DIR]
+```
+
+### TensorBoard
+Track training progress in Tensorboard:
+* Initialize training
+* Run the command below
+* Go to http://localhost:6006/
+
+```
+$ tensorboard --logdir='logs' --port=6006
 ```
 
 ## Credit
