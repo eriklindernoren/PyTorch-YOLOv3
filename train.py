@@ -71,8 +71,8 @@ dataloader = torch.utils.data.DataLoader(
 
 optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
 
-prev_time = time.time()
 for epoch in range(opt.epochs):
+    start_time = time.time()
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
 
         batches_done = len(dataloader) * epoch + batch_i
@@ -117,8 +117,7 @@ for epoch in range(opt.epochs):
 
         # Determine approximate time left for epoch
         epoch_batches_left = len(dataloader) - (batch_i + 1)
-        time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - prev_time))
-        prev_time = time.time()
+        time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
         print(f"---- ETA {time_left}")
 
         model.seen += imgs.size(0)
