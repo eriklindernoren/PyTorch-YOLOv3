@@ -43,7 +43,12 @@ num_classes = int(data_config["classes"])
 
 # Initiate model
 model = Darknet(opt.model_config_path)
-model.load_weights(opt.weights_path)
+if opt.weights_path.endswith(".weights"):
+    # Load darknet weights
+    model.load_weights_path(opt.weights_path)
+else:
+    # Load checkpoint weights
+    model.load_state_dict(torch.load(opt.weights_path))
 
 if cuda:
     model = model.cuda()

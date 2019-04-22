@@ -84,7 +84,6 @@ Data augmentation as well as additional training tricks remains to be implemente
                 [--checkpoint_dir CHECKPOINT_DIR]
 ```
 
-### TensorBoard
 Track training progress in Tensorboard:
 * Initialize training
 * Run the command below

@@ -200,13 +200,13 @@ def build_targets(
     tconf = torch.ByteTensor(nB, nA, nG, nG).fill_(0)
     tcls = torch.ByteTensor(nB, nA, nG, nG, nC).fill_(0)
 
-    nGT = 0
-    nCorrect = 0
+    num_targets = 0
+    num_correct = 0
     for b in range(nB):
         for t in range(target.shape[1]):
             if target[b, t].sum() == 0:
                 continue
-            nGT += 1
+            num_targets += 1
             # Convert to position relative to box
             gx = target[b, t, 1] * nG
             gy = target[b, t, 2] * nG
@@ -218,7 +218,8 @@ def build_targets(
             # Get shape of gt box
             gt_box = torch.FloatTensor(np.array([0, 0, gw, gh])).unsqueeze(0)
             # Get shape of anchor box
-            anchor_shapes = torch.FloatTensor(np.concatenate((np.zeros((len(anchors), 2)), np.array(anchors)), 1))
+            anchor_shapes = torch.FloatTensor(np.zeros((len(anchors), 4)))
+            anchor_shapes[:, 2:] = torch.FloatTensor(anchors)
             # Calculate iou between gt and anchor shapes
             anch_ious = bbox_iou(gt_box, anchor_shapes)
             # Where the overlap is larger than threshold set mask to zero (ignore)
@@ -242,15 +243,14 @@ def build_targets(
             target_label = int(target[b, t, 0])
             tcls[b, best_n, gj, gi, target_label] = 1
             tconf[b, best_n, gj, gi] = 1
-
             # Calculate iou between ground truth and best matching prediction
             iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
             pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
             score = pred_conf[b, best_n, gj, gi]
             if iou > 0.5 and pred_label == target_label and score > 0.5:
-                nCorrect += 1
+                num_correct += 1
 
-    return nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls
+    return num_targets, num_correct, mask, conf_mask, tx, ty, tw, th, tconf, tcls
 
 
 def to_categorical(y, num_classes):

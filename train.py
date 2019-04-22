@@ -20,7 +20,7 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--epochs", type=int, default=30, help="number of epochs")
+parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
@@ -80,34 +80,36 @@ for epoch in range(opt.epochs):
         loss.backward()
         optimizer.step()
 
-        print(
-            "[Epoch %d/%d, Batch %d/%d] [Losses: total %f, x %f, y %f, w %f, h %f, conf %f, cls %f, recall: %.5f, precision: %.5f]"
-            % (
-                epoch,
-                opt.epochs,
-                batch_i,
-                len(dataloader),
-                model.losses["loss"],
-                model.losses["x"],
-                model.losses["y"],
-                model.losses["w"],
-                model.losses["h"],
-                model.losses["conf"],
-                model.losses["cls"],
-                model.losses["recall"],
-                model.losses["precision"],
-            )
-        )
-
         batches_done = len(dataloader) * epoch + batch_i
 
-        # Tensorboard logging
-        for loss_name, loss in model.losses.items():
-            logger.scalar_summary(loss_name, loss, batches_done)
+        print("\n---- [Epoch %d/%d, Batch %d/%d] ----" % (epoch, opt.epochs, batch_i, len(dataloader)))
+        for i in range(4):
+            label = "Total" if i + 1 == 4 else "YOLO Layer %d" % (i + 1)
+            print(
+                "[%s] [loss %f, x %f, y %f, w %f, h %f, conf %f, cls %f, cls_acc: %.2f%%, recall: %.5f, precision: %.5f]"
+                % (
+                    label,
+                    model.losses[i]["loss"],
+                    model.losses[i]["x"],
+                    model.losses[i]["y"],
+                    model.losses[i]["w"],
+                    model.losses[i]["h"],
+                    model.losses[i]["conf"],
+                    model.losses[i]["cls"],
+                    model.losses[i]["cls_acc"],
+                    model.losses[i]["recall"],
+                    model.losses[i]["precision"],
+                )
+            )
+
+            # Tensorboard logging
+            for name, loss in model.losses[i].items():
+                loss_name = f"{name}_total" if i + 1 == 4 else f"{name}_{i+1}"
+                logger.scalar_summary(loss_name, loss, batches_done)
 
         model.seen += imgs.size(0)
 
         torch.cuda.empty_cache()
 
     if epoch % opt.checkpoint_interval == 0:
-        torch.save(model.state_dict(), f"checkpoints/%d.pth")
+        torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)

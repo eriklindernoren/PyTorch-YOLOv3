@@ -212,8 +212,10 @@ class YOLOLayer(nn.Module):
             loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + self.bce_loss(
                 pred_conf[conf_mask_true], tconf[conf_mask_true]
             )
-            loss_cls = self.ce_loss(pred_cls[mask], torch.argmax(tcls[mask], 1))
+            loss_cls = self.ce_loss(pred_cls[mask], tcls[mask].argmax(1))
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
+
+            cls_acc = (pred_cls[mask].argmax(1) == tcls[mask].argmax(1)).float().mean().item()
 
             return (
                 loss,
@@ -225,6 +227,7 @@ class YOLOLayer(nn.Module):
                     "h": loss_h.item(),
                     "conf": loss_conf.item(),
                     "cls": loss_cls.item(),
+                    "cls_acc": cls_acc,
                     "recall": recall,
                     "precision": precision,
                 },
@@ -257,7 +260,7 @@ class Darknet(nn.Module):
     def forward(self, x, targets=None):
         is_training = targets is not None
         output = []
-        self.losses = defaultdict(float)
+        self.losses = []
         layer_outputs = []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def["type"] in ["convolutional", "upsample", "maxpool"]:
@@ -272,16 +275,25 @@ class Darknet(nn.Module):
                 # Train phase: get loss
                 if is_training:
                     x, losses = module[0](x, targets)
+                    # Save metrics for YOLO layer
+                    self.losses += [{}]
                     for name, loss in losses.items():
-                        self.losses[name] += loss
+                        self.losses[-1][name] = loss
                 # Test phase: Get detections
                 else:
                     x = module(x)
                 output.append(x)
             layer_outputs.append(x)
 
-        self.losses["recall"] /= 3
-        self.losses["precision"] /= 3
+        if is_training:
+            # Sum up total losses and average metrics
+            self.losses += [defaultdict(float)]
+            for name in self.losses[0].keys():
+                if name in ["recall", "precision", "cls_acc"]:
+                    self.losses[-1][name] = np.mean([self.losses[i][name] for i in range(3)])
+                else:
+                    self.losses[-1][name] = np.sum([self.losses[i][name] for i in range(3)])
+
         return sum(output) if is_training else torch.cat(output, 1)
 
     def load_darknet_weights(self, weights_path):
