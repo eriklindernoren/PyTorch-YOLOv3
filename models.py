@@ -272,14 +272,12 @@ class Darknet(nn.Module):
                 layer_i = int(module_def["from"])
                 x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def["type"] == "yolo":
-                # Train phase: get loss
                 if is_training:
                     x, losses = module[0](x, targets)
                     # Save metrics for YOLO layer
                     self.losses += [{}]
                     for name, loss in losses.items():
                         self.losses[-1][name] = loss
-                # Test phase: Get detections
                 else:
                     x = module(x)
                 output.append(x)

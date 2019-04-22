@@ -73,15 +73,13 @@ Evaluates the model on COCO test.
 ## Train
 Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
-    train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
-                [--batch_size BATCH_SIZE]
-                [--model_config_path MODEL_CONFIG_PATH]
-                [--data_config_path DATA_CONFIG_PATH]
-                [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
-                [--n_cpu N_CPU] [--img_size IMG_SIZE]
-                [--checkpoint_model CHECKPOINT_MODEL]
-                [--checkpoint_interval CHECKPOINT_INTERVAL]
-                [--checkpoint_dir CHECKPOINT_DIR]
+$ train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
+            [--batch_size BATCH_SIZE]
+            [--model_config_path MODEL_CONFIG_PATH]
+            [--data_config_path DATA_CONFIG_PATH]
+            [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
+            [--n_cpu N_CPU] [--img_size IMG_SIZE]
+            [--checkpoint_interval CHECKPOINT_INTERVAL]
 ```
 
 Track training progress in Tensorboard:

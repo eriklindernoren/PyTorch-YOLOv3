@@ -25,10 +25,10 @@ parser.add_argument("--image_folder", type=str, default="data/samples", help="pa
 parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
 parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
+parser.add_argument("--weights_path", type=str, help="if specified starts from checkpoint model")
 parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
 parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
 parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
-parser.add_argument("--checkpoint_model", type=str, help="if specified starts from checkpoint model")
 parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
 opt = parser.parse_args()
 print(opt)
@@ -55,8 +55,12 @@ burn_in = int(hyperparams["burn_in"])
 model = Darknet(opt.model_config_path).to(device)
 model.apply(weights_init_normal)
 
-if opt.checkpoint_model:
-    model.load_state_dict(torch.load(opt.checkpoint_model))
+# If specified we start from checkpoint
+if opt.weights_path:
+    if opt.weights_path.endswith(".weights"):
+        model.load_darknet_weights(opt.weights_path)
+    else:
+        model.load_state_dict(torch.load(opt.weights_path))
 
 model.train()
 
@@ -82,13 +86,16 @@ for epoch in range(opt.epochs):
 
         batches_done = len(dataloader) * epoch + batch_i
 
+        # ----------------
+        #   Log progress
+        # ----------------
+
         print("\n---- [Epoch %d/%d, Batch %d/%d] ----" % (epoch, opt.epochs, batch_i, len(dataloader)))
         for i in range(4):
-            label = "Total" if i + 1 == 4 else "YOLO Layer %d" % (i + 1)
             print(
                 "[%s] [loss %f, x %f, y %f, w %f, h %f, conf %f, cls %f, cls_acc: %.2f%%, recall: %.5f, precision: %.5f]"
                 % (
-                    label,
+                    "Total" if i + 1 == 4 else "YOLO Layer %d" % (i + 1),
                     model.losses[i]["loss"],
                     model.losses[i]["x"],
                     model.losses[i]["y"],
