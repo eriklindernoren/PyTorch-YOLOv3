@@ -27,7 +27,7 @@ parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg"
 parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
 parser.add_argument("--weights_path", type=str, help="if specified starts from checkpoint model")
 parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
-parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
+parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
 parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
 opt = parser.parse_args()
@@ -71,8 +71,11 @@ dataloader = torch.utils.data.DataLoader(
 
 optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
 
+prev_time = time.time()
 for epoch in range(opt.epochs):
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
+
+        batches_done = len(dataloader) * epoch + batch_i
 
         imgs = Variable(imgs.to(device))
         targets = Variable(targets.to(device), requires_grad=False)
@@ -83,8 +86,6 @@ for epoch in range(opt.epochs):
 
         loss.backward()
         optimizer.step()
-
-        batches_done = len(dataloader) * epoch + batch_i
 
         # ----------------
         #   Log progress
@@ -113,6 +114,12 @@ for epoch in range(opt.epochs):
             for name, loss in model.losses[i].items():
                 loss_name = f"{name}_total" if i + 1 == 4 else f"{name}_{i+1}"
                 logger.scalar_summary(loss_name, loss, batches_done)
+
+        # Determine approximate time left for epoch
+        epoch_batches_left = len(dataloader) - (batch_i + 1)
+        time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - prev_time))
+        prev_time = time.time()
+        print(f"---- ETA {time_left}")
 
         model.seen += imgs.size(0)
 
