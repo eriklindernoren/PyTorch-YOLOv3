@@ -104,7 +104,7 @@ for epoch in range(opt.epochs):
                     model.losses[i]["h"],
                     model.losses[i]["conf"],
                     model.losses[i]["cls"],
-                    model.losses[i]["cls_acc"],
+                    100 * model.losses[i]["cls_acc"],
                     model.losses[i]["recall"],
                     model.losses[i]["precision"],
                 )
