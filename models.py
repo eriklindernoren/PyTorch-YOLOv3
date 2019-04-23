@@ -94,7 +94,7 @@ def create_modules(module_defs):
 class Upsample(nn.Module):
     """ nn.Upsample is deprecated """
 
-    def __init__(self, scale_factor, mode="nearest"):
+    def __init__(self, scale_factor, mode="linear"):
         super(Upsample, self).__init__()
         self.scale_factor = scale_factor
         self.mode = mode
@@ -160,9 +160,16 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
 
-        # Training
-        if targets is not None:
+        output = torch.cat(
+            (pred_boxes.view(nB, -1, 4) * stride, pred_conf.view(nB, -1, 1), pred_cls.view(nB, -1, self.num_classes)),
+            -1,
+        )
 
+        if targets is None:
+            # Inference
+            return output
+        else:
+            # Training
             if x.is_cuda:
                 self.mse_loss = self.mse_loss.cuda()
                 self.bce_loss = self.bce_loss.cuda()
@@ -212,6 +219,7 @@ class YOLOLayer(nn.Module):
             cls_acc = (pred_cls[obj_mask].argmax(1) == tcls[obj_mask].argmax(1)).float().mean().item()
 
             return (
+                output,
                 loss,
                 {
                     "loss": loss.item(),
@@ -226,18 +234,6 @@ class YOLOLayer(nn.Module):
                     "precision": precision,
                 },
             )
-
-        else:
-            # If not in training phase return predictions
-            output = torch.cat(
-                (
-                    pred_boxes.view(nB, -1, 4) * stride,
-                    pred_conf.view(nB, -1, 1),
-                    pred_cls.view(nB, -1, self.num_classes),
-                ),
-                -1,
-            )
-            return output
 
 
 class Darknet(nn.Module):
@@ -254,7 +250,8 @@ class Darknet(nn.Module):
     def forward(self, x, targets=None):
         is_training = targets is not None
         output = []
-        self.losses = []
+        loss = 0
+        self.metrics = []
         layer_outputs = []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def["type"] in ["convolutional", "upsample", "maxpool"]:
@@ -267,26 +264,21 @@ class Darknet(nn.Module):
                 x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def["type"] == "yolo":
                 if is_training:
-                    x, losses = module[0](x, targets)
+                    x, layer_loss, metrics = module[0](x, targets)
                     # Save metrics for YOLO layer
-                    self.losses += [{}]
-                    for name, loss in losses.items():
-                        self.losses[-1][name] = loss
+                    self.metrics += [{}]
+                    for name, metric in metrics.items():
+                        self.metrics[-1][name] = metric
+                    loss += layer_loss
                 else:
                     x = module(x)
                 output.append(x)
             layer_outputs.append(x)
 
         if is_training:
-            # Sum up losses and average metrics
-            self.losses += [defaultdict(float)]
-            for name in self.losses[0].keys():
-                if name in ["recall", "precision", "cls_acc"]:
-                    self.losses[-1][name] = np.mean([self.losses[i][name] for i in range(3)])
-                else:
-                    self.losses[-1][name] = np.sum([self.losses[i][name] for i in range(3)])
-
-        return sum(output) if is_training else torch.cat(output, 1)
+            return loss, torch.cat(output, 1)
+        else:
+            return torch.cat(output, 1)
 
     def load_darknet_weights(self, weights_path):
         """Parses and loads the weights stored in 'weights_path'"""
@@ -338,13 +330,11 @@ class Darknet(nn.Module):
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
 
-    """
-        @:param path    - path of the new weights file
-        @:param cutoff  - save layers between 0 and cutoff (cutoff = -1 -> all are saved)
-    """
-
     def save_weights(self, path, cutoff=-1):
-
+        """
+            @:param path    - path of the new weights file
+            @:param cutoff  - save layers between 0 and cutoff (cutoff = -1 -> all are saved)
+        """
         fp = open(path, "wb")
         self.header_info[3] = self.seen
         self.header_info.tofile(fp)

@@ -31,6 +31,7 @@ parser.add_argument("--class_path", type=str, default="data/coco.names", help="p
 parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
 parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
 parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
+parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
 opt = parser.parse_args()
 print(opt)
 
@@ -75,7 +76,7 @@ for epoch in range(opt.epochs):
         imgs = Variable(imgs.to(device))
         targets = Variable(targets.to(device), requires_grad=False)
 
-        loss = model(imgs, targets)
+        loss, outputs = model(imgs, targets)
         loss.backward()
 
         if batch_i % opt.gradient_accumulations:
@@ -88,28 +89,65 @@ for epoch in range(opt.epochs):
         # ----------------
 
         print("\n---- [Epoch %d/%d, Batch %d/%d] ----" % (epoch, opt.epochs, batch_i, len(dataloader)))
-        for i in range(4):
+
+        # Log metrics at each YOLO layer
+        for i in range(3):
             print(
                 "[%s] [loss %f, x %f, y %f, w %f, h %f, conf %f, cls %f, cls_acc: %.2f%%, recall: %.5f, precision: %.5f]"
                 % (
                     "Total" if i + 1 == 4 else "YOLO Layer %d" % (i + 1),
-                    model.losses[i]["loss"],
-                    model.losses[i]["x"],
-                    model.losses[i]["y"],
-                    model.losses[i]["w"],
-                    model.losses[i]["h"],
-                    model.losses[i]["conf"],
-                    model.losses[i]["cls"],
-                    100 * model.losses[i]["cls_acc"],
-                    model.losses[i]["recall"],
-                    model.losses[i]["precision"],
+                    model.metrics[i]["loss"],
+                    model.metrics[i]["x"],
+                    model.metrics[i]["y"],
+                    model.metrics[i]["w"],
+                    model.metrics[i]["h"],
+                    model.metrics[i]["conf"],
+                    model.metrics[i]["cls"],
+                    100 * model.metrics[i]["cls_acc"],
+                    model.metrics[i]["recall"],
+                    model.metrics[i]["precision"],
                 )
             )
 
             # Tensorboard logging
-            for name, loss in model.losses[i].items():
-                loss_name = f"{name}_total" if i + 1 == 4 else f"{name}_{i+1}"
-                logger.scalar_summary(loss_name, loss, batches_done)
+            for name, metric in model.metrics[i].items():
+                logger.scalar_summary(f"{name}_{i+1}", metric, batches_done)
+
+        global_metrics = [("Total Loss", loss.item())]
+
+        # Compute mAP every tenth iteration
+        if opt.compute_map and batches_done % 10 == 0:
+
+            # ---------------
+            #   Compute mAP
+            # ---------------
+
+            # Get NMS output
+            predictions = non_max_suppression(outputs, 0.5, 0.5)
+            # Convert target coordinates to x1y1x2y2
+            targets[:, :, 1:] = xywh2xyxy(targets[:, :, 1:])
+            # Rescale to image dimension
+            targets[:, :, 1:] *= opt.img_size
+            # Get batch statistics used to compute metrics
+            statistics = get_batch_statistics(predictions, targets, iou_threshold=0.5)
+            true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*statistics))]
+            # Compute metrics
+            precision, recall, AP, f1, ap_class = ap_per_class(
+                true_positives, pred_scores, pred_labels, list(range(int(data_config["classes"])))
+            )
+            global_metrics += [
+                ("F1", f1.mean()),
+                ("Recall", recall.mean()),
+                ("Precision", precision.mean()),
+                ("mAP", AP.mean()),
+            ]
+
+        # Log global metrics to Tensorboard
+        for metric_name, metric in global_metrics:
+            logger.scalar_summary(metric_name, metric, batches_done)
+
+        # Print mAP and other global metrics
+        print(" | ".join([f"{metric_name} {metric:f}" for metric_name, metric in global_metrics]))
 
         # Determine approximate time left for epoch
         epoch_batches_left = len(dataloader) - (batch_i + 1)

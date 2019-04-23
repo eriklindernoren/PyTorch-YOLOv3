@@ -66,9 +66,11 @@ Evaluates the model on COCO test.
     $ python3 test.py --weights_path weights/yolov3.weights
 
 | Model                   | mAP (min. 50 IoU) |
-| ----------------------- |:----------------:|
-| YOLOv3 (paper)          | 57.9             |
-| YOLOv3 (this impl.)     | 58.2             |
+| ----------------------- |:-----------------:|
+| YOLOv3 608 (paper)      | 57.9              |
+| YOLOv3 608 (this impl.) | 56.7              |
+| YOLOv3 416 (paper)      | 55.3              |
+| YOLOv3 416 (this impl.) | 54.6              |
 
 ## Train
 Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!

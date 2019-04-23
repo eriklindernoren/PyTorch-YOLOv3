@@ -25,7 +25,7 @@ def pad_to_square(img, pad_value):
     # Determine padding
     pad = ((pad1, pad2), (0, 0), (0, 0)) if h <= w else ((0, 0), (pad1, pad2), (0, 0))
     # Add padding
-    img = np.pad(img, pad, "constant", constant_values=127.5)
+    img = np.pad(img, pad, "constant", constant_values=pad_value)
     return img, pad
 
 
@@ -55,7 +55,7 @@ class ImageFolder(Dataset):
 
 
 class ListDataset(Dataset):
-    def __init__(self, list_path, img_size=416):
+    def __init__(self, list_path, img_size=416, training=True):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
         self.label_files = [
@@ -64,6 +64,7 @@ class ListDataset(Dataset):
         ]
         self.img_size = img_size
         self.max_objects = 50
+        self.training = training
 
     def __getitem__(self, index):
 
@@ -76,15 +77,14 @@ class ListDataset(Dataset):
 
         # Handles images with less than three channels
         while len(img.shape) != 3:
-            index += 1
-            img_path = self.img_files[index % len(self.img_files)].rstrip()
-            img = lycon.load(img_path)
+            img = np.expand_dims(img, -1)
+            img = np.repeat(img, 3, -1)
 
         h, w, _ = img.shape
         img, pad = pad_to_square(img, 127.5)
         padded_h, padded_w, _ = img.shape
         # Resize to target shape
-        img = lycon.resize(img, height=self.img_size, width=self.img_size, interpolation=lycon.Interpolation.NEAREST)
+        img = lycon.resize(img, height=self.img_size, width=self.img_size)
         # Channels-first and normalize
         input_img = torch.from_numpy(img).float().permute((2, 0, 1)) / 255.0
 
@@ -107,16 +107,25 @@ class ListDataset(Dataset):
             y1 += pad[0][0]
             x2 += pad[1][1]
             y2 += pad[0][1]
-            # Calculate ratios from coordinates
-            labels[:, 1] = ((x1 + x2) / 2) / padded_w
-            labels[:, 2] = ((y1 + y2) / 2) / padded_h
-            labels[:, 3] *= w / padded_w
-            labels[:, 4] *= h / padded_h
+
+            if self.training:
+                # Returns (x, y, w, h)
+                labels[:, 1] = ((x1 + x2) / 2) / padded_w
+                labels[:, 2] = ((y1 + y2) / 2) / padded_h
+                labels[:, 3] *= w / padded_w
+                labels[:, 4] *= h / padded_h
+            else:
+                # Returns (x1, y1, x2, y2)
+                labels[:, 1] = x1 * (self.img_size / padded_w)
+                labels[:, 2] = y1 * (self.img_size / padded_h)
+                labels[:, 3] = x2 * (self.img_size / padded_w)
+                labels[:, 4] = y2 * (self.img_size / padded_h)
 
         # Fill matrix
         filled_labels = np.zeros((self.max_objects, 5))
         if labels is not None:
-            filled_labels[range(len(labels))[: self.max_objects]] = labels[: self.max_objects]
+            labels = labels[: self.max_objects]
+            filled_labels[: len(labels)] = labels
         filled_labels = torch.from_numpy(filled_labels)
 
         return img_path, input_img, filled_labels
