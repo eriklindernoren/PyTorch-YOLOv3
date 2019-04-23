@@ -42,7 +42,7 @@ model = Darknet(opt.config_path, img_size=opt.img_size)
 
 if opt.weights_path.endswith(".weights"):
     # Load darknet weights
-    model.load_weights_path(opt.weights_path)
+    model.load_darknet_weights(opt.weights_path)
 else:
     # Load checkpoint weights
     model.load_state_dict(torch.load(opt.weights_path))

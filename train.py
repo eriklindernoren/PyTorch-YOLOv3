@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
 parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
+parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
 parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
 parser.add_argument("--weights_path", type=str, help="if specified starts from checkpoint model")
@@ -44,13 +45,6 @@ os.makedirs("checkpoints", exist_ok=True)
 data_config = parse_data_config(opt.data_config_path)
 train_path = data_config["train"]
 
-# Get hyper parameters
-hyperparams = parse_model_config(opt.model_config_path)[0]
-learning_rate = float(hyperparams["learning_rate"])
-momentum = float(hyperparams["momentum"])
-decay = float(hyperparams["decay"])
-burn_in = int(hyperparams["burn_in"])
-
 # Initiate model
 model = Darknet(opt.model_config_path).to(device)
 model.apply(weights_init_normal)
@@ -65,11 +59,12 @@ if opt.weights_path:
 model.train()
 
 # Get dataloader
+dataset = ListDataset(train_path)
 dataloader = torch.utils.data.DataLoader(
-    ListDataset(train_path), batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu
+    dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, pin_memory=True
 )
 
-optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()))
+optimizer = torch.optim.Adam(model.parameters())
 
 for epoch in range(opt.epochs):
     start_time = time.time()
@@ -80,12 +75,13 @@ for epoch in range(opt.epochs):
         imgs = Variable(imgs.to(device))
         targets = Variable(targets.to(device), requires_grad=False)
 
-        optimizer.zero_grad()
-
         loss = model(imgs, targets)
-
         loss.backward()
-        optimizer.step()
+
+        if batch_i % opt.gradient_accumulations:
+            # Accumulates gradient before each step
+            optimizer.step()
+            optimizer.zero_grad()
 
         # ----------------
         #   Log progress

@@ -171,7 +171,7 @@ class YOLOLayer(nn.Module):
                 self.bce_loss = self.bce_loss.cuda()
                 self.ce_loss = self.ce_loss.cuda()
 
-            num_targets, num_correct, mask, conf_mask, tx, ty, tw, th, tconf, tcls = build_targets(
+            num_targets, num_correct, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls = build_targets(
                 pred_boxes=pred_boxes.cpu().data,
                 pred_conf=pred_conf.cpu().data,
                 pred_cls=pred_cls.cpu().data,
@@ -184,13 +184,14 @@ class YOLOLayer(nn.Module):
                 img_dim=self.image_dim,
             )
 
-            num_proposals = int((pred_conf > 0.5).sum().item())
-            recall = float(num_correct / num_targets) if num_targets else 1
-            precision = float(num_correct / num_proposals)
+            # Compute recall and precision
+            num_proposals = (pred_conf > 0.5).sum().item()
+            recall = num_correct / num_targets if num_targets else 1
+            precision = num_correct / num_proposals
 
-            # Handle masks
-            mask = Variable(mask.type(ByteTensor))
-            conf_mask = Variable(conf_mask.type(ByteTensor))
+            # Masks
+            obj_mask = Variable(obj_mask.type(ByteTensor))
+            noobj_mask = Variable(noobj_mask.type(ByteTensor))
 
             # Handle target variables
             tx = Variable(tx.type(FloatTensor), requires_grad=False)
@@ -200,22 +201,19 @@ class YOLOLayer(nn.Module):
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
             tcls = Variable(tcls.type(LongTensor), requires_grad=False)
 
-            # Get conf mask where gt and where there is no gt
-            conf_mask_true = mask
-            conf_mask_false = conf_mask - mask
+            # Mask outputs to ignore (except for conf. loss) non-existing objects
+            loss_x = self.mse_loss(x[obj_mask], tx[obj_mask])
+            loss_y = self.mse_loss(y[obj_mask], ty[obj_mask])
+            loss_w = self.mse_loss(w[obj_mask], tw[obj_mask])
+            loss_h = self.mse_loss(h[obj_mask], th[obj_mask])
+            loss_conf_obj = self.bce_loss(pred_conf[obj_mask], tconf[obj_mask])
+            loss_conf_noobj = self.bce_loss(pred_conf[noobj_mask], tconf[noobj_mask])
+            loss_conf = loss_conf_obj + loss_conf_noobj
+            loss_cls = self.ce_loss(pred_cls[obj_mask], tcls[obj_mask].argmax(1))
 
-            # Mask outputs to ignore non-existing objects
-            loss_x = self.mse_loss(x[mask], tx[mask])
-            loss_y = self.mse_loss(y[mask], ty[mask])
-            loss_w = self.mse_loss(w[mask], tw[mask])
-            loss_h = self.mse_loss(h[mask], th[mask])
-            loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + self.bce_loss(
-                pred_conf[conf_mask_true], tconf[conf_mask_true]
-            )
-            loss_cls = self.ce_loss(pred_cls[mask], tcls[mask].argmax(1))
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
-            cls_acc = (pred_cls[mask].argmax(1) == tcls[mask].argmax(1)).float().mean().item()
+            cls_acc = (pred_cls[obj_mask].argmax(1) == tcls[obj_mask].argmax(1)).float().mean().item()
 
             return (
                 loss,
@@ -284,7 +282,7 @@ class Darknet(nn.Module):
             layer_outputs.append(x)
 
         if is_training:
-            # Sum up total losses and average metrics
+            # Sum up losses and average metrics
             self.losses += [defaultdict(float)]
             for name in self.losses[0].keys():
                 if name in ["recall", "precision", "cls_acc"]:

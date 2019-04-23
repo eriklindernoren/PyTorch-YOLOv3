@@ -191,8 +191,8 @@ def build_targets(
     nA = num_anchors
     nC = num_classes
     nG = grid_size
-    mask = torch.zeros(nB, nA, nG, nG)
-    conf_mask = torch.ones(nB, nA, nG, nG)
+    obj_mask = torch.zeros(nB, nA, nG, nG)
+    noobj_mask = torch.ones(nB, nA, nG, nG)
     tx = torch.zeros(nB, nA, nG, nG)
     ty = torch.zeros(nB, nA, nG, nG)
     tw = torch.zeros(nB, nA, nG, nG)
@@ -223,16 +223,16 @@ def build_targets(
             # Calculate iou between gt and anchor shapes
             anch_ious = bbox_iou(gt_box, anchor_shapes)
             # Where the overlap is larger than threshold set mask to zero (ignore)
-            conf_mask[b, anch_ious > ignore_thres, gj, gi] = 0
+            noobj_mask[b, anch_ious > ignore_thres, gj, gi] = 0
             # Find the best matching anchor box
             best_n = np.argmax(anch_ious)
             # Get ground truth box
             gt_box = torch.FloatTensor(np.array([gx, gy, gw, gh])).unsqueeze(0)
-            # Get the best prediction
+            # Get the prediction at best matching anchor box
             pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
             # Masks
-            mask[b, best_n, gj, gi] = 1
-            conf_mask[b, best_n, gj, gi] = 1
+            obj_mask[b, best_n, gj, gi] = 1
+            noobj_mask[b, best_n, gj, gi] = 0
             # Coordinates
             tx[b, best_n, gj, gi] = gx - gi
             ty[b, best_n, gj, gi] = gy - gj
@@ -250,7 +250,7 @@ def build_targets(
             if iou > 0.5 and pred_label == target_label and score > 0.5:
                 num_correct += 1
 
-    return num_targets, num_correct, mask, conf_mask, tx, ty, tw, th, tconf, tcls
+    return num_targets, num_correct, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls
 
 
 def to_categorical(y, num_classes):
