@@ -122,11 +122,8 @@ class YOLOLayer(nn.Module):
         self.bbox_attrs = 5 + num_classes
         self.image_dim = img_dim
         self.ignore_thres = 0.5
-        self.lambda_coord = 1
-
-        self.mse_loss = nn.MSELoss()  # Coordinate loss
-        self.bce_loss = nn.BCELoss()  # Confidence loss
-        self.ce_loss = nn.CrossEntropyLoss()  # Class loss
+        self.mse_loss = nn.MSELoss()
+        self.bce_loss = nn.BCELoss()
 
     def forward(self, x, targets=None):
         nA = self.num_anchors
@@ -199,7 +196,7 @@ class YOLOLayer(nn.Module):
             tw = Variable(tw.type(FloatTensor), requires_grad=False)
             th = Variable(th.type(FloatTensor), requires_grad=False)
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
-            tcls = Variable(tcls.type(LongTensor), requires_grad=False)
+            tcls = Variable(tcls.type(FloatTensor), requires_grad=False)
 
             # Mask outputs to ignore (except for conf. loss) non-existing objects
             loss_x = self.mse_loss(x[obj_mask], tx[obj_mask])
@@ -209,7 +206,7 @@ class YOLOLayer(nn.Module):
             loss_conf_obj = self.bce_loss(pred_conf[obj_mask], tconf[obj_mask])
             loss_conf_noobj = self.bce_loss(pred_conf[noobj_mask], tconf[noobj_mask])
             loss_conf = loss_conf_obj + loss_conf_noobj
-            loss_cls = self.ce_loss(pred_cls[obj_mask], tcls[obj_mask].argmax(1))
+            loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
 
             loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
