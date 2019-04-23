@@ -77,11 +77,13 @@ Data augmentation as well as additional training tricks remains to be implemente
 ```
 $ train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
             [--batch_size BATCH_SIZE]
+            [--gradient_accumulations GRADIENT_ACCUMULATIONS]
             [--model_config_path MODEL_CONFIG_PATH]
             [--data_config_path DATA_CONFIG_PATH]
             [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
             [--n_cpu N_CPU] [--img_size IMG_SIZE]
             [--checkpoint_interval CHECKPOINT_INTERVAL]
+            [--compute_map COMPUTE_MAP]
 ```
 
 Track training progress in Tensorboard:
