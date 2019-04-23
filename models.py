@@ -166,14 +166,13 @@ class YOLOLayer(nn.Module):
             if x.is_cuda:
                 self.mse_loss = self.mse_loss.cuda()
                 self.bce_loss = self.bce_loss.cuda()
-                self.ce_loss = self.ce_loss.cuda()
 
             num_targets, num_correct, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls = build_targets(
-                pred_boxes=pred_boxes.cpu().data,
-                pred_conf=pred_conf.cpu().data,
-                pred_cls=pred_cls.cpu().data,
-                target=targets.cpu().data,
-                anchors=scaled_anchors.cpu().data,
+                pred_boxes=pred_boxes.data.cpu(),
+                pred_conf=pred_conf.data.cpu(),
+                pred_cls=pred_cls.data.cpu(),
+                target=targets.data.cpu(),
+                anchors=scaled_anchors.data.cpu(),
                 num_anchors=nA,
                 num_classes=self.num_classes,
                 grid_size=nG,
@@ -187,8 +186,8 @@ class YOLOLayer(nn.Module):
             precision = num_correct / num_proposals
 
             # Masks
-            obj_mask = Variable(obj_mask.type(ByteTensor))
-            noobj_mask = Variable(noobj_mask.type(ByteTensor))
+            obj_mask = Variable(obj_mask.type(ByteTensor), requires_grad=False)
+            noobj_mask = Variable(noobj_mask.type(ByteTensor), requires_grad=False)
 
             # Handle target variables
             tx = Variable(tx.type(FloatTensor), requires_grad=False)
