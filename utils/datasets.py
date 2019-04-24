@@ -21,8 +21,9 @@ import sys
 def pad_to_square(img, pad_value):
     h, w, _ = img.shape
     dim_diff = np.abs(h - w)
-    # Upper (left) and lower (right) padding
-    pad1, pad2 = dim_diff // 2, dim_diff - dim_diff // 2
+    # (upper / left) padding and (lower / right) padding
+    pad1 = dim_diff // 2
+    pad2 = dim_diff - pad1
     # Determine padding
     pad = ((pad1, pad2), (0, 0), (0, 0)) if h <= w else ((0, 0), (pad1, pad2), (0, 0))
     # Add padding
@@ -71,7 +72,7 @@ class ListDataset(Dataset):
         ]
         self.img_size = img_size
         self.max_objects = 50
-        self.training = training
+        self.is_training = training
 
     def __getitem__(self, index):
 
@@ -115,7 +116,7 @@ class ListDataset(Dataset):
             x2 += pad[1][1]
             y2 += pad[0][1]
 
-            if self.training:
+            if self.is_training:
                 # Returns (x, y, w, h)
                 labels[:, 1] = ((x1 + x2) / 2) / padded_w
                 labels[:, 2] = ((y1 + y2) / 2) / padded_h

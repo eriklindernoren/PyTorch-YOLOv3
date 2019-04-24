@@ -76,14 +76,29 @@ Evaluates the model on COCO test.
 Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
 $ train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
-            [--batch_size BATCH_SIZE]
-            [--gradient_accumulations GRADIENT_ACCUMULATIONS]
-            [--model_config_path MODEL_CONFIG_PATH]
-            [--data_config_path DATA_CONFIG_PATH]
-            [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
-            [--n_cpu N_CPU] [--img_size IMG_SIZE]
-            [--checkpoint_interval CHECKPOINT_INTERVAL]
-            [--compute_map COMPUTE_MAP]
+                [--batch_size BATCH_SIZE]
+                [--gradient_accumulations GRADIENT_ACCUMULATIONS]
+                [--model_config_path MODEL_CONFIG_PATH]
+                [--data_config_path DATA_CONFIG_PATH]
+                [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
+                [--n_cpu N_CPU] [--img_size IMG_SIZE]
+                [--checkpoint_interval CHECKPOINT_INTERVAL]
+                [--compute_map COMPUTE_MAP] [--multi_scale MULTI_SCALE]
+
+```
+
+Log example:
+```
+---- [Epoch 0/100, Batch 800/14658] ----
++-------------------+----------+----------+----------+----------+----------+----------+----------+---------+---------+-----------+---------+-----------+
+| Layer             | loss     | x        | y        | w        | h        | conf     | cls      | cls_acc | recall  | precision | avg_obj | avg_noobj |
++-------------------+----------+----------+----------+----------+----------+----------+----------+---------+---------+-----------+---------+-----------+
+| YOLO Layer 1 (16) | 3.236772 | 0.067551 | 0.055586 | 0.806987 | 0.318123 | 1.937386 | 0.051138 | 60.38%  | 0.23729 | 0.14737   | 0.411   | 0.919     |
+| YOLO Layer 2 (32) | 2.854698 | 0.086269 | 0.066992 | 0.263032 | 0.274527 | 2.116170 | 0.047707 | 56.90%  | 0.06780 | 0.07143   | 0.326   | 0.919     |
+| YOLO Layer 3 (64) | 2.921454 | 0.087113 | 0.066907 | 0.323871 | 0.187233 | 2.213236 | 0.043094 | 57.63%  | 0.03390 | 0.00346   | 0.309   | 0.922     |
++-------------------+----------+----------+----------+----------+----------+----------+----------+---------+---------+-----------+---------+-----------+
+Total Loss 9.012924
+---- ETA 1:52:50.358600
 ```
 
 Track training progress in Tensorboard:

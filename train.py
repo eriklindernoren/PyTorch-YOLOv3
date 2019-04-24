@@ -6,6 +6,8 @@ from utils.utils import *
 from utils.datasets import *
 from utils.parse_config import *
 
+from terminaltables import AsciiTable
+
 import os
 import sys
 import time
@@ -74,8 +76,8 @@ for epoch in range(opt.epochs):
 
         batches_done = len(dataloader) * epoch + batch_i
 
+        # Enables multi-scale training
         if opt.multi_scale and batches_done % 2 == 0:
-            # Enable multi-scale training
             min_size, max_size = opt.img_size - 3 * 32, opt.img_size + 3 * 32
             imgs = random_resize(imgs, min_size=min_size, max_size=max_size)
 
@@ -85,7 +87,7 @@ for epoch in range(opt.epochs):
         loss, outputs = model(imgs, targets)
         loss.backward()
 
-        if batch_i % opt.gradient_accumulations:
+        if batches_done % opt.gradient_accumulations:
             # Accumulates gradient before each step
             optimizer.step()
             optimizer.zero_grad()
@@ -94,36 +96,50 @@ for epoch in range(opt.epochs):
         #   Log progress
         # ----------------
 
-        log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----" % (epoch, opt.epochs, batch_i, len(dataloader))
+        log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, opt.epochs, batch_i, len(dataloader))
+
+        metric_table = [
+            [
+                "Layer",
+                "loss",
+                "x",
+                "y",
+                "w",
+                "h",
+                "conf",
+                "cls",
+                "cls_acc",
+                "recall",
+                "precision",
+                "avg_obj",
+                "avg_noobj",
+            ]
+        ]
 
         # Log metrics at each YOLO layer
         for i, yolo in enumerate(model.yolo_layers):
-            log_str += (
-                "\n[%s]\t[Losses : total %f, x %f, y %f, w %f, h %f, conf %f, cls %f]\nGrid size: %2d\t[Metrics : recall %f, precision %f, avg_obj %.3f, avg_noobj %.3f, cls_acc %.2f%%]"
-                % (
-                    "YOLO Layer %d" % (i + 1),
-                    yolo.metrics["loss"],
-                    yolo.metrics["x"],
-                    yolo.metrics["y"],
-                    yolo.metrics["w"],
-                    yolo.metrics["h"],
-                    yolo.metrics["conf"],
-                    yolo.metrics["cls"],
-                    yolo.metrics["grid_size"],
-                    yolo.metrics["recall"],
-                    yolo.metrics["precision"],
-                    yolo.metrics["avg_obj"],
-                    yolo.metrics["avg_noobj"],
-                    100 * yolo.metrics["cls_acc"],
-                )
-            )
-            if i < 2:
-                log_str += "\n"
+            layer_metrics = [
+                "%.6f" % yolo.metrics["loss"],
+                "%.6f" % yolo.metrics["x"],
+                "%.6f" % yolo.metrics["y"],
+                "%.6f" % yolo.metrics["w"],
+                "%.6f" % yolo.metrics["h"],
+                "%.6f" % yolo.metrics["conf"],
+                "%.6f" % yolo.metrics["cls"],
+                "%.2f%%" % (100 * yolo.metrics["cls_acc"]),
+                "%.5f" % yolo.metrics["recall"],
+                "%.5f" % yolo.metrics["precision"],
+                "%.3f" % yolo.metrics["avg_obj"],
+                "%.3f" % yolo.metrics["avg_noobj"],
+            ]
+            metric_table += [["YOLO Layer %d (%d)" % (i + 1, yolo.metrics["grid_size"]), *layer_metrics]]
 
             # Tensorboard logging
             for name, metric in yolo.metrics.items():
                 if name != "grid_size":
                     logger.scalar_summary(f"{name}_{i+1}", metric, batches_done)
+
+        log_str += AsciiTable(metric_table).table
 
         global_metrics = [("Total Loss", loss.item())]
 
@@ -159,7 +175,7 @@ for epoch in range(opt.epochs):
             logger.scalar_summary(metric_name, metric, batches_done)
 
         # Print mAP and other global metrics
-        log_str += "\n" + " | ".join([f"{metric_name} {metric:f}" for metric_name, metric in global_metrics])
+        log_str += "\n" + ", ".join([f"{metric_name} {metric:f}" for metric_name, metric in global_metrics])
 
         # Determine approximate time left for epoch
         epoch_batches_left = len(dataloader) - (batch_i + 1)
