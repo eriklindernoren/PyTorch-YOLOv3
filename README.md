@@ -109,7 +109,6 @@ Log:
 +-----------+--------------+--------------+--------------+
 Total Loss 10.320114
 ---- ETA 1:54:50.193410
-
 ```
 
 Track training progress in Tensorboard:
