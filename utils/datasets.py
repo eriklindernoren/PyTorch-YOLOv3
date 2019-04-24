@@ -4,6 +4,7 @@ import os
 import numpy as np
 import lycon
 import torch
+import torch.nn.functional as F
 
 from torch.utils.data import Dataset
 from PIL import Image, ImageOps
@@ -27,6 +28,12 @@ def pad_to_square(img, pad_value):
     # Add padding
     img = np.pad(img, pad, "constant", constant_values=pad_value)
     return img, pad
+
+
+def random_resize(images, min_size=288, max_size=448):
+    new_size = random.sample(list(range(min_size, max_size + 1, 32)), 1)[0]
+    images = F.interpolate(images, size=new_size, mode="nearest")
+    return images
 
 
 class ImageFolder(Dataset):
@@ -76,7 +83,7 @@ class ListDataset(Dataset):
         img = lycon.load(img_path)
 
         # Handles images with less than three channels
-        while len(img.shape) != 3:
+        if len(img.shape) != 3:
             img = np.expand_dims(img, -1)
             img = np.repeat(img, 3, -1)
 

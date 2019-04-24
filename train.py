@@ -32,6 +32,7 @@ parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads 
 parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
 parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
 parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
+parser.add_argument("--multi_scale", default=True, help="allow for multi-scale training")
 opt = parser.parse_args()
 print(opt)
 
@@ -73,6 +74,11 @@ for epoch in range(opt.epochs):
 
         batches_done = len(dataloader) * epoch + batch_i
 
+        if opt.multi_scale and batches_done % 2 == 0:
+            # Enable multi-scale training
+            min_size, max_size = opt.img_size - 3 * 32, opt.img_size + 3 * 32
+            imgs = random_resize(imgs, min_size=min_size, max_size=max_size)
+
         imgs = Variable(imgs.to(device))
         targets = Variable(targets.to(device), requires_grad=False)
 
@@ -88,30 +94,36 @@ for epoch in range(opt.epochs):
         #   Log progress
         # ----------------
 
-        print("\n---- [Epoch %d/%d, Batch %d/%d] ----" % (epoch, opt.epochs, batch_i, len(dataloader)))
+        log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----" % (epoch, opt.epochs, batch_i, len(dataloader))
 
         # Log metrics at each YOLO layer
-        for i in range(3):
-            print(
-                "[%s] [loss %f, x %f, y %f, w %f, h %f, conf %f, cls %f, cls_acc: %.2f%%, recall: %.5f, precision: %.5f]"
+        for i, yolo in enumerate(model.yolo_layers):
+            log_str += (
+                "\n[%s]\t[Losses : total %f, x %f, y %f, w %f, h %f, conf %f, cls %f]\nGrid size: %2d\t[Metrics : recall %f, precision %f, avg_obj %.3f, avg_noobj %.3f, cls_acc %.2f%%]"
                 % (
-                    "Total" if i + 1 == 4 else "YOLO Layer %d" % (i + 1),
-                    model.metrics[i]["loss"],
-                    model.metrics[i]["x"],
-                    model.metrics[i]["y"],
-                    model.metrics[i]["w"],
-                    model.metrics[i]["h"],
-                    model.metrics[i]["conf"],
-                    model.metrics[i]["cls"],
-                    100 * model.metrics[i]["cls_acc"],
-                    model.metrics[i]["recall"],
-                    model.metrics[i]["precision"],
+                    "YOLO Layer %d" % (i + 1),
+                    yolo.metrics["loss"],
+                    yolo.metrics["x"],
+                    yolo.metrics["y"],
+                    yolo.metrics["w"],
+                    yolo.metrics["h"],
+                    yolo.metrics["conf"],
+                    yolo.metrics["cls"],
+                    yolo.metrics["grid_size"],
+                    yolo.metrics["recall"],
+                    yolo.metrics["precision"],
+                    yolo.metrics["avg_obj"],
+                    yolo.metrics["avg_noobj"],
+                    100 * yolo.metrics["cls_acc"],
                 )
             )
+            if i < 2:
+                log_str += "\n"
 
             # Tensorboard logging
-            for name, metric in model.metrics[i].items():
-                logger.scalar_summary(f"{name}_{i+1}", metric, batches_done)
+            for name, metric in yolo.metrics.items():
+                if name != "grid_size":
+                    logger.scalar_summary(f"{name}_{i+1}", metric, batches_done)
 
         global_metrics = [("Total Loss", loss.item())]
 
@@ -147,12 +159,14 @@ for epoch in range(opt.epochs):
             logger.scalar_summary(metric_name, metric, batches_done)
 
         # Print mAP and other global metrics
-        print(" | ".join([f"{metric_name} {metric:f}" for metric_name, metric in global_metrics]))
+        log_str += "\n" + " | ".join([f"{metric_name} {metric:f}" for metric_name, metric in global_metrics])
 
         # Determine approximate time left for epoch
         epoch_batches_left = len(dataloader) - (batch_i + 1)
         time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
-        print(f"---- ETA {time_left}")
+        log_str += f"\n---- ETA {time_left}"
+
+        print(log_str)
 
         model.seen += imgs.size(0)
 
