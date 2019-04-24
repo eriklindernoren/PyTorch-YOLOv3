@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 from utils.parse_config import *
-from utils.utils import build_targets
+from utils.utils import build_targets, to_cpu
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -80,8 +80,9 @@ def create_modules(module_defs):
             anchors = [(anchors[i], anchors[i + 1]) for i in range(0, len(anchors), 2)]
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def["classes"])
+            img_size = int(hyperparams["height"])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes)
+            yolo_layer = YOLOLayer(anchors, num_classes, img_size)
             modules.add_module("yolo_%d" % i, yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -113,7 +114,7 @@ class EmptyLayer(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes):
+    def __init__(self, anchors, num_classes, img_dim=416):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
         self.num_anchors = len(anchors)
@@ -122,13 +123,17 @@ class YOLOLayer(nn.Module):
         self.ignore_thres = 0.5
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
+        self.ce_loss = nn.CrossEntropyLoss()
+        self.obj_scale = 1
+        self.noobj_scale = 10
         self.metrics = {}
+        self.img_dim = img_dim
 
-    def forward(self, x, targets, img_dim):
+    def forward(self, x, targets=None):
         nA = self.num_anchors
         nB = x.size(0)
         nG = x.size(2)
-        stride = img_dim / nG
+        stride = self.img_dim / nG
 
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
@@ -162,7 +167,7 @@ class YOLOLayer(nn.Module):
         output = torch.cat(
             (pred_boxes.view(nB, -1, 4) * stride, pred_conf.view(nB, -1, 1), pred_cls.view(nB, -1, self.num_classes)),
             -1,
-        ).cpu()
+        )
 
         if targets is None:
             # Inference
@@ -172,12 +177,13 @@ class YOLOLayer(nn.Module):
             if x.is_cuda:
                 self.mse_loss = self.mse_loss.cuda()
                 self.bce_loss = self.bce_loss.cuda()
+                self.ce_loss = self.ce_loss.cuda()
 
             iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls = build_targets(
-                pred_boxes=pred_boxes.data.cpu(),
-                pred_cls=pred_cls.data.cpu(),
-                target=targets.data.cpu(),
-                anchors=scaled_anchors.data.cpu(),
+                pred_boxes=to_cpu(pred_boxes),
+                pred_cls=to_cpu(pred_cls),
+                target=to_cpu(targets),
+                anchors=to_cpu(scaled_anchors),
                 num_anchors=nA,
                 num_classes=self.num_classes,
                 grid_size=nG,
@@ -185,12 +191,12 @@ class YOLOLayer(nn.Module):
             )
 
             # Target variables
-            tx = Variable(tx.type(FloatTensor), requires_grad=False)
-            ty = Variable(ty.type(FloatTensor), requires_grad=False)
-            tw = Variable(tw.type(FloatTensor), requires_grad=False)
-            th = Variable(th.type(FloatTensor), requires_grad=False)
-            tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
-            tcls = Variable(tcls.type(FloatTensor), requires_grad=False)
+            tx = tx.type(FloatTensor)
+            ty = ty.type(FloatTensor)
+            tw = tw.type(FloatTensor)
+            th = th.type(FloatTensor)
+            tconf = tconf.type(FloatTensor)
+            tcls = tcls.type(LongTensor)
 
             # Loss : Mask outputs to ignore non-existing objects (except with conf. loss)
             loss_x = self.mse_loss(x[obj_mask], tx[obj_mask])
@@ -199,37 +205,38 @@ class YOLOLayer(nn.Module):
             loss_h = self.mse_loss(h[obj_mask], th[obj_mask])
             loss_conf_obj = self.bce_loss(pred_conf[obj_mask], tconf[obj_mask])
             loss_conf_noobj = self.bce_loss(pred_conf[noobj_mask], tconf[noobj_mask])
-            loss_conf = loss_conf_obj + loss_conf_noobj
-            loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
+            loss_conf = self.obj_scale * loss_conf_obj + self.noobj_scale * loss_conf_noobj
+            loss_cls = self.ce_loss(pred_cls[obj_mask], tcls[obj_mask].argmax(1))
             total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
             # Metrics
             cls_acc = 100 * (pred_cls[obj_mask].argmax(1) == tcls[obj_mask].argmax(1)).float().mean()
             conf_obj = pred_conf[obj_mask].mean()
             conf_noobj = pred_conf[noobj_mask].mean()
-            obj_mask = obj_mask.float()
-            conf50 = (pred_conf.detach() > 0.5).cpu().float()
-            iou50 = (iou_scores > 0.5).float()
-            iou75 = (iou_scores > 0.75).float()
+            obj_mask = obj_mask.type(FloatTensor)
+            class_mask = class_mask.type(FloatTensor)
+            conf50 = (pred_conf > 0.5).float()
+            iou50 = (iou_scores > 0.5).type(FloatTensor)
+            iou75 = (iou_scores > 0.75).type(FloatTensor)
             detected_mask = conf50 * obj_mask * class_mask
             precision = torch.sum(iou50 * detected_mask) / (conf50.sum() + 1e-16)
             recall50 = torch.sum(iou50 * detected_mask) / (obj_mask.sum() + 1e-16)
             recall75 = torch.sum(iou75 * detected_mask) / (obj_mask.sum() + 1e-16)
 
             self.metrics = {
-                "loss": total_loss.item(),
-                "x": loss_x.item(),
-                "y": loss_y.item(),
-                "w": loss_w.item(),
-                "h": loss_h.item(),
-                "conf": loss_conf.item(),
-                "cls": loss_cls.item(),
-                "cls_acc": cls_acc.item(),
-                "recall50": recall50.item(),
-                "recall75": recall75.item(),
-                "precision": precision.item(),
-                "conf_obj": conf_obj.item(),
-                "conf_noobj": conf_noobj.item(),
+                "loss": to_cpu(total_loss).item(),
+                "x": to_cpu(loss_x).item(),
+                "y": to_cpu(loss_y).item(),
+                "w": to_cpu(loss_w).item(),
+                "h": to_cpu(loss_h).item(),
+                "conf": to_cpu(loss_conf).item(),
+                "cls": to_cpu(loss_cls).item(),
+                "cls_acc": to_cpu(cls_acc).item(),
+                "recall50": to_cpu(recall50).item(),
+                "recall75": to_cpu(recall75).item(),
+                "precision": to_cpu(precision).item(),
+                "conf_obj": to_cpu(conf_obj).item(),
+                "conf_noobj": to_cpu(conf_noobj).item(),
                 "grid_size": nG,
             }
 
@@ -250,7 +257,8 @@ class Darknet(nn.Module):
 
     def forward(self, x, targets=None):
         is_training = targets is not None
-        img_dim = x.shape[2]
+        for yolo_layer in self.yolo_layers:
+            yolo_layer.img_dim = x.shape[2]
         output = []
         loss = 0
         layer_outputs = []
@@ -265,17 +273,17 @@ class Darknet(nn.Module):
                 x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def["type"] == "yolo":
                 if is_training:
-                    x, layer_loss = module[0](x, targets, img_dim=img_dim)
+                    x, layer_loss = module[0](x, targets)
                     loss += layer_loss
                 else:
-                    x = module(x, img_dim=img_dim)
+                    x = module(x)
                 output.append(x)
             layer_outputs.append(x)
 
         if is_training:
-            return loss, torch.cat(output, 1)
+            return loss, to_cpu(torch.cat(output, 1))
         else:
-            return torch.cat(output, 1)
+            return to_cpu(torch.cat(output, 1))
 
     def load_darknet_weights(self, weights_path):
         """Parses and loads the weights stored in 'weights_path'"""
