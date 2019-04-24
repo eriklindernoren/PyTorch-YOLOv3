@@ -75,8 +75,7 @@ Evaluates the model on COCO test.
 ## Train
 Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
-$ train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
-                [--batch_size BATCH_SIZE]
+$ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--gradient_accumulations GRADIENT_ACCUMULATIONS]
                 [--model_config_path MODEL_CONFIG_PATH]
                 [--data_config_path DATA_CONFIG_PATH]
