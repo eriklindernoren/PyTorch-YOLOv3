@@ -212,7 +212,7 @@ class YOLOLayer(nn.Module):
             total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
             # Metrics
-            cls_acc = (pred_cls[obj_mask].argmax(1) == tcls[obj_mask].argmax(1)).float().mean().item()
+            cls_acc = 100 * (pred_cls[obj_mask].argmax(1) == tcls[obj_mask].argmax(1)).float().mean().item()
             num_proposals = (pred_conf > 0.5).sum().item()
             recall = num_correct / num_targets if num_targets else 1
             precision = num_correct / (num_proposals + 1e-16)

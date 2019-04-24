@@ -98,46 +98,37 @@ for epoch in range(opt.epochs):
 
         log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, opt.epochs, batch_i, len(dataloader))
 
-        metric_table = [
-            [
-                "Layer",
-                "loss",
-                "x",
-                "y",
-                "w",
-                "h",
-                "conf",
-                "cls",
-                "cls_acc",
-                "recall",
-                "precision",
-                "avg_obj",
-                "avg_noobj",
-            ]
+        metrics = [
+            "grid_size",
+            "loss",
+            "x",
+            "y",
+            "w",
+            "h",
+            "conf",
+            "cls",
+            "cls_acc",
+            "recall",
+            "precision",
+            "avg_obj",
+            "avg_noobj",
         ]
 
+        metric_table = [["Metrics", "YOLO Layer 1", "YOLO Layer 2", "YOLO Layer 3"]]
+
         # Log metrics at each YOLO layer
-        for i, yolo in enumerate(model.yolo_layers):
-            layer_metrics = [
-                "%.6f" % yolo.metrics["loss"],
-                "%.6f" % yolo.metrics["x"],
-                "%.6f" % yolo.metrics["y"],
-                "%.6f" % yolo.metrics["w"],
-                "%.6f" % yolo.metrics["h"],
-                "%.6f" % yolo.metrics["conf"],
-                "%.6f" % yolo.metrics["cls"],
-                "%.2f%%" % (100 * yolo.metrics["cls_acc"]),
-                "%.5f" % yolo.metrics["recall"],
-                "%.5f" % yolo.metrics["precision"],
-                "%.3f" % yolo.metrics["avg_obj"],
-                "%.3f" % yolo.metrics["avg_noobj"],
-            ]
-            metric_table += [["YOLO Layer %d (%d)" % (i + 1, yolo.metrics["grid_size"]), *layer_metrics]]
+        for i, metric in enumerate(metrics):
+            formats = {m: "%.6f" for m in metrics}
+            formats["grid_size"] = "%2d"
+            formats["cls_acc"] = "%.2f%%"
+            row_metrics = [formats[metric] % yolo.metrics[metric] for yolo in model.yolo_layers]
+            metric_table += [[metric, *row_metrics]]
 
             # Tensorboard logging
-            for name, metric in yolo.metrics.items():
-                if name != "grid_size":
-                    logger.scalar_summary(f"{name}_{i+1}", metric, batches_done)
+            for yolo in model.yolo_layers:
+                for name, metric in yolo.metrics.items():
+                    if name != "grid_size":
+                        logger.scalar_summary(f"{name}_{i+1}", metric, batches_done)
 
         log_str += AsciiTable(metric_table).table
 
