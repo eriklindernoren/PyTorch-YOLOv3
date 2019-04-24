@@ -80,9 +80,8 @@ def create_modules(module_defs):
             anchors = [(anchors[i], anchors[i + 1]) for i in range(0, len(anchors), 2)]
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def["classes"])
-            img_height = int(hyperparams["height"])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes, img_height)
+            yolo_layer = YOLOLayer(anchors, num_classes)
             modules.add_module("yolo_%d" % i, yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -114,7 +113,7 @@ class EmptyLayer(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes, img_dim):
+    def __init__(self, anchors, num_classes):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
         self.num_anchors = len(anchors)
@@ -123,16 +122,16 @@ class YOLOLayer(nn.Module):
         self.ignore_thres = 0.5
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
+        # Set to balance confidence loss for objects and non-objects
         self.obj_scale = 1
-        self.noobj_scale = 5
+        self.noobj_scale = 10
         self.metrics = {}
 
-    def forward(self, x, targets=None):
+    def forward(self, x, targets, img_dim):
         nA = self.num_anchors
         nB = x.size(0)
         nG = x.size(2)
-        img_size = x.shape[-1]
-        stride = img_size / nG
+        stride = img_dim / nG
 
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
@@ -187,7 +186,6 @@ class YOLOLayer(nn.Module):
                 num_classes=self.num_classes,
                 grid_size=nG,
                 ignore_thres=self.ignore_thres,
-                img_dim=img_size,
             )
 
             # Masks
@@ -254,6 +252,7 @@ class Darknet(nn.Module):
 
     def forward(self, x, targets=None):
         is_training = targets is not None
+        img_dim = x.shape[2]
         output = []
         loss = 0
         layer_outputs = []
@@ -268,10 +267,10 @@ class Darknet(nn.Module):
                 x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def["type"] == "yolo":
                 if is_training:
-                    x, layer_loss = module[0](x, targets)
+                    x, layer_loss = module[0](x, targets, img_dim=img_dim)
                     loss += layer_loss
                 else:
-                    x = module(x)
+                    x = module(x, img_dim=img_dim)
                 output.append(x)
             layer_outputs.append(x)
 

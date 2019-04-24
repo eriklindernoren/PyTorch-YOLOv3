@@ -265,7 +265,7 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
 
 
 def build_targets(
-    pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres, img_dim
+    pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres
 ):
     nB = target.size(0)
     nA = num_anchors
