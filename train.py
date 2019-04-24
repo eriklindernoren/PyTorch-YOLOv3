@@ -77,8 +77,9 @@ for epoch in range(opt.epochs):
 
         # Enables multi-scale training
         if opt.multi_scale and batches_done % 2 == 0:
-            min_size, max_size = opt.img_size - 3 * 32, opt.img_size + 3 * 32
-            imgs = random_resize(imgs, min_size=min_size, max_size=max_size)
+            min_size = opt.img_size - 3 * 32
+            max_size = opt.img_size + 3 * 32
+            imgs = random_resize(imgs, min_size, max_size)
 
         imgs = Variable(imgs.to(device))
         targets = Variable(targets.to(device), requires_grad=False)
@@ -107,13 +108,14 @@ for epoch in range(opt.epochs):
             "conf",
             "cls",
             "cls_acc",
-            "recall",
+            "recall50",
+            "recall75",
             "precision",
-            "avg_obj",
-            "avg_noobj",
+            "conf_obj",
+            "conf_noobj",
         ]
 
-        metric_table = [["Metrics", "YOLO Layer 1", "YOLO Layer 2", "YOLO Layer 3"]]
+        metric_table = [["Metrics", *[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]]
 
         # Log metrics at each YOLO layer
         for i, metric in enumerate(metrics):
@@ -124,10 +126,12 @@ for epoch in range(opt.epochs):
             metric_table += [[metric, *row_metrics]]
 
             # Tensorboard logging
+            tensorboard_log = []
             for j, yolo in enumerate(model.yolo_layers):
                 for name, metric in yolo.metrics.items():
                     if name != "grid_size":
-                        logger.scalar_summary(f"{name}_{j+1}", metric, batches_done)
+                        tensorboard_log += [(f"{name}_{j+1}", metric)]
+            logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
         log_str += AsciiTable(metric_table).table
 
@@ -161,8 +165,7 @@ for epoch in range(opt.epochs):
             ]
 
         # Log global metrics to Tensorboard
-        for metric_name, metric in global_metrics:
-            logger.scalar_summary(metric_name, metric, batches_done)
+        logger.list_of_scalars_summary(global_metrics, batches_done)
 
         # Print mAP and other global metrics
         log_str += "\n" + ", ".join([f"{metric_name} {metric:f}" for metric_name, metric in global_metrics])

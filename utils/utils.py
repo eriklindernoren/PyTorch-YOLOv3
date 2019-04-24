@@ -264,15 +264,15 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
     return output
 
 
-def build_targets(
-    pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres
-):
+def build_targets(pred_boxes, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres):
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
     nG = grid_size
-    obj_mask = torch.zeros(nB, nA, nG, nG)
-    noobj_mask = torch.ones(nB, nA, nG, nG)
+    obj_mask = torch.ByteTensor(nB, nA, nG, nG).fill_(0)
+    noobj_mask = torch.ByteTensor(nB, nA, nG, nG).fill_(1)
+    class_mask = torch.zeros(nB, nA, nG, nG).float()
+    iou_scores = torch.zeros(nB, nA, nG, nG).float()
     tx = torch.zeros(nB, nA, nG, nG)
     ty = torch.zeros(nB, nA, nG, nG)
     tw = torch.zeros(nB, nA, nG, nG)
@@ -295,13 +295,13 @@ def build_targets(
             # Get grid box indices
             gi = int(gx)
             gj = int(gy)
-            # Get shape of gt box
-            gt_box = torch.FloatTensor(np.array([0, 0, gw, gh])).unsqueeze(0)
+            # Get the shape of the gt box (centered at (100, 100))
+            gt_shape = torch.FloatTensor(np.array([100, 100, gw, gh])).unsqueeze(0)
             # Get shape of anchor box
-            anchor_shapes = torch.FloatTensor(np.zeros((len(anchors), 4)))
-            anchor_shapes[:, 2:] = torch.FloatTensor(anchors)
-            # Calculate iou between gt and anchor shapes
-            anch_ious = bbox_iou(gt_box, anchor_shapes)
+            anchor_shapes = torch.ones((len(anchors), 4)).float() * 100
+            anchor_shapes[:, 2:] = anchors
+            # Compute iou between gt and anchor shapes
+            anch_ious = bbox_iou(gt_shape, anchor_shapes, x1y1x2y2=False)
             # Where the overlap is larger than threshold set mask to zero (ignore)
             noobj_mask[b, anch_ious > ignore_thres, gj, gi] = 0
             # Find the best matching anchor box
@@ -324,13 +324,11 @@ def build_targets(
             tcls[b, best_n, gj, gi, target_label] = 1
             tconf[b, best_n, gj, gi] = 1
             # Calculate iou between ground truth and best matching prediction
-            iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
             pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
-            score = pred_conf[b, best_n, gj, gi]
-            if iou > 0.5 and pred_label == target_label and score > 0.5:
-                num_correct += 1
+            class_mask[b, best_n, gj, gi] = pred_label == target_label
+            iou_scores[b, best_n, gj, gi] = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
 
-    return num_targets, num_correct, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls
+    return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls
 
 
 def to_categorical(y, num_classes):
