@@ -87,11 +87,11 @@ $ train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
 
 ```
 
-Log example:
+Log:
 ```
 ---- [Epoch 0/100, Batch 1129/14658] ----
 +-----------+--------------+--------------+--------------+
-|           | YOLO Layer 1 | YOLO Layer 2 | YOLO Layer 3 |
+| Metrics   | YOLO Layer 1 | YOLO Layer 2 | YOLO Layer 3 |
 +-----------+--------------+--------------+--------------+
 | grid_size | 13           | 26           | 52           |
 | loss      | 3.507005     | 3.422865     | 3.390244     |
