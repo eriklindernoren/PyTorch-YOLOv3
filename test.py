@@ -68,7 +68,7 @@ labels = []
 sample_metrics = []  # List of tuples (TP, confs, pred)
 for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
 
-    # Extract labels present in images
+    # Extract labels
     labels += [label[0] for sample in targets for label in sample]
 
     imgs = Variable(imgs.type(Tensor), requires_grad=False)

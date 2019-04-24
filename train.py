@@ -69,10 +69,26 @@ dataloader = torch.utils.data.DataLoader(
 
 optimizer = torch.optim.Adam(model.parameters())
 
+metrics = [
+    "grid_size",
+    "loss",
+    "x",
+    "y",
+    "w",
+    "h",
+    "conf",
+    "cls",
+    "cls_acc",
+    "recall50",
+    "recall75",
+    "precision",
+    "conf_obj",
+    "conf_noobj",
+]
+
 for epoch in range(opt.epochs):
     start_time = time.time()
     for batch_i, (_, imgs, targets) in enumerate(dataloader):
-
         batches_done = len(dataloader) * epoch + batch_i
 
         # Enables multi-scale training
@@ -97,23 +113,6 @@ for epoch in range(opt.epochs):
         # ----------------
 
         log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, opt.epochs, batch_i, len(dataloader))
-
-        metrics = [
-            "grid_size",
-            "loss",
-            "x",
-            "y",
-            "w",
-            "h",
-            "conf",
-            "cls",
-            "cls_acc",
-            "recall50",
-            "recall75",
-            "precision",
-            "conf_obj",
-            "conf_noobj",
-        ]
 
         metric_table = [["Metrics", *[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]]
 
@@ -178,8 +177,6 @@ for epoch in range(opt.epochs):
         print(log_str)
 
         model.seen += imgs.size(0)
-
-        torch.cuda.empty_cache()
 
     if epoch % opt.checkpoint_interval == 0:
         torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)

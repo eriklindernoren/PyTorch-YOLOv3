@@ -28,6 +28,7 @@ def pad_to_square(img, pad_value):
     pad = ((pad1, pad2), (0, 0), (0, 0)) if h <= w else ((0, 0), (pad1, pad2), (0, 0))
     # Add padding
     img = np.pad(img, pad, "constant", constant_values=pad_value)
+
     return img, pad
 
 
@@ -46,7 +47,7 @@ class ImageFolder(Dataset):
         img_path = self.files[index % len(self.files)]
         # Extract image
         img = np.array(Image.open(img_path))
-        input_img, _ = pad_to_square(img, 127.5)
+        input_img, _ = pad_to_square(img, 127)
         # Resize
         input_img = lycon.resize(
             input_img, height=self.img_size, width=self.img_size, interpolation=lycon.Interpolation.NEAREST
@@ -89,7 +90,7 @@ class ListDataset(Dataset):
             img = np.repeat(img, 3, -1)
 
         h, w, _ = img.shape
-        img, pad = pad_to_square(img, 127.5)
+        img, pad = pad_to_square(img, 127)
         padded_h, padded_w, _ = img.shape
         # Resize to target shape
         img = lycon.resize(img, height=self.img_size, width=self.img_size)
@@ -105,6 +106,7 @@ class ListDataset(Dataset):
         labels = None
         if os.path.exists(label_path):
             labels = np.loadtxt(label_path).reshape(-1, 5)
+            # labels = torch.from_numpy(np.loadtxt(label_path).reshape(-1, 5))
             # Extract coordinates for unpadded + unscaled image
             x1 = w * (labels[:, 1] - labels[:, 3] / 2)
             y1 = h * (labels[:, 2] - labels[:, 4] / 2)
@@ -131,6 +133,7 @@ class ListDataset(Dataset):
 
         # Fill matrix
         filled_labels = np.zeros((self.max_objects, 5))
+        # filled_labels = torch.zeros((self.max_objects, 5))
         if labels is not None:
             labels = labels[: self.max_objects]
             filled_labels[: len(labels)] = labels

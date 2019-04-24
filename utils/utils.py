@@ -1,6 +1,7 @@
 from __future__ import division
 import math
 import time
+import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,6 +10,10 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
+
+def to_cpu(tensor):
+    return tensor.detach().cpu()
 
 
 def load_classes(path):
@@ -59,7 +64,7 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
 
     # Create Precision-Recall curve and compute AP for each class
     ap, p, r = [], [], []
-    for c in unique_classes:
+    for c in tqdm.tqdm(unique_classes, desc="Computing AP"):
         i = pred_cls == c
         n_gt = (target_cls == c).sum()  # Number of ground truth objects
         n_p = i.sum()  # Number of predicted objects
@@ -125,13 +130,13 @@ def get_batch_statistics(outputs, targets, iou_threshold):
     """ Compute true positives, predicted scores and predicted labels per sample """
     batch_metrics = []
     for sample_i in range(len(outputs)):
-        annotations = targets[sample_i][targets[sample_i][:, -1] > 0].detach().cpu().numpy()
+        annotations = to_cpu(targets[sample_i][targets[sample_i][:, -1] > 0]).numpy()
         target_labels = annotations[:, 0] if len(annotations) else []
 
         if outputs[sample_i] is None:
             continue
 
-        output = outputs[sample_i].detach().cpu().numpy()
+        output = to_cpu(outputs[sample_i]).numpy()
         pred_boxes = output[:, :4]
         pred_scores = output[:, 4]
         pred_labels = output[:, -1]
@@ -244,8 +249,8 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
         score = image_pred[:, 4] * image_pred[:, 5:].max(1)[0]
         # Sort by it
         image_pred = image_pred[(-score).argsort()]
-        class_preds = image_pred[:, 5:].max(1, keepdim=True)[1].float()
-        detections = torch.cat((image_pred[:, :5], class_preds), 1)
+        class_confs, class_preds = image_pred[:, 5:].max(1, keepdim=True)
+        detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float()), 1)
         # Perform non-maximum suppression
         keep_boxes = []
         while detections.size(0):
@@ -265,6 +270,7 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
 
 
 def build_targets(pred_boxes, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres):
+
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
@@ -296,8 +302,8 @@ def build_targets(pred_boxes, pred_cls, target, anchors, num_anchors, num_classe
             gi = int(gx)
             gj = int(gy)
             # Get the shape of the gt box (centered at (100, 100))
-            gt_shape = torch.FloatTensor(np.array([100, 100, gw, gh])).unsqueeze(0)
-            # Get shape of anchor box
+            gt_shape = torch.FloatTensor([100, 100, gw, gh]).unsqueeze(0)
+            # Get shape of the anchor boxes (centered at (100, 100))
             anchor_shapes = torch.ones((len(anchors), 4)).float() * 100
             anchor_shapes[:, 2:] = anchors
             # Compute iou between gt and anchor shapes
@@ -305,9 +311,9 @@ def build_targets(pred_boxes, pred_cls, target, anchors, num_anchors, num_classe
             # Where the overlap is larger than threshold set mask to zero (ignore)
             noobj_mask[b, anch_ious > ignore_thres, gj, gi] = 0
             # Find the best matching anchor box
-            best_n = np.argmax(anch_ious)
+            best_n = torch.argmax(anch_ious)
             # Get ground truth box
-            gt_box = torch.FloatTensor(np.array([gx, gy, gw, gh])).unsqueeze(0)
+            gt_box = torch.FloatTensor([gx, gy, gw, gh]).unsqueeze(0)
             # Get the prediction at best matching anchor box
             pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
             # Masks
@@ -329,8 +335,3 @@ def build_targets(pred_boxes, pred_cls, target, anchors, num_anchors, num_classe
             iou_scores[b, best_n, gj, gi] = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
 
     return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls
-
-
-def to_categorical(y, num_classes):
-    """ 1-hot encodes a tensor """
-    return torch.from_numpy(np.eye(num_classes, dtype="uint8")[y])
