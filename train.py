@@ -23,7 +23,6 @@ import torch.optim as optim
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
-parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
 parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
 parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
 parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
@@ -125,10 +124,10 @@ for epoch in range(opt.epochs):
             metric_table += [[metric, *row_metrics]]
 
             # Tensorboard logging
-            for yolo in model.yolo_layers:
+            for j, yolo in enumerate(model.yolo_layers):
                 for name, metric in yolo.metrics.items():
                     if name != "grid_size":
-                        logger.scalar_summary(f"{name}_{i+1}", metric, batches_done)
+                        logger.scalar_summary(f"{name}_{j+1}", metric, batches_done)
 
         log_str += AsciiTable(metric_table).table
 
