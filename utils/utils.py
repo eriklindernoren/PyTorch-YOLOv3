@@ -308,14 +308,16 @@ def build_targets(pred_boxes, pred_cls, target, anchors, num_anchors, num_classe
             anchor_shapes[:, 2:] = anchors
             # Compute iou between gt and anchor shapes
             anch_ious = bbox_iou(gt_shape, anchor_shapes, x1y1x2y2=False)
-            # Where the overlap is larger than threshold set mask to zero (ignore)
-            noobj_mask[b, anch_ious > ignore_thres, gj, gi] = 0
             # Find the best matching anchor box
             best_n = torch.argmax(anch_ious)
             # Get ground truth box
             gt_box = torch.FloatTensor([gx, gy, gw, gh]).unsqueeze(0)
-            # Get the prediction at best matching anchor box
-            pred_box = pred_boxes[b, best_n, gj, gi].unsqueeze(0)
+            # Get class of target box
+            target_label = int(target[b, t, 0])
+            # Get the ious of prediction at each anchor
+            pred_ious = bbox_iou(gt_box, pred_boxes[b, :, gj, gi], x1y1x2y2=False)
+            # Get label correctness
+            label_correctness = (torch.argmax(pred_cls[b, :, gj, gi], -1) == target_label).float()
             # Masks
             obj_mask[b, best_n, gj, gi] = 1
             noobj_mask[b, best_n, gj, gi] = 0
@@ -326,12 +328,12 @@ def build_targets(pred_boxes, pred_cls, target, anchors, num_anchors, num_classe
             tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16)
             th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16)
             # One-hot encoding of label
-            target_label = int(target[b, t, 0])
             tcls[b, best_n, gj, gi, target_label] = 1
             tconf[b, best_n, gj, gi] = 1
-            # Calculate iou between ground truth and best matching prediction
-            pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
-            class_mask[b, best_n, gj, gi] = pred_label == target_label
-            iou_scores[b, best_n, gj, gi] = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
+            # Compute label correctness and iou at best anchor
+            class_mask[b, best_n, gj, gi] = label_correctness[best_n]
+            iou_scores[b, best_n, gj, gi] = pred_ious[best_n]
+            # Where the overlap is larger than threshold set mask to zero (ignore)
+            noobj_mask[b, anch_ious > ignore_thres, gj, gi] = 0
 
     return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls

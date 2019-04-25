@@ -5,13 +5,10 @@ import numpy as np
 import lycon
 import torch
 import torch.nn.functional as F
-
+from utils.augmentations import horisontal_flip
 from torch.utils.data import Dataset
 from PIL import Image, ImageOps
 import torchvision.transforms as transforms
-
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 from skimage.transform import resize
 
@@ -47,7 +44,7 @@ class ImageFolder(Dataset):
         img_path = self.files[index % len(self.files)]
         # Extract image
         img = np.array(Image.open(img_path))
-        input_img, _ = pad_to_square(img, 127.5)
+        input_img, _ = pad_to_square(img, 127)
         # Resize
         input_img = lycon.resize(
             input_img, height=self.img_size, width=self.img_size, interpolation=lycon.Interpolation.NEAREST
@@ -64,7 +61,7 @@ class ImageFolder(Dataset):
 
 
 class ListDataset(Dataset):
-    def __init__(self, list_path, img_size=416, training=True):
+    def __init__(self, list_path, img_size=416, training=True, augment=True):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
         self.label_files = [
@@ -72,8 +69,9 @@ class ListDataset(Dataset):
             for path in self.img_files
         ]
         self.img_size = img_size
-        self.max_objects = 50
+        self.max_objects = 100
         self.is_training = training
+        self.augment = augment
 
     def __getitem__(self, index):
 
@@ -95,7 +93,7 @@ class ListDataset(Dataset):
         # Resize to target shape
         img = lycon.resize(img, height=self.img_size, width=self.img_size)
         # Channels-first and normalize
-        input_img = torch.from_numpy(img).float().permute((2, 0, 1)) / 255.0
+        img = torch.from_numpy(img).float().permute((2, 0, 1)) / 255.0
 
         # ---------
         #  Label
@@ -130,13 +128,18 @@ class ListDataset(Dataset):
                 labels[:, 3] = x2 * (self.img_size / padded_w)
                 labels[:, 4] = y2 * (self.img_size / padded_h)
 
+        # Apply augmentations
+        if self.augment:
+            if np.random.random() < 0.5:
+                img, labels = horisontal_flip(img, labels)
+
         # Fill matrix
         filled_labels = torch.zeros((self.max_objects, 5))
         if labels is not None:
             labels = labels[: self.max_objects]
             filled_labels[: len(labels)] = labels
 
-        return img_path, input_img, filled_labels
+        return img_path, img, filled_labels
 
     def __len__(self):
         return len(self.img_files)

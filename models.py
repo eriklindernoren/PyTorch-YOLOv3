@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 from utils.parse_config import *
-from utils.utils import build_targets, to_cpu
+from utils.utils import build_targets, to_cpu, non_max_suppression
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ def create_modules(module_defs):
             bn = int(module_def["batch_normalize"])
             filters = int(module_def["filters"])
             kernel_size = int(module_def["size"])
-            pad = (kernel_size - 1) // 2 if int(module_def["pad"]) else 0
+            pad = (kernel_size - 1) // 2
             modules.add_module(
                 "conv_%d" % i,
                 nn.Conv2d(
@@ -43,7 +43,7 @@ def create_modules(module_defs):
                 ),
             )
             if bn:
-                modules.add_module("batch_norm_%d" % i, nn.BatchNorm2d(filters))
+                modules.add_module("batch_norm_%d" % i, nn.BatchNorm2d(filters, momentum=0.9, eps=1e-5))
             if module_def["activation"] == "leaky":
                 modules.add_module("leaky_%d" % i, nn.LeakyReLU(0.1))
 
@@ -51,8 +51,7 @@ def create_modules(module_defs):
             kernel_size = int(module_def["size"])
             stride = int(module_def["stride"])
             if kernel_size == 2 and stride == 1:
-                padding = nn.ZeroPad2d((0, 1, 0, 1))
-                modules.add_module("_debug_padding_%d" % i, padding)
+                modules.add_module("_debug_padding_%d" % i, nn.ZeroPad2d((0, 1, 0, 1)))
             maxpool = nn.MaxPool2d(
                 kernel_size=int(module_def["size"]),
                 stride=int(module_def["stride"]),
@@ -94,7 +93,7 @@ def create_modules(module_defs):
 class Upsample(nn.Module):
     """ nn.Upsample is deprecated """
 
-    def __init__(self, scale_factor, mode="linear"):
+    def __init__(self, scale_factor, mode="nearest"):
         super(Upsample, self).__init__()
         self.scale_factor = scale_factor
         self.mode = mode
@@ -123,9 +122,8 @@ class YOLOLayer(nn.Module):
         self.ignore_thres = 0.5
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
-        self.ce_loss = nn.CrossEntropyLoss()
         self.obj_scale = 1
-        self.noobj_scale = 10
+        self.noobj_scale = 100
         self.metrics = {}
         self.img_dim = img_dim
 
@@ -177,7 +175,6 @@ class YOLOLayer(nn.Module):
             if x.is_cuda:
                 self.mse_loss = self.mse_loss.cuda()
                 self.bce_loss = self.bce_loss.cuda()
-                self.ce_loss = self.ce_loss.cuda()
 
             iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls = build_targets(
                 pred_boxes=to_cpu(pred_boxes),
@@ -196,7 +193,7 @@ class YOLOLayer(nn.Module):
             tw = tw.type(FloatTensor)
             th = th.type(FloatTensor)
             tconf = tconf.type(FloatTensor)
-            tcls = tcls.type(LongTensor)
+            tcls = tcls.type(FloatTensor)
 
             # Loss : Mask outputs to ignore non-existing objects (except with conf. loss)
             loss_x = self.mse_loss(x[obj_mask], tx[obj_mask])
@@ -206,19 +203,19 @@ class YOLOLayer(nn.Module):
             loss_conf_obj = self.bce_loss(pred_conf[obj_mask], tconf[obj_mask])
             loss_conf_noobj = self.bce_loss(pred_conf[noobj_mask], tconf[noobj_mask])
             loss_conf = self.obj_scale * loss_conf_obj + self.noobj_scale * loss_conf_noobj
-            loss_cls = self.ce_loss(pred_cls[obj_mask], tcls[obj_mask].argmax(1))
+            loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
             total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
 
             # Metrics
-            cls_acc = 100 * (pred_cls[obj_mask].argmax(1) == tcls[obj_mask].argmax(1)).float().mean()
+            cls_acc = 100 * class_mask[obj_mask].mean()
             conf_obj = pred_conf[obj_mask].mean()
             conf_noobj = pred_conf[noobj_mask].mean()
-            obj_mask = obj_mask.type(FloatTensor)
             class_mask = class_mask.type(FloatTensor)
             conf50 = (pred_conf > 0.5).float()
             iou50 = (iou_scores > 0.5).type(FloatTensor)
             iou75 = (iou_scores > 0.75).type(FloatTensor)
-            detected_mask = conf50 * obj_mask * class_mask
+            obj_mask = obj_mask.type(FloatTensor)
+            detected_mask = conf50 * class_mask * obj_mask
             precision = torch.sum(iou50 * detected_mask) / (conf50.sum() + 1e-16)
             recall50 = torch.sum(iou50 * detected_mask) / (obj_mask.sum() + 1e-16)
             recall75 = torch.sum(iou75 * detected_mask) / (obj_mask.sum() + 1e-16)
