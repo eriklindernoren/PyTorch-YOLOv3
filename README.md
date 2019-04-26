@@ -69,7 +69,6 @@ Evaluates the model on COCO test.
 | YOLOv3 416 (this impl.) | 55.5              |
 
 ## Train
-Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
 $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--gradient_accumulations GRADIENT_ACCUMULATIONS]
