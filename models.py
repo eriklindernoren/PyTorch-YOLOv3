@@ -132,13 +132,14 @@ class YOLOLayer(nn.Module):
         self.anchor_w = self.scaled_anchors[:, 0:1].view((1, self.num_anchors, 1, 1))
         self.anchor_h = self.scaled_anchors[:, 1:2].view((1, self.num_anchors, 1, 1))
 
-    def forward(self, x, targets=None):
+    def forward(self, x, targets=None, img_dim=None):
 
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
         ByteTensor = torch.cuda.ByteTensor if x.is_cuda else torch.ByteTensor
 
+        self.img_dim = img_dim
         num_samples = x.size(0)
         grid_size = x.size(2)
 
@@ -177,7 +178,7 @@ class YOLOLayer(nn.Module):
         )
 
         if targets is None:
-            return output
+            return output, 0
         else:
             iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls = build_targets(
                 pred_boxes=pred_boxes,
@@ -245,37 +246,27 @@ class Darknet(nn.Module):
         self.yolo_layers = [layer[0] for layer in self.module_list if hasattr(layer[0], "metrics")]
         self.img_size = img_size
         self.seen = 0
-        self.header_info = np.array([0, 0, 0, self.seen, 0])
+        self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
 
     def forward(self, x, targets=None):
-        is_training = targets is not None
-        for yolo_layer in self.yolo_layers:
-            yolo_layer.img_dim = x.shape[2]
-        output = []
+        img_dim = x.shape[2]
         loss = 0
-        layer_outputs = []
+        layer_outputs, yolo_outputs = [], []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def["type"] in ["convolutional", "upsample", "maxpool"]:
                 x = module(x)
             elif module_def["type"] == "route":
-                layer_i = [int(x) for x in module_def["layers"].split(",")]
-                x = torch.cat([layer_outputs[i] for i in layer_i], 1)
+                x = torch.cat([layer_outputs[int(layer_i)] for layer_i in module_def["layers"].split(",")], 1)
             elif module_def["type"] == "shortcut":
                 layer_i = int(module_def["from"])
                 x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def["type"] == "yolo":
-                if is_training:
-                    x, layer_loss = module[0](x, targets)
-                    loss += layer_loss
-                else:
-                    x = module(x)
-                output.append(x)
+                x, layer_loss = module[0](x, targets, img_dim)
+                loss += layer_loss
+                yolo_outputs.append(x)
             layer_outputs.append(x)
-
-        if is_training:
-            return loss, to_cpu(torch.cat(output, 1))
-        else:
-            return to_cpu(torch.cat(output, 1))
+        yolo_outputs = to_cpu(torch.cat(yolo_outputs, 1))
+        return yolo_outputs if targets is None else (loss, yolo_outputs)
 
     def load_darknet_weights(self, weights_path):
         """Parses and loads the weights stored in 'weights_path'"""
