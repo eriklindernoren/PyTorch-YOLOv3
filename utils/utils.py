@@ -129,13 +129,14 @@ def get_batch_statistics(outputs, targets, iou_threshold):
     """ Compute true positives, predicted scores and predicted labels per sample """
     batch_metrics = []
     for sample_i in range(len(outputs)):
-        annotations = to_cpu(targets[targets[:, 0] == sample_i][:, 1:]).numpy()
+        annotations = targets[targets[:, 0] == sample_i][:, 1:]
+
         target_labels = annotations[:, 0] if len(annotations) else []
 
         if outputs[sample_i] is None:
             continue
 
-        output = to_cpu(outputs[sample_i]).numpy()
+        output = outputs[sample_i]
         pred_boxes = output[:, :4]
         pred_scores = output[:, 4]
         pred_labels = output[:, -1]
@@ -155,8 +156,7 @@ def get_batch_statistics(outputs, targets, iou_threshold):
                 if pred_label not in target_labels:
                     continue
 
-                ious = bbox_iou_numpy(np.expand_dims(pred_box, 0), target_boxes)
-                iou, box_index = ious.max(1), ious.argmax(1)
+                iou, box_index = bbox_iou(pred_box.unsqueeze(0), target_boxes).max(0)
                 if iou >= iou_threshold and box_index not in detected_boxes:
                     true_positives[pred_i] = 1
                     detected_boxes += [box_index]
@@ -204,36 +204,6 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
     return iou
-
-
-def bbox_iou_numpy(box1, box2):
-    """Computes IoU between bounding boxes.
-    Parameters
-    ----------
-    box1 : ndarray
-        (N, 4) shaped array with bboxes
-    box2 : ndarray
-        (M, 4) shaped array with bboxes
-    Returns
-    -------
-    : ndarray
-        (N, M) shaped array with IoUs
-    """
-    area = (box2[:, 2] - box2[:, 0]) * (box2[:, 3] - box2[:, 1])
-
-    iw = np.minimum(np.expand_dims(box1[:, 2], axis=1), box2[:, 2]) - np.maximum(
-        np.expand_dims(box1[:, 0], 1), box2[:, 0]
-    )
-    ih = np.minimum(np.expand_dims(box1[:, 3], axis=1), box2[:, 3]) - np.maximum(
-        np.expand_dims(box1[:, 1], 1), box2[:, 1]
-    )
-    iw = np.maximum(iw, 0)
-    ih = np.maximum(ih, 0)
-    ua = np.expand_dims((box1[:, 2] - box1[:, 0]) * (box1[:, 3] - box1[:, 1]), axis=1) + area - iw * ih
-    ua = np.maximum(ua, np.finfo(float).eps)
-    intersection = iw * ih
-
-    return intersection / ua
 
 
 def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):

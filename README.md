@@ -24,7 +24,7 @@ https://pjreddie.com/yolo/.
   * [Test](#test)
   * [Train](#train)
   * [Credit](#credit)
-  
+
 ## Installation
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
@@ -63,9 +63,9 @@ Evaluates the model on COCO test.
 | Model                   | mAP (min. 50 IoU) |
 | ----------------------- |:-----------------:|
 | YOLOv3 608 (paper)      | 57.9              |
-| YOLOv3 608 (this impl.) | 56.7              |
+| YOLOv3 608 (this impl.) | 57.3              |
 | YOLOv3 416 (paper)      | 55.3              |
-| YOLOv3 416 (this impl.) | 54.6              |
+| YOLOv3 416 (this impl.) | 55.5              |
 
 ## Train
 Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
