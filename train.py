@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
     parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
-    parser.add_argument("--multi_scale", default=True, help="allow for multi-scale training")
+    parser.add_argument("--multi_scale_training", default=True, help="allow for multi-scale training")
     opt = parser.parse_args()
     print(opt)
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
             batches_done = len(dataloader) * epoch + batch_i
 
             # Enables multi-scale training
-            if opt.multi_scale and batches_done % 2 == 0:
+            if opt.multi_scale_training and batches_done % 2 == 0:
                 min_size = opt.img_size - 3 * 32
                 max_size = opt.img_size + 3 * 32
                 imgs = random_resize(imgs, min_size, max_size)

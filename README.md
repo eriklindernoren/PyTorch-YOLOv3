@@ -32,7 +32,8 @@ https://pjreddie.com/yolo/.
 
 ##### Download pretrained weights
     $ cd weights/
-    $ bash download_weights.sh
+    $ bash download_yolov3_weights.sh   # Downloads default YOLOv3 weights
+    $ bash download_tiny_weights.sh     # Downloads tiny YOLOv3 weights
 
 ##### Download COCO
     $ cd data/
@@ -77,8 +78,8 @@ $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
-                [--compute_map COMPUTE_MAP] [--multi_scale MULTI_SCALE]
-
+                [--compute_map COMPUTE_MAP]
+                [--multi_scale_training MULTI_SCALE_TRAINING]
 ```
 
 Log:
