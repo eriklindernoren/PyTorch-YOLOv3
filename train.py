@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
     parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config")
     parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
-    parser.add_argument("--weights_path", type=str, help="if specified starts from checkpoint model")
+    parser.add_argument("--checkpoint_model", type=str, help="if specified starts from checkpoint model")
     parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
@@ -54,11 +54,11 @@ if __name__ == "__main__":
     model.apply(weights_init_normal)
 
     # If specified we start from checkpoint
-    if opt.weights_path:
-        if opt.weights_path.endswith(".weights"):
-            model.load_darknet_weights(opt.weights_path)
+    if opt.checkpoint_model:
+        if opt.checkpoint_model.endswith(".weights"):
+            model.load_darknet_weights(opt.checkpoint_model)
         else:
-            model.load_state_dict(torch.load(opt.weights_path))
+            model.load_state_dict(torch.load(opt.checkpoint_model))
 
     model.train()
 
