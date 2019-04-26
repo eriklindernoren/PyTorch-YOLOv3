@@ -26,7 +26,7 @@ https://pjreddie.com/yolo/.
   * [Credit](#credit)
 
 ## Installation
-##### Clone and Install Requirements
+##### Clone and install requirements
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
     $ sudo pip3 install -r requirements.txt
