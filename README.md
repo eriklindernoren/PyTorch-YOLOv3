@@ -1,17 +1,4 @@
 # PyTorch-YOLOv3
-Minimal implementation of YOLOv3 in PyTorch.
-
-## Table of Contents
-- [PyTorch-YOLOv3](#pytorch-yolov3)
-  * [Table of Contents](#table-of-contents)
-  * [Paper](#paper)
-  * [Installation](#installation)
-  * [Inference](#inference)
-  * [Test](#test)
-  * [Train](#train)
-  * [Credit](#credit)
-
-## Paper
 ### YOLOv3: An Incremental Improvement
 _Joseph Redmon, Ali Farhadi_ <br>
 
@@ -30,6 +17,14 @@ https://pjreddie.com/yolo/.
 
 [[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Original Implementation]](https://github.com/pjreddie/darknet)
 
+## Table of Contents
+- [PyTorch-YOLOv3](#pytorch-yolov3)
+  * [Installation](#installation)
+  * [Inference](#inference)
+  * [Test](#test)
+  * [Train](#train)
+  * [Credit](#credit)
+  
 ## Installation
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
