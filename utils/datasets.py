@@ -68,8 +68,6 @@ class ListDataset(Dataset):
         self.is_training = training
         self.augment = augment
 
-        print(len(self.label_files))
-
     def __getitem__(self, index):
 
         # ---------
