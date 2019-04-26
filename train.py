@@ -64,7 +64,12 @@ model.train()
 # Get dataloader
 dataset = ListDataset(train_path)
 dataloader = torch.utils.data.DataLoader(
-    dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, pin_memory=True
+    dataset,
+    batch_size=opt.batch_size,
+    shuffle=True,
+    num_workers=opt.n_cpu,
+    pin_memory=True,
+    collate_fn=dataset.collate_fn,
 )
 
 optimizer = torch.optim.Adam(model.parameters())

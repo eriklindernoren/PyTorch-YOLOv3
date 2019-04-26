@@ -126,19 +126,30 @@ class YOLOLayer(nn.Module):
         self.noobj_scale = 100
         self.metrics = {}
         self.img_dim = img_dim
+        self.nG = 0  # grid size
+
+    def compute_grid_offsets(self, grid_size, cuda=True):
+        self.nG = grid_size
+        FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+        self.stride = self.img_dim / self.nG
+        # Calculate offsets for each grid
+        self.grid_x = torch.arange(self.nG).repeat(self.nG, 1).view([1, 1, self.nG, self.nG]).type(FloatTensor)
+        self.grid_y = torch.arange(self.nG).repeat(self.nG, 1).t().view([1, 1, self.nG, self.nG]).type(FloatTensor)
+        self.scaled_anchors = FloatTensor([(a_w / self.stride, a_h / self.stride) for a_w, a_h in self.anchors])
+        self.anchor_w = self.scaled_anchors[:, 0:1].view((1, self.num_anchors, 1, 1))
+        self.anchor_h = self.scaled_anchors[:, 1:2].view((1, self.num_anchors, 1, 1))
 
     def forward(self, x, targets=None):
-        nA = self.num_anchors
-        nB = x.size(0)
-        nG = x.size(2)
-        stride = self.img_dim / nG
 
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
         ByteTensor = torch.cuda.ByteTensor if x.is_cuda else torch.ByteTensor
 
-        prediction = x.view(nB, nA, self.bbox_attrs, nG, nG).permute(0, 1, 3, 4, 2).contiguous()
+        nB = x.size(0)
+        nG = x.size(2)
+
+        prediction = x.view(nB, self.num_anchors, self.bbox_attrs, nG, nG).permute(0, 1, 3, 4, 2).contiguous()
 
         # Get outputs
         x = torch.sigmoid(prediction[..., 0])  # Center x
@@ -148,58 +159,43 @@ class YOLOLayer(nn.Module):
         pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
         pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
 
-        # Calculate offsets for each grid
-        grid_x = torch.arange(nG).repeat(nG, 1).view([1, 1, nG, nG]).type(FloatTensor)
-        grid_y = torch.arange(nG).repeat(nG, 1).t().view([1, 1, nG, nG]).type(FloatTensor)
-        scaled_anchors = FloatTensor([(a_w / stride, a_h / stride) for a_w, a_h in self.anchors])
-        anchor_w = scaled_anchors[:, 0:1].view((1, nA, 1, 1))
-        anchor_h = scaled_anchors[:, 1:2].view((1, nA, 1, 1))
+        # If grid size does not match current we compute new offsets
+        if nG != self.nG:
+            self.compute_grid_offsets(nG, cuda=x.is_cuda)
 
         # Add offset and scale with anchors
         pred_boxes = FloatTensor(prediction[..., :4].shape)
-        pred_boxes[..., 0] = x.data + grid_x
-        pred_boxes[..., 1] = y.data + grid_y
-        pred_boxes[..., 2] = torch.exp(w.data) * anchor_w
-        pred_boxes[..., 3] = torch.exp(h.data) * anchor_h
+        pred_boxes[..., 0] = x.data + self.grid_x
+        pred_boxes[..., 1] = y.data + self.grid_y
+        pred_boxes[..., 2] = torch.exp(w.data) * self.anchor_w
+        pred_boxes[..., 3] = torch.exp(h.data) * self.anchor_h
 
         output = torch.cat(
-            (pred_boxes.view(nB, -1, 4) * stride, pred_conf.view(nB, -1, 1), pred_cls.view(nB, -1, self.num_classes)),
+            (
+                pred_boxes.view(nB, -1, 4) * self.stride,
+                pred_conf.view(nB, -1, 1),
+                pred_cls.view(nB, -1, self.num_classes),
+            ),
             -1,
         )
 
         if targets is None:
-            # Inference
             return output
         else:
-            # Training
-            if x.is_cuda:
-                self.mse_loss = self.mse_loss.cuda()
-                self.bce_loss = self.bce_loss.cuda()
-
-            iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tconf, tcls = build_targets(
-                pred_boxes=to_cpu(pred_boxes),
-                pred_cls=to_cpu(pred_cls),
-                target=to_cpu(targets),
-                anchors=to_cpu(scaled_anchors),
-                num_anchors=nA,
-                num_classes=self.num_classes,
-                grid_size=nG,
+            iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls = build_targets(
+                pred_boxes=pred_boxes,
+                pred_cls=pred_cls,
+                target=targets,
+                anchors=self.scaled_anchors,
                 ignore_thres=self.ignore_thres,
             )
-
-            # Target variables
-            tx = tx.type(FloatTensor)
-            ty = ty.type(FloatTensor)
-            tw = tw.type(FloatTensor)
-            th = th.type(FloatTensor)
-            tconf = tconf.type(FloatTensor)
-            tcls = tcls.type(FloatTensor)
 
             # Loss : Mask outputs to ignore non-existing objects (except with conf. loss)
             loss_x = self.mse_loss(x[obj_mask], tx[obj_mask])
             loss_y = self.mse_loss(y[obj_mask], ty[obj_mask])
             loss_w = self.mse_loss(w[obj_mask], tw[obj_mask])
             loss_h = self.mse_loss(h[obj_mask], th[obj_mask])
+            tconf = obj_mask.float()
             loss_conf_obj = self.bce_loss(pred_conf[obj_mask], tconf[obj_mask])
             loss_conf_noobj = self.bce_loss(pred_conf[noobj_mask], tconf[noobj_mask])
             loss_conf = self.obj_scale * loss_conf_obj + self.noobj_scale * loss_conf_noobj
@@ -210,12 +206,10 @@ class YOLOLayer(nn.Module):
             cls_acc = 100 * class_mask[obj_mask].mean()
             conf_obj = pred_conf[obj_mask].mean()
             conf_noobj = pred_conf[noobj_mask].mean()
-            class_mask = class_mask.type(FloatTensor)
             conf50 = (pred_conf > 0.5).float()
-            iou50 = (iou_scores > 0.5).type(FloatTensor)
-            iou75 = (iou_scores > 0.75).type(FloatTensor)
-            obj_mask = obj_mask.type(FloatTensor)
-            detected_mask = conf50 * class_mask * obj_mask
+            iou50 = (iou_scores > 0.5).float()
+            iou75 = (iou_scores > 0.75).float()
+            detected_mask = conf50 * class_mask * tconf
             precision = torch.sum(iou50 * detected_mask) / (conf50.sum() + 1e-16)
             recall50 = torch.sum(iou50 * detected_mask) / (obj_mask.sum() + 1e-16)
             recall75 = torch.sum(iou75 * detected_mask) / (obj_mask.sum() + 1e-16)

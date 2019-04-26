@@ -133,13 +133,19 @@ class ListDataset(Dataset):
             if np.random.random() < 0.5:
                 img, labels = horisontal_flip(img, labels)
 
-        # Fill matrix
-        filled_labels = torch.zeros((self.max_objects, 5))
-        if labels is not None:
-            labels = labels[: self.max_objects]
-            filled_labels[: len(labels)] = labels
+        boxes = torch.zeros((len(labels), 6))
+        boxes[:, 1:] = labels
 
-        return img_path, img, filled_labels
+        return img_path, img, boxes
+
+    @staticmethod
+    def collate_fn(batch):
+        paths, imgs, labels = list(zip(*batch))
+        for i, boxes in enumerate(labels):
+            boxes[:, 0] = i
+        imgs = torch.stack(imgs, 0)
+        labels = torch.cat(labels, 0)
+        return paths, imgs, labels
 
     def __len__(self):
         return len(self.img_files)
