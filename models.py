@@ -6,11 +6,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
-from PIL import Image
-
 from utils.parse_config import *
 from utils.utils import build_targets, to_cpu, non_max_suppression
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches

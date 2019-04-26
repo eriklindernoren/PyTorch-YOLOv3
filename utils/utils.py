@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
-
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -130,7 +129,7 @@ def get_batch_statistics(outputs, targets, iou_threshold):
     """ Compute true positives, predicted scores and predicted labels per sample """
     batch_metrics = []
     for sample_i in range(len(outputs)):
-        annotations = to_cpu(targets[sample_i][targets[sample_i][:, -1] > 0]).numpy()
+        annotations = to_cpu(targets[targets[:, 0] == sample_i][:, 1:]).numpy()
         target_labels = annotations[:, 0] if len(annotations) else []
 
         if outputs[sample_i] is None:

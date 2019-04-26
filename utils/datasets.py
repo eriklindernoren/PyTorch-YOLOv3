@@ -1,18 +1,14 @@
 import glob
 import random
 import os
+import sys
 import numpy as np
 import lycon
 import torch
 import torch.nn.functional as F
 from utils.augmentations import horisontal_flip
 from torch.utils.data import Dataset
-from PIL import Image, ImageOps
 import torchvision.transforms as transforms
-
-from skimage.transform import resize
-
-import sys
 
 
 def pad_to_square(img, pad_value):
@@ -43,18 +39,16 @@ class ImageFolder(Dataset):
     def __getitem__(self, index):
         img_path = self.files[index % len(self.files)]
         # Extract image
-        img = np.array(Image.open(img_path))
-        input_img, _ = pad_to_square(img, 127)
+        img = lycon.load(img_path)
+        img, _ = pad_to_square(img, 127)
         # Resize
-        input_img = lycon.resize(
-            input_img, height=self.img_size, width=self.img_size, interpolation=lycon.Interpolation.NEAREST
-        )
+        img = lycon.resize(img, height=self.img_size, width=self.img_size, interpolation=lycon.Interpolation.NEAREST)
         # Channels-first
-        input_img = np.transpose(input_img, (2, 0, 1))
+        img = np.transpose(img, (2, 0, 1))
         # As pytorch tensor
-        input_img = torch.from_numpy(input_img).float() / 255.0
+        img = torch.from_numpy(img).float() / 255.0
 
-        return img_path, input_img
+        return img_path, img
 
     def __len__(self):
         return len(self.files)
@@ -64,6 +58,7 @@ class ListDataset(Dataset):
     def __init__(self, list_path, img_size=416, training=True, augment=True):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
+
         self.label_files = [
             path.replace("images", "labels").replace(".png", ".txt").replace(".jpg", ".txt")
             for path in self.img_files
@@ -72,6 +67,8 @@ class ListDataset(Dataset):
         self.max_objects = 100
         self.is_training = training
         self.augment = augment
+
+        print(len(self.label_files))
 
     def __getitem__(self, index):
 
