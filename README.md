@@ -48,7 +48,7 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 | Darknet-53 (paper)      | Titan X  | 76       |
 | Darknet-53 (this impl.) | 1080ti   | 74       |
 
-    $ python3 detect.py --image_folder /data/samples
+    $ python3 detect.py --image_folder data/samples
 
 <p align="center"><img src="assets/giraffe.png" width="480"\></p>
 <p align="center"><img src="assets/dog.png" width="480"\></p>
