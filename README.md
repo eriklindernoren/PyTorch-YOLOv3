@@ -24,15 +24,17 @@ https://pjreddie.com/yolo/.
   * [Test](#test)
   * [Train](#train)
   * [Credit](#credit)
-  
+
 ## Installation
+##### Clone and install requirements
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
     $ sudo pip3 install -r requirements.txt
 
 ##### Download pretrained weights
     $ cd weights/
-    $ bash download_weights.sh
+    $ bash download_yolov3_weights.sh   # Downloads default YOLOv3 weights
+    $ bash download_tiny_weights.sh     # Downloads tiny YOLOv3 weights
 
 ##### Download COCO
     $ cd data/
@@ -63,12 +65,11 @@ Evaluates the model on COCO test.
 | Model                   | mAP (min. 50 IoU) |
 | ----------------------- |:-----------------:|
 | YOLOv3 608 (paper)      | 57.9              |
-| YOLOv3 608 (this impl.) | 56.7              |
+| YOLOv3 608 (this impl.) | 57.3              |
 | YOLOv3 416 (paper)      | 55.3              |
-| YOLOv3 416 (this impl.) | 54.6              |
+| YOLOv3 416 (this impl.) | 55.5              |
 
 ## Train
-Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
 $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--gradient_accumulations GRADIENT_ACCUMULATIONS]
@@ -77,8 +78,8 @@ $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
-                [--compute_map COMPUTE_MAP] [--multi_scale MULTI_SCALE]
-
+                [--compute_map COMPUTE_MAP]
+                [--multi_scale_training MULTI_SCALE_TRAINING]
 ```
 
 Log:

@@ -66,7 +66,7 @@ class ListDataset(Dataset):
         self.img_size = img_size
         self.max_objects = 100
         self.is_training = training
-        self.augment = augment
+        self.augment = augment and training
 
     def __getitem__(self, index):
 
@@ -75,6 +75,7 @@ class ListDataset(Dataset):
         # ---------
 
         img_path = self.img_files[index % len(self.img_files)].rstrip()
+
         img = lycon.load(img_path)
 
         # Handles images with less than three channels
@@ -128,8 +129,11 @@ class ListDataset(Dataset):
             if np.random.random() < 0.5:
                 img, labels = horisontal_flip(img, labels)
 
-        boxes = torch.zeros((len(labels), 6))
-        boxes[:, 1:] = labels
+        # Add dummy label if there are none
+        num_labels = 1 if labels is None else len(labels)
+        boxes = torch.zeros((num_labels, 6))
+        if labels is not None:
+            boxes[:, 1:] = labels
 
         return img_path, img, boxes
 

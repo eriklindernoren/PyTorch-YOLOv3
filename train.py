@@ -28,13 +28,13 @@ if __name__ == "__main__":
     parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
     parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config")
     parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
-    parser.add_argument("--weights_path", type=str, help="if specified starts from checkpoint model")
+    parser.add_argument("--checkpoint_model", type=str, help="if specified starts from checkpoint model")
     parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
     parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
-    parser.add_argument("--multi_scale", default=True, help="allow for multi-scale training")
+    parser.add_argument("--multi_scale_training", default=True, help="allow for multi-scale training")
     opt = parser.parse_args()
     print(opt)
 
@@ -54,11 +54,11 @@ if __name__ == "__main__":
     model.apply(weights_init_normal)
 
     # If specified we start from checkpoint
-    if opt.weights_path:
-        if opt.weights_path.endswith(".weights"):
-            model.load_darknet_weights(opt.weights_path)
+    if opt.checkpoint_model:
+        if opt.checkpoint_model.endswith(".weights"):
+            model.load_darknet_weights(opt.checkpoint_model)
         else:
-            model.load_state_dict(torch.load(opt.weights_path))
+            model.load_state_dict(torch.load(opt.checkpoint_model))
 
     model.train()
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
             batches_done = len(dataloader) * epoch + batch_i
 
             # Enables multi-scale training
-            if opt.multi_scale and batches_done % 2 == 0:
+            if opt.multi_scale_training and batches_done % 2 == 0:
                 min_size = opt.img_size - 3 * 32
                 max_size = opt.img_size + 3 * 32
                 imgs = random_resize(imgs, min_size, max_size)

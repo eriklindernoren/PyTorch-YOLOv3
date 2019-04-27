@@ -61,7 +61,9 @@ if __name__ == "__main__":
 
     # Get dataloader
     dataset = ListDataset(test_path, img_size=opt.img_size, training=False)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
+    dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu, collate_fn=dataset.collate_fn
+    )
 
     Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 
@@ -72,7 +74,7 @@ if __name__ == "__main__":
     for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
 
         # Extract labels
-        labels += [label[0] for sample in targets for label in sample]
+        labels += targets[:, 1].tolist()
 
         imgs = Variable(imgs.type(Tensor), requires_grad=False)
 
