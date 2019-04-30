@@ -18,7 +18,7 @@ def create_modules(module_defs):
     Constructs module list of layer blocks from module configuration in module_defs
     """
     hyperparams = module_defs.pop(0)
-    output_filters = [int(hyperparams["channels"])]
+    output_filters = []
     module_list = nn.ModuleList()
     for module_i, module_def in enumerate(module_defs):
         modules = nn.Sequential()
@@ -28,10 +28,11 @@ def create_modules(module_defs):
             filters = int(module_def["filters"])
             kernel_size = int(module_def["size"])
             pad = (kernel_size - 1) // 2
+            in_channels = output_filters[-1] if len(output_filters) > 0 else int(hyperparams["channels"]) 
             modules.add_module(
                 f"conv_{module_i}",
                 nn.Conv2d(
-                    in_channels=output_filters[-1],
+                    in_channels=in_channels,
                     out_channels=filters,
                     kernel_size=kernel_size,
                     stride=int(module_def["stride"]),
