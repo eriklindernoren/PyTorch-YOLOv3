@@ -125,7 +125,7 @@ $ bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-c
 ```
 
 ##### Classes
-Add class names to `data/custom/classes.names`, ordered as one class name per row.
+Add dataset class names to `data/custom/classes.names`. This file should have one row per class name.
 
 ##### Image Folder
 Move images to `data/custom/images/`
