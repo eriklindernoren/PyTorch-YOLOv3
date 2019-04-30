@@ -79,7 +79,7 @@ $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
                 [--compute_map COMPUTE_MAP]
-                [--multi_scale_training MULTI_SCALE_TRAINING]
+                [--multiscale_training MULTISCALE_TRAINING]
 ```
 
 Log:

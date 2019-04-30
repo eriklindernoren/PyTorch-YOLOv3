@@ -5,5 +5,5 @@ matplotlib
 tensorflow
 tensorboard
 terminaltables
-lycon
+pillow
 tqdm

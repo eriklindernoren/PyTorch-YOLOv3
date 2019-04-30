@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
     parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
-    parser.add_argument("--multi_scale_training", default=True, help="allow for multi-scale training")
+    parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
     opt = parser.parse_args()
     print(opt)
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     model.train()
 
     # Get dataloader
-    dataset = ListDataset(train_path)
+    dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=opt.batch_size,
@@ -96,12 +96,6 @@ if __name__ == "__main__":
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(dataloader):
             batches_done = len(dataloader) * epoch + batch_i
-
-            # Enables multi-scale training
-            if opt.multi_scale_training and batches_done % 2 == 0:
-                min_size = opt.img_size - 3 * 32
-                max_size = opt.img_size + 3 * 32
-                imgs = random_resize(imgs, min_size, max_size)
 
             imgs = Variable(imgs.to(device))
             targets = Variable(targets.to(device), requires_grad=False)
