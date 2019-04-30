@@ -77,8 +77,7 @@ if __name__ == "__main__":
 
     data_config = parse_data_config(opt.data_config_path)
     valid_path = data_config["valid"]
-
-    class_names = load_classes(opt.class_path)
+    class_names = load_classes(data_config["names"])
 
     # Initiate model
     model = Darknet(opt.model_config_path).to(device)
