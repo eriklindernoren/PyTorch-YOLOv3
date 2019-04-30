@@ -26,7 +26,7 @@ def pad_to_square(img, pad_value):
 
 
 def resize(image, size):
-    image = F.interpolate(image, size=size, mode="nearest")
+    image = F.interpolate(image.unsqueeze(0), size=size, mode="nearest").squeeze(0)
     return image
 
 
@@ -48,7 +48,7 @@ class ImageFolder(Dataset):
         # Pad to square resolution
         img, _ = pad_to_square(img, 0)
         # Resize
-        img = resize(img.unsqueeze(0), self.img_size).squeeze(0)
+        img = resize(img, self.img_size)
 
         return img_path, img
 
