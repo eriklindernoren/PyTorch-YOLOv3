@@ -24,7 +24,7 @@ from matplotlib.ticker import NullLocator
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
-    parser.add_argument("--config_path", type=str, default="config/yolov3.cfg", help="path to model config file")
+    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
     parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
     parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
     parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
@@ -36,12 +36,12 @@ if __name__ == "__main__":
     opt = parser.parse_args()
     print(opt)
 
-    cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     os.makedirs("output", exist_ok=True)
 
     # Set up model
-    model = Darknet(opt.config_path, img_size=opt.img_size)
+    model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
 
     if opt.weights_path.endswith(".weights"):
         # Load darknet weights
@@ -49,9 +49,6 @@ if __name__ == "__main__":
     else:
         # Load checkpoint weights
         model.load_state_dict(torch.load(opt.weights_path))
-
-    if cuda:
-        model.cuda()
 
     model.eval()  # Set in evaluation mode
 
@@ -64,7 +61,7 @@ if __name__ == "__main__":
 
     classes = load_classes(opt.class_path)  # Extracts class labels from file
 
-    Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
+    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
     imgs = []  # Stores image paths
     img_detections = []  # Stores detections for each image index

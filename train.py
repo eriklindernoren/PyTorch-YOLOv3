@@ -5,6 +5,7 @@ from utils.logger import *
 from utils.utils import *
 from utils.datasets import *
 from utils.parse_config import *
+from test import evaluate
 
 from terminaltables import AsciiTable
 
@@ -26,15 +27,15 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
     parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
     parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
-    parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config")
-    parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
+    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
+    parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
     parser.add_argument("--checkpoint_model", type=str, help="if specified starts from checkpoint model")
-    parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
+    parser.add_argument("--evaluation_interval", type=int, default=1, help="interval evaluations on validation set")
     parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
-    parser.add_argument("--multi_scale_training", default=True, help="allow for multi-scale training")
+    parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
     opt = parser.parse_args()
     print(opt)
 
@@ -46,24 +47,24 @@ if __name__ == "__main__":
     os.makedirs("checkpoints", exist_ok=True)
 
     # Get data configuration
-    data_config = parse_data_config(opt.data_config_path)
+    data_config = parse_data_config(opt.data_config)
     train_path = data_config["train"]
+    valid_path = data_config["valid"]
+    class_names = load_classes(data_config["names"])
 
     # Initiate model
-    model = Darknet(opt.model_config_path).to(device)
+    model = Darknet(opt.model_def).to(device)
     model.apply(weights_init_normal)
 
     # If specified we start from checkpoint
     if opt.checkpoint_model:
-        if opt.checkpoint_model.endswith(".weights"):
-            model.load_darknet_weights(opt.checkpoint_model)
-        else:
+        if opt.checkpoint_model.endswith(".pth"):
             model.load_state_dict(torch.load(opt.checkpoint_model))
-
-    model.train()
+        else:
+            model.load_darknet_weights(opt.checkpoint_model)
 
     # Get dataloader
-    dataset = ListDataset(train_path)
+    dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=opt.batch_size,
@@ -93,15 +94,10 @@ if __name__ == "__main__":
     ]
 
     for epoch in range(opt.epochs):
+        model.train()
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(dataloader):
             batches_done = len(dataloader) * epoch + batch_i
-
-            # Enables multi-scale training
-            if opt.multi_scale_training and batches_done % 2 == 0:
-                min_size = opt.img_size - 3 * 32
-                max_size = opt.img_size + 3 * 32
-                imgs = random_resize(imgs, min_size, max_size)
 
             imgs = Variable(imgs.to(device))
             targets = Variable(targets.to(device), requires_grad=False)
@@ -136,44 +132,11 @@ if __name__ == "__main__":
                     for name, metric in yolo.metrics.items():
                         if name != "grid_size":
                             tensorboard_log += [(f"{name}_{j+1}", metric)]
+                tensorboard_log += [("loss", loss.item())]
                 logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             log_str += AsciiTable(metric_table).table
-
-            global_metrics = [("Total Loss", loss.item())]
-
-            # Compute mAP every tenth iteration
-            if opt.compute_map and batches_done % 10 == 0:
-
-                # ---------------
-                #   Compute mAP
-                # ---------------
-
-                # Get NMS output
-                predictions = non_max_suppression(outputs, 0.5, 0.5)
-                # Convert target coordinates to x1y1x2y2
-                targets[:, 1:] = xywh2xyxy(targets[:, 1:])
-                # Rescale to image dimension
-                targets[:, 1:] *= opt.img_size
-                # Get batch statistics used to compute metrics
-                statistics = get_batch_statistics(predictions, targets, iou_threshold=0.5)
-                true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*statistics))]
-                # Compute metrics
-                precision, recall, AP, f1, ap_class = ap_per_class(
-                    true_positives, pred_scores, pred_labels, list(range(int(data_config["classes"])))
-                )
-                global_metrics += [
-                    ("F1", f1.mean()),
-                    ("Recall", recall.mean()),
-                    ("Precision", precision.mean()),
-                    ("mAP", AP.mean()),
-                ]
-
-            # Log global metrics to Tensorboard
-            logger.list_of_scalars_summary(global_metrics, batches_done)
-
-            # Print mAP and other global metrics
-            log_str += "\n" + ", ".join([f"{metric_name} {metric:f}" for metric_name, metric in global_metrics])
+            log_str += f"\nTotal loss {loss.item()}"
 
             # Determine approximate time left for epoch
             epoch_batches_left = len(dataloader) - (batch_i + 1)
@@ -183,6 +146,33 @@ if __name__ == "__main__":
             print(log_str)
 
             model.seen += imgs.size(0)
+
+        if epoch % opt.evaluation_interval == 0:
+            print("\n---- Evaluating Model ----")
+            # Evaluate the model on the validation set
+            precision, recall, AP, f1, ap_class = evaluate(
+                model,
+                path=valid_path,
+                iou_thres=0.5,
+                conf_thres=0.5,
+                nms_thres=0.5,
+                img_size=opt.img_size,
+                batch_size=8,
+            )
+            evaluation_metrics = [
+                ("val_precision", precision.mean()),
+                ("val_recall", recall.mean()),
+                ("val_mAP", AP.mean()),
+                ("val_f1", f1.mean()),
+            ]
+            logger.list_of_scalars_summary(evaluation_metrics, epoch)
+
+            # Print class APs and mAP
+            ap_table = [["Index", "Class name", "AP"]]
+            for i, c in enumerate(ap_class):
+                ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+            print(AsciiTable(ap_table).table)
+            print(f"---- mAP {AP.mean()}")
 
         if epoch % opt.checkpoint_interval == 0:
             torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)

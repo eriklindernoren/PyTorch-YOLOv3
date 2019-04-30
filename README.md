@@ -33,8 +33,7 @@ https://pjreddie.com/yolo/.
 
 ##### Download pretrained weights
     $ cd weights/
-    $ bash download_yolov3_weights.sh   # Downloads default YOLOv3 weights
-    $ bash download_tiny_weights.sh     # Downloads tiny YOLOv3 weights
+    $ bash download_weights.sh
 
 ##### Download COCO
     $ cd data/
@@ -73,13 +72,12 @@ Evaluates the model on COCO test.
 ```
 $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--gradient_accumulations GRADIENT_ACCUMULATIONS]
-                [--model_config_path MODEL_CONFIG_PATH]
-                [--data_config_path DATA_CONFIG_PATH]
+                [--model_def MODEL_DEF] [--data_config DATA_CONFIG]
                 [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
                 [--compute_map COMPUTE_MAP]
-                [--multi_scale_training MULTI_SCALE_TRAINING]
+                [--multiscale_training MULTISCALE_TRAINING]
 ```
 
 Log:
@@ -115,6 +113,38 @@ Track training progress in Tensorboard:
 ```
 $ tensorboard --logdir='logs' --port=6006
 ```
+
+### Train on Custom Dataset
+
+#### Custom model
+Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in the dataset.
+
+```
+$ cd config/                                # Navigate to config dir
+$ bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-custom.cfg'
+```
+
+#### Classes
+Add dataset class names to [`data/custom/classes.names`](https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/custom-training/data/custom/classes.names). This file should have one row per class name.
+
+#### Image Folder
+Move images to [`data/custom/images/`](https://github.com/eriklindernoren/PyTorch-YOLOv3/tree/custom-training/data/custom/images)
+
+#### Annotation Folder
+Move annotations to [`data/custom/labels/`](https://github.com/eriklindernoren/PyTorch-YOLOv3/tree/custom-training/data/custom/labels). The dataloader expects that the annotation file corresponding to the image `data/custom/images/train.jpg` has the path `data/custom/labels/train.txt`. The structure of each annotation file should be rows of bounding boxes, defined as `label_idx x_center y_center width height`. The coordinates should be scaled `[0, 1]`, and the `label_idx` should be zero-indexed and correspond to the row number of the class name in `data/custom/classes.names`.
+
+#### Define Train and Validation Sets
+In [`data/custom/train.txt`](https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/custom-training/data/custom/train.txt) and [`data/custom/valid.txt`](https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/custom-training/data/custom/valid.txt), add paths to images that will be used as train and validation data respectively.
+
+#### Train
+To train on the custom dataset run:
+
+```
+$ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data
+```
+
+Optional: Add `--checkpoint_model weights/darknet53.conv.74` to train using a backend pretrained on COCO.
+
 
 ## Credit
 ```
