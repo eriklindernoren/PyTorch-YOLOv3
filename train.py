@@ -123,7 +123,7 @@ if __name__ == "__main__":
                 formats = {m: "%.6f" for m in metrics}
                 formats["grid_size"] = "%2d"
                 formats["cls_acc"] = "%.2f%%"
-                row_metrics = [formats[metric] % yolo.metrics[metric] for yolo in model.yolo_layers]
+                row_metrics = [formats[metric] % yolo.metrics.get(metric, 0) for yolo in model.yolo_layers]
                 metric_table += [[metric, *row_metrics]]
 
                 # Tensorboard logging

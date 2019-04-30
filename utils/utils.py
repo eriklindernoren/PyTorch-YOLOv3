@@ -146,9 +146,6 @@ def get_batch_statistics(outputs, targets, iou_threshold):
     """ Compute true positives, predicted scores and predicted labels per sample """
     batch_metrics = []
     for sample_i in range(len(outputs)):
-        annotations = targets[targets[:, 0] == sample_i][:, 1:]
-
-        target_labels = annotations[:, 0] if len(annotations) else []
 
         if outputs[sample_i] is None:
             continue
@@ -159,6 +156,9 @@ def get_batch_statistics(outputs, targets, iou_threshold):
         pred_labels = output[:, -1]
 
         true_positives = np.zeros(pred_boxes.shape[0])
+
+        annotations = targets[targets[:, 0] == sample_i][:, 1:]
+        target_labels = annotations[:, 0] if len(annotations) else []
         if len(annotations):
             detected_boxes = []
             target_boxes = annotations[:, 1:]
@@ -317,4 +317,5 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     class_mask[b, best_n, gj, gi] = (pred_cls[b, best_n, gj, gi].argmax(-1) == target_labels).float()
     iou_scores[b, best_n, gj, gi] = bbox_iou(pred_boxes[b, best_n, gj, gi], target_boxes, x1y1x2y2=False)
 
-    return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls
+    tconf = obj_mask.float()
+    return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf
