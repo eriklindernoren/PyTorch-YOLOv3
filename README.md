@@ -133,14 +133,14 @@ Add class names to `data/custom/classes.names`. One class name per row.
 Move images to `data/custom/images/`
 
 ##### Annotations
-Move annotations to `data/custom/labels/`. The filepath of annotations corresponding to image `data/custom/images/train.jpg` will be contained in the file `data/custom/labels/train.txt`. The structure of each annotation file will be rows of defined bounding boxes for the corresponding image. The structure of each row is `label_idx x y w h`, where the coordinates are scaled `[0, 1]`. The `label_idx` corresponds to that row number of that label in `data/custom/classes.names`.
+Move annotations to `data/custom/labels/`. The dataloader expects that the annotation file corresponding to the image `data/custom/images/train.jpg` has the path `data/custom/labels/train.txt`. The structure of each annotation file should be rows of defined bounding boxes for the corresponding image. The structure of each row should be `label_idx x y w h`, where the coordinates are scaled `[0, 1]`. The `label_idx` corresponds to the row number of the corresponding label in `data/custom/classes.names`.
 
 #### Train
 To train on the custom dataset run:
 
 ```
 $ python3 train.py --model_config_path config/yolov3-custom.cfg --data_config_path config/custom.data
-``` 
+```
 
 
 ## Credit
