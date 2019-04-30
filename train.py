@@ -58,10 +58,10 @@ if __name__ == "__main__":
 
     # If specified we start from checkpoint
     if opt.checkpoint_model:
-        if opt.checkpoint_model.endswith(".weights"):
-            model.load_darknet_weights(opt.checkpoint_model)
-        else:
+        if opt.checkpoint_model.endswith(".pth"):
             model.load_state_dict(torch.load(opt.checkpoint_model))
+        else:
+            model.load_darknet_weights(opt.checkpoint_model)
 
     # Get dataloader
     dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)

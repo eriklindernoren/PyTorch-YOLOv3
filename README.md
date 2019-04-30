@@ -33,8 +33,7 @@ https://pjreddie.com/yolo/.
 
 ##### Download pretrained weights
     $ cd weights/
-    $ bash download_yolov3_weights.sh   # Downloads default YOLOv3 weights
-    $ bash download_tiny_weights.sh     # Downloads tiny YOLOv3 weights
+    $ bash download_weights.sh
 
 ##### Download COCO
     $ cd data/
@@ -143,6 +142,8 @@ To train on the custom dataset run:
 ```
 $ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data
 ```
+
+Optional: Add `--checkpoint_model weights/darknet53.conv.74` to train using a backend pretrained on COCO.
 
 
 ## Credit
