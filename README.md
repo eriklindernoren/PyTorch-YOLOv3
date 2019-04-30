@@ -116,9 +116,9 @@ Track training progress in Tensorboard:
 $ tensorboard --logdir='logs' --port=6006
 ```
 
-### Custom Dataset
+### Train on Custom Dataset
 
-##### Custom model config
+#### Custom model config
 Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in the dataset.
 
 ```
@@ -126,13 +126,13 @@ $ cd config/                                # Navigate to config dir
 $ bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-custom.cfg'
 ```
 
-##### Images
-Move images to `data/custom/images/`
+#### Images
+Move images to `data/custom/images/`.
 
-##### Annotations
-Move annotations to `data/custom/labels/`. The filepath of annotations corresponding to image `data/custom/images/train.jpg` will be contained in the file `data/custom/labels/train.txt`. The structure of each annotation file will be rows of defined bounding boxes for the corresponding image. The structure of each row is `label_idx x y w h`, where the coordinates are scaled `[0, 1]`.
+#### Annotations
+Move annotations to `data/custom/labels/`. The filepath of annotations corresponding to the image `data/custom/images/train.jpg` should be contained in the file `data/custom/labels/train.txt`. The structure of each annotation file should be rows of defined bounding boxes for the corresponding image. The structure of each row is `label_idx x y w h`, where the coordinates are scaled `[0, 1]`.
 
-##### Train
+#### Train
 To train on the custom dataset run:
 
 ```
