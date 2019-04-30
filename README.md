@@ -73,8 +73,7 @@ Evaluates the model on COCO test.
 ```
 $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--gradient_accumulations GRADIENT_ACCUMULATIONS]
-                [--model_config_path MODEL_CONFIG_PATH]
-                [--data_config_path DATA_CONFIG_PATH]
+                [--model_def MODEL_DEF] [--data_config DATA_CONFIG]
                 [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
@@ -136,13 +135,13 @@ Move images to `data/custom/images/`
 Move annotations to `data/custom/labels/`. The dataloader expects that the annotation file corresponding to the image `data/custom/images/train.jpg` has the path `data/custom/labels/train.txt`. The structure of each annotation file should be rows of bounding boxes defined as `label_idx x y w h`. The coordinates should be scaled `[0, 1]`, and the `label_idx` should correspond to the row number of the class name in `data/custom/classes.names`.
 
 ##### Define Train and Validation Sets
-In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that will be used as train and validation data respectively. 
+In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that will be used as train and validation data respectively.
 
 #### Train
 To train on the custom dataset run:
 
 ```
-$ python3 train.py --model_config_path config/yolov3-custom.cfg --data_config_path config/custom.data
+$ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data
 ```
 
 
