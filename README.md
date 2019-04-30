@@ -118,7 +118,7 @@ $ tensorboard --logdir='logs' --port=6006
 
 ### Train on Custom Dataset
 
-#### Custom model config
+#### Custom model
 Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in the dataset.
 
 ```
@@ -127,13 +127,16 @@ $ bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-c
 ```
 
 ##### Classes
-Add class names to `data/custom/classes.names`. One class name per row.
+Add class names to `data/custom/classes.names`, ordered as one class name per row.
 
-##### Images
+##### Image Folder
 Move images to `data/custom/images/`
 
-##### Annotations
-Move annotations to `data/custom/labels/`. The dataloader expects that the annotation file corresponding to the image `data/custom/images/train.jpg` has the path `data/custom/labels/train.txt`. The structure of each annotation file should be rows of defined bounding boxes for the corresponding image. The structure of each row should be `label_idx x y w h`, where the coordinates are scaled `[0, 1]`. The `label_idx` corresponds to the row number of the corresponding label in `data/custom/classes.names`.
+##### Annotation Folder
+Move annotations to `data/custom/labels/`. The dataloader expects that the annotation file corresponding to the image `data/custom/images/train.jpg` has the path `data/custom/labels/train.txt`. The structure of each annotation file should be rows of bounding boxes defined as `label_idx x y w h`. The coordinates should be scaled `[0, 1]`, and the `label_idx` should correspond to the row number of the class name in `data/custom/classes.names`.
+
+##### Define Train and Validation Sets
+In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that will be used as train and validation data respectively. 
 
 #### Train
 To train on the custom dataset run:
