@@ -19,12 +19,49 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
+
+def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
+    model.eval()
+
+    # Get dataloader
+    dataset = ListDataset(path, img_size=img_size, augment=False, multiscale=False)
+    dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=False, num_workers=1, collate_fn=dataset.collate_fn
+    )
+
+    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+
+    labels = []
+    sample_metrics = []  # List of tuples (TP, confs, pred)
+    for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
+
+        # Extract labels
+        labels += targets[:, 1].tolist()
+
+        # Rescale target
+        targets[:, 2:] = xywh2xyxy(targets[:, 2:])
+        targets[:, 2:] *= img_size
+
+        imgs = Variable(imgs.type(Tensor), requires_grad=False)
+
+        with torch.no_grad():
+            outputs = model(imgs)
+            outputs = non_max_suppression(outputs, conf_thres=conf_thres, nms_thres=nms_thres)
+
+        sample_metrics += get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
+
+    # Concatenate sample statistics
+    true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
+
+    precision, recall, AP, f1, ap_class = ap_per_class(true_positives, pred_scores, pred_labels, labels)
+
+    return precision, recall, AP, f1, ap_class
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
-    parser.add_argument(
-        "--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file"
-    )
+    parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config")
     parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
     parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
     parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
@@ -36,15 +73,15 @@ if __name__ == "__main__":
     opt = parser.parse_args()
     print(opt)
 
-    cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Get data configuration
     data_config = parse_data_config(opt.data_config_path)
-    test_path = data_config["valid"]
-    num_classes = int(data_config["classes"])
+    valid_path = data_config["valid"]
+
+    class_names = load_classes(opt.class_path)
 
     # Initiate model
-    model = Darknet(opt.model_config_path)
+    model = Darknet(opt.model_config_path).to(device)
     if opt.weights_path.endswith(".weights"):
         # Load darknet weights
         model.load_darknet_weights(opt.weights_path)
@@ -52,42 +89,17 @@ if __name__ == "__main__":
         # Load checkpoint weights
         model.load_state_dict(torch.load(opt.weights_path))
 
-    if cuda:
-        model = model.cuda()
-
-    model.eval()
-
-    class_names = load_classes(opt.class_path)  # Extracts class labels from file
-
-    # Get dataloader
-    dataset = ListDataset(test_path, img_size=opt.img_size, training=False)
-    dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu, collate_fn=dataset.collate_fn
-    )
-
-    Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
-
     print("Compute mAP...")
 
-    labels = []
-    sample_metrics = []  # List of tuples (TP, confs, pred)
-    for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
-
-        # Extract labels
-        labels += targets[:, 1].tolist()
-
-        imgs = Variable(imgs.type(Tensor), requires_grad=False)
-
-        with torch.no_grad():
-            outputs = model(imgs)
-            outputs = non_max_suppression(outputs, conf_thres=opt.conf_thres, nms_thres=opt.nms_thres)
-
-        sample_metrics += get_batch_statistics(outputs, targets, iou_threshold=opt.iou_thres)
-
-    # Concatenate sample statistics
-    true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
-
-    precision, recall, AP, f1, ap_class = ap_per_class(true_positives, pred_scores, pred_labels, labels)
+    precision, recall, AP, f1, ap_class = evaluate(
+        model,
+        path=valid_path,
+        iou_thres=opt.iou_thres,
+        conf_thres=opt.conf_thres,
+        nms_thres=opt.nms_thres,
+        img_size=opt.img_size,
+        batch_size=8,
+    )
 
     print("Average Precisions:")
     for i, c in enumerate(ap_class):

@@ -79,7 +79,7 @@ $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
                 [--compute_map COMPUTE_MAP]
-                [--multi_scale_training MULTI_SCALE_TRAINING]
+                [--multiscale_training MULTISCALE_TRAINING]
 ```
 
 Log:
@@ -126,11 +126,14 @@ $ cd config/                                # Navigate to config dir
 $ bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-custom.cfg'
 ```
 
+##### Classes
+Add class names to `data/custom/classes.names`. One class name per row.
+
 ##### Images
 Move images to `data/custom/images/`
 
 ##### Annotations
-Move annotations to `data/custom/labels/`. The filepath of annotations corresponding to image `data/custom/images/train.jpg` will be contained in the file `data/custom/labels/train.txt`. The structure of each annotation file will be rows of defined bounding boxes for the corresponding image. The structure of each row is `label_idx x y w h`, where the coordinates are scaled `[0, 1]`.
+Move annotations to `data/custom/labels/`. The filepath of annotations corresponding to image `data/custom/images/train.jpg` will be contained in the file `data/custom/labels/train.txt`. The structure of each annotation file will be rows of defined bounding boxes for the corresponding image. The structure of each row is `label_idx x y w h`, where the coordinates are scaled `[0, 1]`. The `label_idx` corresponds to that row number of that label in `data/custom/classes.names`.
 
 ##### Train
 To train on the custom dataset run:
