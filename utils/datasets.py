@@ -146,7 +146,7 @@ class ListDataset(Dataset):
         labels = torch.cat(labels, 0)
         # If multiscale-training : Select new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
-            self.img_size = random.sample(list(range(self.min_size, self.max_size + 1, 32)), 1)[0]
+            self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
         imgs = torch.stack([resize(img, self.img_size) for img in imgs])
         self.batch_count += 1
         return paths, imgs, labels
