@@ -72,6 +72,7 @@ class ListDataset(Dataset):
         self.multiscale = multiscale
         self.min_size = self.img_size - 3 * 32
         self.max_size = self.img_size + 3 * 32
+        self.batch_count = 0
 
     def __getitem__(self, index):
 
@@ -143,12 +144,11 @@ class ListDataset(Dataset):
         for i, boxes in enumerate(labels):
             boxes[:, 0] = i
         labels = torch.cat(labels, 0)
-        # Resize images to target shape
-        if self.multiscale:
-            img_size = random.sample(list(range(self.min_size, self.max_size + 1, 32)), 1)[0]
-        else:
-            img_size = self.img_size
-        imgs = torch.stack([resize(img, img_size) for img in imgs])
+        # If multiscale-training : Select new image size every tenth batch
+        if self.multiscale and self.batch_count % 10 == 0:
+            self.img_size = random.sample(list(range(self.min_size, self.max_size + 1, 32)), 1)[0]
+        imgs = torch.stack([resize(img, self.img_size) for img in imgs])
+        self.batch_count += 1
         return paths, imgs, labels
 
     def __len__(self):
