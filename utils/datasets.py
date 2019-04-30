@@ -57,7 +57,7 @@ class ImageFolder(Dataset):
 
 
 class ListDataset(Dataset):
-    def __init__(self, list_path, img_size=416, training=True, augment=True, multiscale=True):
+    def __init__(self, list_path, img_size=416, augment=True, multiscale=True):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
 
@@ -67,7 +67,6 @@ class ListDataset(Dataset):
         ]
         self.img_size = img_size
         self.max_objects = 100
-        self.is_training = training
         self.augment = augment and training
         self.multiscale = multiscale
         self.min_size = self.img_size - 3 * 32
@@ -114,19 +113,11 @@ class ListDataset(Dataset):
             y1 += pad[2]
             x2 += pad[1]
             y2 += pad[3]
-
-            if self.is_training:
-                # Returns (x, y, w, h)
-                labels[:, 1] = ((x1 + x2) / 2) / padded_w
-                labels[:, 2] = ((y1 + y2) / 2) / padded_h
-                labels[:, 3] *= w / padded_w
-                labels[:, 4] *= h / padded_h
-            else:
-                # Returns (x1, y1, x2, y2)
-                labels[:, 1] = x1 * (self.img_size / padded_w)
-                labels[:, 2] = y1 * (self.img_size / padded_h)
-                labels[:, 3] = x2 * (self.img_size / padded_w)
-                labels[:, 4] = y2 * (self.img_size / padded_h)
+            # Returns (x, y, w, h)
+            labels[:, 1] = ((x1 + x2) / 2) / padded_w
+            labels[:, 2] = ((y1 + y2) / 2) / padded_h
+            labels[:, 3] *= w / padded_w
+            labels[:, 4] *= h / padded_h
 
         # Apply augmentations
         if self.augment:

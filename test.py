@@ -19,55 +19,17 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
-    parser.add_argument(
-        "--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config file"
-    )
-    parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
-    parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
-    parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
-    parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
-    parser.add_argument("--conf_thres", type=float, default=0.001, help="object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.5, help="iou thresshold for non-maximum suppression")
-    parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
-    opt = parser.parse_args()
-    print(opt)
 
-    cuda = torch.cuda.is_available()
-
-    # Get data configuration
-    data_config = parse_data_config(opt.data_config_path)
-    test_path = data_config["valid"]
-    num_classes = int(data_config["classes"])
-
-    # Initiate model
-    model = Darknet(opt.model_config_path)
-    if opt.weights_path.endswith(".weights"):
-        # Load darknet weights
-        model.load_darknet_weights(opt.weights_path)
-    else:
-        # Load checkpoint weights
-        model.load_state_dict(torch.load(opt.weights_path))
-
-    if cuda:
-        model = model.cuda()
-
+def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
     model.eval()
 
-    class_names = load_classes(opt.class_path)  # Extracts class labels from file
-
     # Get dataloader
-    dataset = ListDataset(test_path, img_size=opt.img_size, training=False)
+    dataset = ListDataset(path, img_size=opt.img_size, augment=False, multiscale=False)
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu, collate_fn=dataset.collate_fn
     )
 
-    Tensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
-
-    print("Compute mAP...")
+    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
@@ -75,6 +37,10 @@ if __name__ == "__main__":
 
         # Extract labels
         labels += targets[:, 1].tolist()
+
+        # Rescale target
+        targets[:, 2:] = xywh2xyxy(targets[:, 2:])
+        targets[:, 2:] *= opt.img_size
 
         imgs = Variable(imgs.type(Tensor), requires_grad=False)
 
@@ -88,6 +54,52 @@ if __name__ == "__main__":
     true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
 
     precision, recall, AP, f1, ap_class = ap_per_class(true_positives, pred_scores, pred_labels, labels)
+
+    return precision, recall, AP, f1, ap_class
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
+    parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config")
+    parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
+    parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
+    parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
+    parser.add_argument("--iou_thres", type=float, default=0.5, help="iou threshold required to qualify as detected")
+    parser.add_argument("--conf_thres", type=float, default=0.001, help="object confidence threshold")
+    parser.add_argument("--nms_thres", type=float, default=0.5, help="iou thresshold for non-maximum suppression")
+    parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
+    parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
+    opt = parser.parse_args()
+    print(opt)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    data_config = parse_data_config(opt.data_config_path)
+    valid_path = data_config["valid"]
+
+    class_names = load_classes(opt.class_path)
+
+    # Initiate model
+    model = Darknet(opt.model_config_path).to(device)
+    if opt.weights_path.endswith(".weights"):
+        # Load darknet weights
+        model.load_darknet_weights(opt.weights_path)
+    else:
+        # Load checkpoint weights
+        model.load_state_dict(torch.load(opt.weights_path))
+
+    print("Compute mAP...")
+
+    precision, recall, AP, f1, ap_class = evaluate(
+        model,
+        path=valid_path,
+        iou_thres=opt.iou_thres,
+        conf_thres=opt.conf_thres,
+        nms_thres=opt.nms_thres,
+        img_size=opt.img_size,
+        batch_size=8,
+    )
 
     print("Average Precisions:")
     for i, c in enumerate(ap_class):
