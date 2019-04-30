@@ -15,8 +15,7 @@ def pad_to_square(img, pad_value):
     c, h, w = img.shape
     dim_diff = np.abs(h - w)
     # (upper / left) padding and (lower / right) padding
-    pad1 = dim_diff // 2
-    pad2 = dim_diff - pad1
+    pad1, pad2 = dim_diff // 2, dim_diff - dim_diff // 2
     # Determine padding
     pad = (0, 0, pad1, pad2) if h <= w else (pad1, pad2, 0, 0)
     # Add padding
@@ -67,7 +66,7 @@ class ListDataset(Dataset):
         ]
         self.img_size = img_size
         self.max_objects = 100
-        self.augment = augment and training
+        self.augment = augment
         self.multiscale = multiscale
         self.min_size = self.img_size - 3 * 32
         self.max_size = self.img_size + 3 * 32
@@ -84,7 +83,7 @@ class ListDataset(Dataset):
         # Extract image as PyTorch tensor
         img = transforms.ToTensor()(Image.open(img_path))
 
-        # Handles images with less than three channels
+        # Handle images with less than three channels
         if len(img.shape) != 3:
             img = img.unsqueeze(0)
             img = img.expand((3, img.shape[1:]))
@@ -135,9 +134,10 @@ class ListDataset(Dataset):
         for i, boxes in enumerate(labels):
             boxes[:, 0] = i
         labels = torch.cat(labels, 0)
-        # If multiscale-training : Select new image size every tenth batch
+        # Selects new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
             self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
+        # Resize images to input shape
         imgs = torch.stack([resize(img, self.img_size) for img in imgs])
         self.batch_count += 1
         return paths, imgs, labels
