@@ -152,9 +152,9 @@ if __name__ == "__main__":
                 # Get NMS output
                 predictions = non_max_suppression(outputs, 0.5, 0.5)
                 # Convert target coordinates to x1y1x2y2
-                targets[:, :, 1:] = xywh2xyxy(targets[:, :, 1:])
+                targets[:, 1:] = xywh2xyxy(targets[:, 1:])
                 # Rescale to image dimension
-                targets[:, :, 1:] *= opt.img_size
+                targets[:, 1:] *= opt.img_size
                 # Get batch statistics used to compute metrics
                 statistics = get_batch_statistics(predictions, targets, iou_threshold=0.5)
                 true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*statistics))]
