@@ -29,7 +29,6 @@ if __name__ == "__main__":
     parser.add_argument("--model_config_path", type=str, default="config/yolov3.cfg", help="path to model config")
     parser.add_argument("--data_config_path", type=str, default="config/coco.data", help="path to data config file")
     parser.add_argument("--checkpoint_model", type=str, help="if specified starts from checkpoint model")
-    parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
@@ -48,6 +47,7 @@ if __name__ == "__main__":
     # Get data configuration
     data_config = parse_data_config(opt.data_config_path)
     train_path = data_config["train"]
+    class_path = data_config["names"]
 
     # Initiate model
     model = Darknet(opt.model_config_path).to(device)
