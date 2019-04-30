@@ -168,11 +168,12 @@ if __name__ == "__main__":
             logger.list_of_scalars_summary(evaluation_metrics, epoch)
 
             # Print class APs and mAP
-            print(AsciiTable([["Average Precisions"]]).table)
+            print("\n" + AsciiTable([["Average Precisions"]]).table)
+            ap_table = [["Index", "Class name", "AP"]]
             for i, c in enumerate(ap_class):
-                print(f"+ Class '{c}' ({class_names[c]}) - AP: {AP[i]}")
-
-            print(f"mAP: {AP.mean()}")
+                ap_table += [[c, class_names[c], AP[i]]]
+            print(AsciiTable(ap_table).table)
+            print(AsciiTable([["mAP"], [AP.mean()]]).table)
 
         if epoch % opt.checkpoint_interval == 0:
             torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)
