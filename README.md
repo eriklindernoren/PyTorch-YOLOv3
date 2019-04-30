@@ -73,9 +73,10 @@ Evaluates the model on COCO test.
 $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--gradient_accumulations GRADIENT_ACCUMULATIONS]
                 [--model_def MODEL_DEF] [--data_config DATA_CONFIG]
-                [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
-                [--n_cpu N_CPU] [--img_size IMG_SIZE]
+                [--pretrained_weights PRETRAINED_WEIGHTS] [--n_cpu N_CPU]
+                [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
+                [--evaluation_interval EVALUATION_INTERVAL]
                 [--compute_map COMPUTE_MAP]
                 [--multiscale_training MULTISCALE_TRAINING]
 ```
@@ -143,7 +144,7 @@ To train on the custom dataset run:
 $ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data
 ```
 
-Add `--checkpoint_model weights/darknet53.conv.74` to train using a backend pretrained on COCO.
+Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on COCO.
 
 
 ## Credit
