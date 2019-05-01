@@ -57,7 +57,7 @@ class ImageFolder(Dataset):
 
 
 class ListDataset(Dataset):
-    def __init__(self, list_path, img_size=416, augment=True, multiscale=True):
+    def __init__(self, list_path, img_size=416, augment=True, multiscale=True, normalized_labels=True):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
 
@@ -69,6 +69,7 @@ class ListDataset(Dataset):
         self.max_objects = 100
         self.augment = augment
         self.multiscale = multiscale
+        self.normalized_labels = normalized_labels
         self.min_size = self.img_size - 3 * 32
         self.max_size = self.img_size + 3 * 32
         self.batch_count = 0
@@ -90,6 +91,7 @@ class ListDataset(Dataset):
             img = img.expand((3, img.shape[1:]))
 
         _, h, w = img.shape
+        h_factor, w_factor = (h, w) if self.normalized_labels else (1, 1)
         # Pad to square resolution
         img, pad = pad_to_square(img, 0)
         _, padded_h, padded_w = img.shape
@@ -104,10 +106,10 @@ class ListDataset(Dataset):
         if os.path.exists(label_path):
             boxes = torch.from_numpy(np.loadtxt(label_path).reshape(-1, 5))
             # Extract coordinates for unpadded + unscaled image
-            x1 = w * (boxes[:, 1] - boxes[:, 3] / 2)
-            y1 = h * (boxes[:, 2] - boxes[:, 4] / 2)
-            x2 = w * (boxes[:, 1] + boxes[:, 3] / 2)
-            y2 = h * (boxes[:, 2] + boxes[:, 4] / 2)
+            x1 = w_factor * (boxes[:, 1] - boxes[:, 3] / 2)
+            y1 = h_factor * (boxes[:, 2] - boxes[:, 4] / 2)
+            x2 = w_factor * (boxes[:, 1] + boxes[:, 3] / 2)
+            y2 = h_factor * (boxes[:, 2] + boxes[:, 4] / 2)
             # Adjust for added padding
             x1 += pad[0]
             y1 += pad[2]
@@ -116,8 +118,8 @@ class ListDataset(Dataset):
             # Returns (x, y, w, h)
             boxes[:, 1] = ((x1 + x2) / 2) / padded_w
             boxes[:, 2] = ((y1 + y2) / 2) / padded_h
-            boxes[:, 3] *= w / padded_w
-            boxes[:, 4] *= h / padded_h
+            boxes[:, 3] *= w_factor / padded_w
+            boxes[:, 4] *= h_factor / padded_h
 
             targets = torch.zeros((len(boxes), 6))
             targets[:, 1:] = boxes
