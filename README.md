@@ -1,21 +1,5 @@
 # PyTorch-YOLOv3
-## YOLOv3: An Incremental Improvement
-_Joseph Redmon, Ali Farhadi_ <br>
-
-**Abstract** <br>
-We present some updates to YOLO! We made a bunch
-of little design changes to make it better. We also trained
-this new network that’s pretty swell. It’s a little bigger than
-last time but more accurate. It’s still fast though, don’t
-worry. At 320 × 320 YOLOv3 runs in 22 ms at 28.2 mAP,
-as accurate as SSD but three times faster. When we look
-at the old .5 IOU mAP detection metric YOLOv3 is quite
-good. It achieves 57.9 AP50 in 51 ms on a Titan X, compared
-to 57.5 AP50 in 198 ms by RetinaNet, similar performance
-but 3.8× faster. As always, all the code is online at
-https://pjreddie.com/yolo/.
-
-[[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Original Implementation]](https://github.com/pjreddie/darknet)
+A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
 ## Installation
 ##### Clone and install requirements
@@ -30,6 +14,18 @@ https://pjreddie.com/yolo/.
 ##### Download COCO
     $ cd data/
     $ bash get_coco_dataset.sh
+    
+## Test
+Evaluates the model on COCO test.
+
+    $ python3 test.py --weights_path weights/yolov3.weights
+
+| Model                   | mAP (min. 50 IoU) |
+| ----------------------- |:-----------------:|
+| YOLOv3 608 (paper)      | 57.9              |
+| YOLOv3 608 (this impl.) | 57.3              |
+| YOLOv3 416 (paper)      | 55.3              |
+| YOLOv3 416 (this impl.) | 55.5              |
 
 ## Inference
 Uses pretrained weights to make predictions on images. Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement marked shows the inference time of this implementation on my 1080ti card.
@@ -48,18 +44,6 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 <p align="center"><img src="assets/traffic.png" width="480"\></p>
 <p align="center"><img src="assets/messi.png" width="480"\></p>
 
-## Test
-Evaluates the model on COCO test.
-
-    $ python3 test.py --weights_path weights/yolov3.weights
-
-| Model                   | mAP (min. 50 IoU) |
-| ----------------------- |:-----------------:|
-| YOLOv3 608 (paper)      | 57.9              |
-| YOLOv3 608 (this impl.) | 57.3              |
-| YOLOv3 416 (paper)      | 55.3              |
-| YOLOv3 416 (this impl.) | 55.5              |
-
 ## Train
 ```
 $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
@@ -73,7 +57,13 @@ $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
                 [--multiscale_training MULTISCALE_TRAINING]
 ```
 
-Log:
+#### Example (COCO)
+To train on COCO using a Darknet-53 backend pretrained on ImageNet run: 
+```
+$ python3 train.py --data_config config/coco.data  --pretrained_weights weights/darknet53.conv.74
+```
+
+#### Training log
 ```
 ---- [Epoch 7/100, Batch 7300/14658] ----
 +------------+--------------+--------------+--------------+
@@ -98,6 +88,7 @@ Total Loss 4.429395
 ---- ETA 0:35:48.821929
 ```
 
+#### Tensorboard
 Track training progress in Tensorboard:
 * Initialize training
 * Run the command below
@@ -136,10 +127,29 @@ To train on the custom dataset run:
 $ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data
 ```
 
-Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on COCO.
+Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
 
 
 ## Credit
+
+### YOLOv3: An Incremental Improvement
+_Joseph Redmon, Ali Farhadi_ <br>
+
+**Abstract** <br>
+We present some updates to YOLO! We made a bunch
+of little design changes to make it better. We also trained
+this new network that’s pretty swell. It’s a little bigger than
+last time but more accurate. It’s still fast though, don’t
+worry. At 320 × 320 YOLOv3 runs in 22 ms at 28.2 mAP,
+as accurate as SSD but three times faster. When we look
+at the old .5 IOU mAP detection metric YOLOv3 is quite
+good. It achieves 57.9 AP50 in 51 ms on a Titan X, compared
+to 57.5 AP50 in 198 ms by RetinaNet, similar performance
+but 3.8× faster. As always, all the code is online at
+https://pjreddie.com/yolo/.
+
+[[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Project Webpage]](https://pjreddie.com/darknet/yolo/) [[Authors' Implementation]](https://github.com/pjreddie/darknet)
+
 ```
 @article{yolov3,
   title={YOLOv3: An Incremental Improvement},
