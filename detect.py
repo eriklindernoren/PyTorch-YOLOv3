@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    os.makedirs("output", exist_ok=True)
+    os.makedirs("assets", exist_ok=True)
 
     # Set up model
     model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
@@ -136,5 +136,5 @@ if __name__ == "__main__":
         plt.axis("off")
         plt.gca().xaxis.set_major_locator(NullLocator())
         plt.gca().yaxis.set_major_locator(NullLocator())
-        plt.savefig("output/%d.png" % (img_i), bbox_inches="tight", pad_inches=0.0)
+        plt.savefig("assets/%d.png" % (img_i), bbox_inches="tight", pad_inches=0.0)
         plt.close()
