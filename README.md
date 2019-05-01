@@ -1,5 +1,5 @@
 # PyTorch-YOLOv3
-### YOLOv3: An Incremental Improvement
+## YOLOv3: An Incremental Improvement
 _Joseph Redmon, Ali Farhadi_ <br>
 
 **Abstract** <br>
@@ -16,14 +16,6 @@ but 3.8× faster. As always, all the code is online at
 https://pjreddie.com/yolo/.
 
 [[Paper]](https://pjreddie.com/media/files/papers/YOLOv3.pdf) [[Original Implementation]](https://github.com/pjreddie/darknet)
-
-## Table of Contents
-- [PyTorch-YOLOv3](#pytorch-yolov3)
-  * [Installation](#installation)
-  * [Inference](#inference)
-  * [Test](#test)
-  * [Train](#train)
-  * [Credit](#credit)
 
 ## Installation
 ##### Clone and install requirements
@@ -115,7 +107,7 @@ Track training progress in Tensorboard:
 $ tensorboard --logdir='logs' --port=6006
 ```
 
-### Train on Custom Dataset
+## Train on Custom Dataset
 
 #### Custom model
 Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in your dataset.
