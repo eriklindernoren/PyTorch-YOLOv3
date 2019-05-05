@@ -83,7 +83,7 @@ class ListDataset(Dataset):
         img_path = self.img_files[index % len(self.img_files)].rstrip()
 
         # Extract image as PyTorch tensor
-        img = transforms.ToTensor()(Image.open(img_path))
+        img = transforms.ToTensor()(Image.open(img_path).convert('RGB'))
 
         # Handle images with less than three channels
         if len(img.shape) != 3:
