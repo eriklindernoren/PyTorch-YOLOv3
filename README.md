@@ -1,5 +1,7 @@
-# PyTorch-YOLOv3
-Minimal implementation of YOLOv3 in PyTorch.
+# PyTorch-YOLOv3-OBB
+Minimal implementation of YOLOv3 in PyTorch upgraded to support oriented bounding boxes detection (OBB).
+
+<p align="center"><img src="assets/obb.png" width="480"\></p>
 
 ## Table of Contents
 - [PyTorch-YOLOv3](#pytorch-yolov3)
