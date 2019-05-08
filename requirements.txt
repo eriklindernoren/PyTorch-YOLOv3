@@ -1,6 +1,12 @@
-scikit-image
 numpy
 torch>=0.4.0
 torchvision
 pillow
 matplotlib
+tensorflow
+tensorboard
+terminaltables
+pillow
+lycon
+Shapely
+descartes

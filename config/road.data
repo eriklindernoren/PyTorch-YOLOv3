@@ -1,0 +1,5 @@
+classes= 20
+train=data/All Anotated Photos
+valid=data/All Anotated Photos
+names=All Anotated Photos/classes.txt
+backup=backup/

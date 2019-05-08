@@ -66,22 +66,58 @@ Evaluates the model on COCO test.
     $ python3 test.py --weights_path weights/yolov3.weights
 
 | Model                   | mAP (min. 50 IoU) |
-| ----------------------- |:----------------:|
-| YOLOv3 (paper)          | 57.9             |
-| YOLOv3 (this impl.)     | 58.2             |
+| ----------------------- |:-----------------:|
+| YOLOv3 608 (paper)      | 57.9              |
+| YOLOv3 608 (this impl.) | 56.7              |
+| YOLOv3 416 (paper)      | 55.3              |
+| YOLOv3 416 (this impl.) | 54.6              |
 
 ## Train
 Data augmentation as well as additional training tricks remains to be implemented. PRs are welcomed!
 ```
-    train.py [-h] [--epochs EPOCHS] [--image_folder IMAGE_FOLDER]
-                [--batch_size BATCH_SIZE]
+$ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
+                [--gradient_accumulations GRADIENT_ACCUMULATIONS]
                 [--model_config_path MODEL_CONFIG_PATH]
                 [--data_config_path DATA_CONFIG_PATH]
                 [--weights_path WEIGHTS_PATH] [--class_path CLASS_PATH]
-                [--conf_thres CONF_THRES] [--nms_thres NMS_THRES]
                 [--n_cpu N_CPU] [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
-                [--checkpoint_dir CHECKPOINT_DIR]
+                [--compute_map COMPUTE_MAP] [--multi_scale MULTI_SCALE]
+
+```
+
+Log:
+```
+---- [Epoch 0/100, Batch 1619/14658] ----
++------------+--------------+--------------+--------------+
+| Metrics    | YOLO Layer 0 | YOLO Layer 1 | YOLO Layer 2 |
++------------+--------------+--------------+--------------+
+| grid_size  | 13           | 26           | 52           |
+| loss       | 2.358986     | 1.986891     | 1.862586     |
+| x          | 0.082527     | 0.091583     | 0.091024     |
+| y          | 0.080370     | 0.090232     | 0.093938     |
+| w          | 0.860580     | 0.540762     | 0.403178     |
+| h          | 0.590265     | 0.435958     | 0.440029     |
+| conf       | 0.695298     | 0.789584     | 0.795910     |
+| cls        | 0.049946     | 0.038771     | 0.038509     |
+| cls_acc    | 58.82%       | 66.67%       | 58.82%       |
+| recall50   | 0.313726     | 0.227273     | 0.323529     |
+| recall75   | 0.039216     | 0.000000     | 0.058824     |
+| precision  | 0.015534     | 0.003286     | 0.001434     |
+| conf_obj   | 0.792324     | 0.751707     | 0.762056     |
+| conf_noobj | 0.238348     | 0.293099     | 0.256485     |
++------------+--------------+--------------+--------------+
+Total Loss 6.208463
+---- ETA 2:00:44.704365
+```
+
+Track training progress in Tensorboard:
+* Initialize training
+* Run the command below
+* Go to http://localhost:6006/
+
+```
+$ tensorboard --logdir='logs' --port=6006
 ```
 
 ## Credit
