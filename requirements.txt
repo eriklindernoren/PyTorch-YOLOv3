@@ -1,6 +1,9 @@
-scikit-image
 numpy
-torch>=0.4.0
+torch>=1.0
 torchvision
-pillow
 matplotlib
+tensorflow
+tensorboard
+terminaltables
+pillow
+tqdm
