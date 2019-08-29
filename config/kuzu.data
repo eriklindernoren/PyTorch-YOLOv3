@@ -1,0 +1,7 @@
+classes=4787
+train=data_kuzu/kuzu_coco_format/train.txt
+valid=data_kuzu/kuzu_coco_format/valid.txt
+names=data_kuzu/kuzu_coco_format.names
+backup=backup/
+eval=kuzu_coco_format
+

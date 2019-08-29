@@ -27,8 +27,8 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
     parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
     parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
-    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
+    parser.add_argument("--model_def", type=str, default="config/kuzu_yolov3.cfg", help="path to model definition file")
+    parser.add_argument("--data_config", type=str, default="config/kuzu.data", help="path to data config file")
     parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
@@ -42,6 +42,8 @@ if __name__ == "__main__":
     logger = Logger("logs")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
+    print('-----------------------------------------')
 
     os.makedirs("output", exist_ok=True)
     os.makedirs("checkpoints", exist_ok=True)
