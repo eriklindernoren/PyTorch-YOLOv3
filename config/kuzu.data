@@ -1,4 +1,4 @@
-classes=4787
+classes=4212
 train=data_kuzu/kuzu_coco_format/train.txt
 valid=data_kuzu/kuzu_coco_format/valid.txt
 names=data_kuzu/kuzu_coco_format.names

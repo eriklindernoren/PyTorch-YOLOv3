@@ -298,24 +298,39 @@ def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
     gw, gh = gwh.t()
     gi, gj = gxy.long().t()
     # Set masks
-    obj_mask[b, best_n, gj, gi] = 1
-    noobj_mask[b, best_n, gj, gi] = 0
+    try:
+        obj_mask[b, best_n, gj, gi] = 1
+        noobj_mask[b, best_n, gj, gi] = 0
+    except:
+        print(obj_mask.shape)
+        print([b.shape, best_n.shape, gj.shape, gi.shape])
+    try:
+        # Set noobj mask to zero where iou exceeds ignore threshold
+        for i, anchor_ious in enumerate(ious.t()):
+            noobj_mask[b[i], anchor_ious > ignore_thres, gj[i], gi[i]] = 0
+    except:
+        print(noobj_mask.shape)
+        print([b.shape, best_n.shape, gj.shape, gi.shape])
+        print(i)
+        print([b[i], gj[i], gi[i]])
 
-    # Set noobj mask to zero where iou exceeds ignore threshold
-    for i, anchor_ious in enumerate(ious.t()):
-        noobj_mask[b[i], anchor_ious > ignore_thres, gj[i], gi[i]] = 0
-
-    # Coordinates
-    tx[b, best_n, gj, gi] = gx - gx.floor()
-    ty[b, best_n, gj, gi] = gy - gy.floor()
-    # Width and height
-    tw[b, best_n, gj, gi] = torch.log(gw / anchors[best_n][:, 0] + 1e-16)
-    th[b, best_n, gj, gi] = torch.log(gh / anchors[best_n][:, 1] + 1e-16)
-    # One-hot encoding of label
-    tcls[b, best_n, gj, gi, target_labels] = 1
-    # Compute label correctness and iou at best anchor
-    class_mask[b, best_n, gj, gi] = (pred_cls[b, best_n, gj, gi].argmax(-1) == target_labels).float()
-    iou_scores[b, best_n, gj, gi] = bbox_iou(pred_boxes[b, best_n, gj, gi], target_boxes, x1y1x2y2=False)
+    try:
+        # Coordinates
+        tx[b, best_n, gj, gi] = gx - gx.floor()
+        ty[b, best_n, gj, gi] = gy - gy.floor()
+        # Width and height
+        tw[b, best_n, gj, gi] = torch.log(gw / anchors[best_n][:, 0] + 1e-16)
+        th[b, best_n, gj, gi] = torch.log(gh / anchors[best_n][:, 1] + 1e-16)
+        # One-hot encoding of label
+        tcls[b, best_n, gj, gi, target_labels] = 1
+        # Compute label correctness and iou at best anchor
+        class_mask[b, best_n, gj, gi] = (pred_cls[b, best_n, gj, gi].argmax(-1) == target_labels).float()
+        iou_scores[b, best_n, gj, gi] = bbox_iou(pred_boxes[b, best_n, gj, gi], target_boxes, x1y1x2y2=False)
+    except:
+        print(obj_mask.shape)
+        print([b.shape, best_n.shape, gj.shape, gi.shape])
+        print(i)
+        print([b[i], gj[i], gi[i]])
 
     tconf = obj_mask.float()
     return iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf
