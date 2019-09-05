@@ -19,6 +19,9 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = 'cpu'
+print(device)
 
 def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
     model.eval()
@@ -29,7 +32,10 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
         dataset, batch_size=batch_size, shuffle=False, num_workers=1, collate_fn=dataset.collate_fn
     )
 
-    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+    print('torch version: ', torch.__version__)
+    print('-----------------------------------------')
+   
+    Tensor = torch.cuda.FloatTensor if device == 'cuda' else torch.FloatTensor
 
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
@@ -70,8 +76,6 @@ if __name__ == "__main__":
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     opt = parser.parse_args()
     print(opt)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     data_config = parse_data_config(opt.data_config)
     valid_path = data_config["valid"]

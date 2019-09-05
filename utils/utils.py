@@ -266,8 +266,12 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
 
 def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
 
-    ByteTensor = torch.cuda.ByteTensor if pred_boxes.is_cuda else torch.ByteTensor
-    FloatTensor = torch.cuda.FloatTensor if pred_boxes.is_cuda else torch.FloatTensor
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = 'cpu'
+    print(device)
+
+    ByteTensor = torch.cuda.ByteTensor if device == 'cuda' else torch.ByteTensor
+    FloatTensor = torch.cuda.FloatTensor if device == 'cuda' else torch.FloatTensor
 
     nB = pred_boxes.size(0)
     nA = pred_boxes.size(1)

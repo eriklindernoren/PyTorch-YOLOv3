@@ -21,6 +21,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
+device = torch.device("cuda" if device == 'cuda' else "cpu")
+device = 'cpu'
+print(device)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
@@ -35,8 +39,6 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
     opt = parser.parse_args()
     print(opt)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     os.makedirs("output", exist_ok=True)
 
@@ -61,7 +63,7 @@ if __name__ == "__main__":
 
     classes = load_classes(opt.class_path)  # Extracts class labels from file
 
-    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+    Tensor = torch.cuda.FloatTensor if device == 'cuda' else torch.FloatTensor
 
     imgs = []  # Stores image paths
     img_detections = []  # Stores detections for each image index

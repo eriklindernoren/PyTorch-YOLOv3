@@ -36,13 +36,15 @@ if __name__ == "__main__":
     parser.add_argument("--evaluation_interval", type=int, default=1, help="interval evaluations on validation set")
     parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
     parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
+    parser.add_argument("--log_folder", default='logs', help="allow creating a new subfolder for each run")
     opt = parser.parse_args()
     print(opt)
 
-    logger = Logger("logs")
+    os.makedirs(opt.log_folder, exist_ok=True)
+    logger = Logger(opt.log_folder)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #device = 'cpu'
+    device = 'cpu'
     print(device)
     print('torch version: ', torch.__version__)
     print('-----------------------------------------')
