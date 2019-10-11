@@ -1,6 +1,12 @@
 # PyTorch-YOLOv3
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
+[![Build Status](https://travis-ci.org/Borda/PyTorch-YOLOv3.svg?branch=master)](https://travis-ci.org/Borda/PyTorch-YOLOv3)
+[![codecov](https://codecov.io/gh/Borda/PyTorch-YOLOv3/branch/master/graph/badge.svg)](https://codecov.io/gh/Borda/PyTorch-YOLOv3)
+[![CodeFactor](https://www.codefactor.io/repository/github/borda/pytorch-yolov3/badge)](https://www.codefactor.io/repository/github/borda/pytorch-yolov3)
+
+---
+
 ## Installation
 ##### Clone and install requirements
     $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
