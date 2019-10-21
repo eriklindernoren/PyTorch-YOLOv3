@@ -1,14 +1,8 @@
 from __future__ import division
-import math
-import time
+
+import numpy as np
 import tqdm
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 
 def to_cpu(tensor):
@@ -123,6 +117,9 @@ def compute_ap(recall, precision):
         precision: The precision curve (list).
     # Returns
         The average precision as computed in py-faster-rcnn.
+
+    >>> compute_ap([0.1, 0.5, 0.9], [0.15, 0.45, 1])
+    0.9
     """
     # correct AP calculation
     # first append sentinel values at the end
@@ -265,7 +262,6 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
 
 
 def build_targets(pred_boxes, pred_cls, target, anchors, ignore_thres):
-
     ByteTensor = torch.cuda.ByteTensor if pred_boxes.is_cuda else torch.ByteTensor
     FloatTensor = torch.cuda.FloatTensor if pred_boxes.is_cuda else torch.FloatTensor
 

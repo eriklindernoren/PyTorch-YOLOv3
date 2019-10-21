@@ -1,23 +1,17 @@
 from __future__ import division
 
-from models import *
-from utils.utils import *
-from utils.datasets import *
-from utils.parse_config import *
-
-import os
-import sys
-import time
-import datetime
 import argparse
-import tqdm
 
+import numpy as np
+import tqdm
 import torch
-from torch.utils.data import DataLoader
-from torchvision import datasets
-from torchvision import transforms
 from torch.autograd import Variable
-import torch.optim as optim
+
+from models import Darknet
+from utils.datasets import ListDataset
+from utils.parse_config import parse_data_config
+from utils.utils import (
+    load_classes, xywh2xyxy, non_max_suppression, get_batch_statistics, ap_per_class)
 
 
 def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
@@ -34,7 +28,6 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
     for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
-
         # Extract labels
         labels += targets[:, 1].tolist()
         # Rescale target

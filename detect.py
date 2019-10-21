@@ -1,25 +1,23 @@
 from __future__ import division
 
-from models import *
-from utils.utils import *
-from utils.datasets import *
-
-import os
-import sys
-import time
-import datetime
 import argparse
+import datetime
+import os
+import time
+import random
 
-from PIL import Image
-
-import torch
-from torch.utils.data import DataLoader
-from torchvision import datasets
-from torch.autograd import Variable
-
-import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from PIL import Image
 from matplotlib.ticker import NullLocator
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
+
+from models import Darknet
+from utils.datasets import ImageFolder
+from utils.utils import load_classes, non_max_suppression, rescale_boxes
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -111,7 +109,6 @@ if __name__ == "__main__":
             n_cls_preds = len(unique_labels)
             bbox_colors = random.sample(colors, n_cls_preds)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
-
                 print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
 
                 box_w = x2 - x1
