@@ -98,10 +98,10 @@ if __name__ == "__main__":
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(dataloader):
             batches_done = len(dataloader) * epoch + batch_i
-
+            
             imgs = Variable(imgs.to(device))
             targets = Variable(targets.to(device), requires_grad=False)
-
+            
             loss, outputs = model(imgs, targets)
             loss.backward()
 

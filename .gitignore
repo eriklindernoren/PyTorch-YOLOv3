@@ -11,3 +11,7 @@ weights/*.weights
 __pycache__
 checkpoints
 pytorch/
+.vscode/
+data/custom/
+logs/
+weights/

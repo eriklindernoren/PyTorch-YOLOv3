@@ -102,7 +102,7 @@ if __name__ == "__main__":
         plt.figure()
         fig, ax = plt.subplots(1)
         ax.imshow(img)
-
+        
         # Draw bounding boxes and labels of detections
         if detections is not None:
             # Rescale boxes to original image
