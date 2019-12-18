@@ -1,11 +1,15 @@
-h5py
 ipython
+blinker
 pillow
-scikit-image
-keras-rectified-adam
-
-keras
+tqdm
 numpy
+torch>=1.0
+torchvision
+matplotlib
+terminaltables
+setuptools
+
 tensorflow-gpu==1.14
+tensorboard
 
 fabric

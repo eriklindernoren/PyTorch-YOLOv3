@@ -134,7 +134,7 @@ $ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/cus
 Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
 
 ```
-python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data --epochs 100 --pretrained_weights weights/darknet53.conv.74
+python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data --epochs 100  --batch 16 --pretrained_weights weights/darknet53.conv.74
 ```
 
 ## Credit
