@@ -1,0 +1,11 @@
+h5py
+ipython
+pillow
+scikit-image
+keras-rectified-adam
+
+keras
+numpy
+tensorflow-gpu==1.14
+
+fabric
