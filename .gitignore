@@ -13,5 +13,7 @@ checkpoints
 pytorch/
 .vscode/
 data/custom/
+data/samples/
 logs/
 weights/
+Bhanuka.pem

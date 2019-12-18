@@ -44,6 +44,10 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 <p align="center"><img src="assets/traffic.png" width="480"\></p>
 <p align="center"><img src="assets/messi.png" width="480"\></p>
 
+```
+python3 detect.py --image_folder data/samples/ --model_def config/yolov3-custom.cfg --weights_path checkpoints/yolov3_ckpt_2.pth --checkpoint_model checkpoints/yolov3_ckpt_2.pth --class_path data/custom/classes.names
+```
+
 ## Train
 ```
 $ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
@@ -129,6 +133,9 @@ $ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/cus
 
 Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
 
+```
+python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data --epochs 100 --pretrained_weights weights/darknet53.conv.74
+```
 
 ## Credit
 
