@@ -1,6 +1,5 @@
-classes= 80
-train=data/coco/trainvalno5k.txt
-valid=data/coco/5k.txt
-names=data/coco.names
+classes=3
+train=data/dogs/train.txt
+valid=data/dogs/val.txt
+names=config/coco.names
 backup=backup/
-eval=coco

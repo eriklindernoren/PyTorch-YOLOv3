@@ -1,0 +1,6 @@
+classes = 3
+train   = data/rgo/train.txt
+valid = data/rgo/val.txt
+names   = config/rgo.names
+backup  = backup/
+

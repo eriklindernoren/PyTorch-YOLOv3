@@ -1,0 +1,6 @@
+classes = 3
+train   = data/thermal/train.txt
+valid = data/thermal/val.txt
+names   = config/thermal.names
+backup  = backup/
+

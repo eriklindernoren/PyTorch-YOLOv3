@@ -33,12 +33,13 @@ if __name__ == "__main__":
     parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
+    parser.add_argument("--output", type=str, default="output")
     opt = parser.parse_args()
     print(opt)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    os.makedirs("output", exist_ok=True)
+    os.makedirs(opt.output, exist_ok=True)
 
     # Set up model
     model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
@@ -99,6 +100,10 @@ if __name__ == "__main__":
 
         # Create plot
         img = np.array(Image.open(path))
+        if len(img.shape) == 3:
+            w,h,_ = img.shape
+        else:
+            w, h  = img.shape
         plt.figure()
         fig, ax = plt.subplots(1)
         ax.imshow(img)
@@ -109,24 +114,44 @@ if __name__ == "__main__":
             detections = rescale_boxes(detections, opt.img_size, img.shape[:2])
             unique_labels = detections[:, -1].cpu().unique()
             n_cls_preds = len(unique_labels)
-            bbox_colors = random.sample(colors, n_cls_preds)
+            bbox_colors = random.sample([cmap(10)], n_cls_preds)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
 
-                print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
+                #print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
+                print("\t+ Label: %s, cls Conf: %.5f conf: %.5f" % (classes[int(cls_pred)], cls_conf.item(), conf.item()))
+        #        if y2>h:
+        #            y2 = h-1
+        #        if x2>w:
+        #            x2 = w-1
 
                 box_w = x2 - x1
                 box_h = y2 - y1
 
                 color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
                 # Create a Rectangle patch
+                if x1.item() > w:
+                    print(f"error! x {x1.item()} w {w} path {path}")
+
+                if y1.item() > h:
+                    print(f"error! y {y1.item()} h { h}, path {path}")
+
+                if x1 + box_w > w:
+                    print(f"fix! x {x1.item(),  box_w.item() ,w}  path {path} ")
+                    #box_w = w - x1
+
+                if y1 + box_h > h:
+                    print(f"fix! y {y1.item(),  box_h.item() ,h}  path {path} x1x2y1y2 {x1} {x2}   {y1} {y2} hw {h} {w} ")
+                    #box_h = h - y1
+
                 bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
+
                 # Add the bbox to the plot
                 ax.add_patch(bbox)
                 # Add label
                 plt.text(
                     x1,
                     y1,
-                    s=classes[int(cls_pred)],
+                    s=format(conf.item(), '.2f'),
                     color="white",
                     verticalalignment="top",
                     bbox={"color": color, "pad": 0},
@@ -137,5 +162,5 @@ if __name__ == "__main__":
         plt.gca().xaxis.set_major_locator(NullLocator())
         plt.gca().yaxis.set_major_locator(NullLocator())
         filename = path.split("/")[-1].split(".")[0]
-        plt.savefig(f"output/{filename}.png", bbox_inches="tight", pad_inches=0.0)
+        plt.savefig(f"{opt.output}/{filename}.png", bbox_inches="tight", pad_inches=0.0)
         plt.close()

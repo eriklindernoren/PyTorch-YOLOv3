@@ -1,0 +1,6 @@
+classes = 3
+train   = data/drone/train.txt
+valid = data/drone/val.txt
+names   = config/rgo.names
+backup  = backup/
+

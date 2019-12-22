@@ -1,4 +1,10 @@
+
 from __future__ import division
+import sys
+import warnings
+ 
+if not sys.warnoptions:
+    warnings.simplefilter("ignore")
 
 from models import *
 from utils.logger import *
@@ -22,13 +28,41 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
+
+def print_to_tensorboard(patth, prefix):
+    print("\n---- Evaluating Model ----")
+    # Evaluate the model on the validation set
+    precision, recall, AP, f1, ap_class = evaluate(
+        model,
+        path=patth,
+        iou_thres=0.5,
+        conf_thres=0.5,
+        nms_thres=0.5,
+        img_size=opt.img_size,
+        batch_size=8,
+    )
+    evaluation_metrics = [
+        (f"{prefix}_precision", precision.mean()),
+        (f"{prefix}_recall", recall.mean()),
+        (f"{prefix}_mAP", AP.mean()),
+        (f"{prefix}_f1", f1.mean()),
+    ]
+    logger.list_of_scalars_summary(evaluation_metrics, epoch)
+    # Print class APs and mAP
+    ap_table = [["Index", "Class name", "AP"]]
+    for i, c in enumerate(ap_class):
+        ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+    print(AsciiTable(ap_table).table)
+    print(f"---- mAP {AP.mean()}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
     parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
     parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
-    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
+    parser.add_argument("--model_def", type=str, default="config/yolov3-custom.cfg", help="path to model definition file")
+    parser.add_argument("--data_config", type=str, default="config/thermal.data", help="path to data config file")
     parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
@@ -133,7 +167,7 @@ if __name__ == "__main__":
                         if name != "grid_size":
                             tensorboard_log += [(f"{name}_{j+1}", metric)]
                 tensorboard_log += [("loss", loss.item())]
-                logger.list_of_scalars_summary(tensorboard_log, batches_done)
+                #logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             log_str += AsciiTable(metric_table).table
             log_str += f"\nTotal loss {loss.item()}"
@@ -148,31 +182,8 @@ if __name__ == "__main__":
             model.seen += imgs.size(0)
 
         if epoch % opt.evaluation_interval == 0:
-            print("\n---- Evaluating Model ----")
-            # Evaluate the model on the validation set
-            precision, recall, AP, f1, ap_class = evaluate(
-                model,
-                path=valid_path,
-                iou_thres=0.5,
-                conf_thres=0.5,
-                nms_thres=0.5,
-                img_size=opt.img_size,
-                batch_size=8,
-            )
-            evaluation_metrics = [
-                ("val_precision", precision.mean()),
-                ("val_recall", recall.mean()),
-                ("val_mAP", AP.mean()),
-                ("val_f1", f1.mean()),
-            ]
-            logger.list_of_scalars_summary(evaluation_metrics, epoch)
-
-            # Print class APs and mAP
-            ap_table = [["Index", "Class name", "AP"]]
-            for i, c in enumerate(ap_class):
-                ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-            print(AsciiTable(ap_table).table)
-            print(f"---- mAP {AP.mean()}")
+            print_to_tensorboard(train_path, "train")
+            print_to_tensorboard(valid_path, "val")
 
         if epoch % opt.checkpoint_interval == 0:
             torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)
