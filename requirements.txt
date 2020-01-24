@@ -1,8 +1,7 @@
 numpy
-torch>=1.0
+torch>=1.2
 torchvision
 matplotlib
-tensorflow
 tensorboard
 terminaltables
 pillow
