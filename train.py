@@ -3,8 +3,8 @@ from __future__ import division
 from models import *
 from utils.logger import *
 from utils.utils import *
-from utils.datasets import *
-from utils.ECP_zip_datasets import *
+from utils.datasets_my import *
+# from utils.ECP_zip_datasets import *
 from utils.parse_config import *
 from test import evaluate
 
@@ -22,6 +22,9 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -65,16 +68,7 @@ if __name__ == "__main__":
             model.load_darknet_weights(opt.pretrained_weights)
 
     # Get dataloader
-    # dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)
-    # dataloader = torch.utils.data.DataLoader(
-    #     dataset,
-    #     batch_size=opt.batch_size,
-    #     shuffle=True,
-    #     num_workers=opt.n_cpu,
-    #     pin_memory=True,
-    #     collate_fn=dataset.collate_fn,
-    # )
-    dataset = ECPDataset(train_path)
+    dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=opt.batch_size,
@@ -83,6 +77,16 @@ if __name__ == "__main__":
         pin_memory=True,
         collate_fn=dataset.collate_fn,
     )
+    # path_zip_images, path_zip_labels = None, None
+    # dataset = ECPDataset(path_zip_images, path_zip_labels, transform=ToTarget())
+    # dataloader = torch.utils.data.DataLoader(
+    #     dataset,
+    #     batch_size=opt.batch_size,
+    #     shuffle=True,
+    #     num_workers=opt.n_cpu,
+    #     pin_memory=True,
+    #     collate_fn=dataset.collate_fn,
+    # )
 
     optimizer = torch.optim.Adam(model.parameters())
 

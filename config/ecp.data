@@ -1,0 +1,4 @@
+classes= 1
+train=data/ecp/train.txt
+valid=data/ecp/valid.txt
+names=data/ecp/ecp.names
