@@ -2,7 +2,7 @@ from __future__ import division
 
 from models import *
 from utils.utils import *
-from utils.datasets import *
+from utils.datasets_my import *
 from utils.parse_config import *
 
 import os
@@ -20,17 +20,20 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 
-def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
+def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size, class_names):
     model.eval()
 
     # Get dataloader
-    dataset = ListDataset(path, img_size=img_size, augment=False, multiscale=False)
+    dataset = ListDataset(path, img_size=img_size, augment=False, multiscale=False, class_names=class_names)
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, num_workers=1, collate_fn=dataset.collate_fn
-    )
-
+        dataset,
+        batch_size=batch_size,
+        shuffle=False, 
+        num_workers=1, 
+        pin_memory=True, 
+        collate_fn=dataset.collate_fn,
+    )    
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
     for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):

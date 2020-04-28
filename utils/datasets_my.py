@@ -58,7 +58,7 @@ class ImageFolder(Dataset):
 
 
 class ListDataset(Dataset):
-    def __init__(self, list_path, img_size=416, augment=True, multiscale=True, normalized_labels=True):
+    def __init__(self, list_path, img_size=416, augment=True, multiscale=True, normalized_labels=True, class_names=None):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
 
@@ -74,6 +74,7 @@ class ListDataset(Dataset):
         self.min_size = self.img_size - 3 * 32
         self.max_size = self.img_size + 3 * 32
         self.batch_count = 0
+        self.class_names = class_names
 
     def __getitem__(self, index):
 
@@ -108,9 +109,16 @@ class ListDataset(Dataset):
             json_open = open(label_path, 'r')
             label = json.load(json_open)
             # label = label.decode('utf-8')
-            x1, y1, x2, y2 = np.zeros(len(label['children'])), np.zeros(len(label['children'])), np.zeros(len(label['children'])), np.zeros(len(label['children']))
+            lb, x1, y1, x2, y2 = np.zeros(len(label['children'])), \
+                                 np.zeros(len(label['children'])), \
+                                 np.zeros(len(label['children'])), \
+                                 np.zeros(len(label['children'])), \
+                                 np.zeros(len(label['children']))
             for i, child in enumerate(label['children']):
                 x1[i], y1[i], x2[i], y2[i] = child['x0'], child['y0'], child['x1'], child['y1']
+                if not child['identity'] in self.class_names:
+                    print('CLASS NOT IN LIST! -> '+child['identity'])
+                lb[i] = self.class_names.index(child['identity'])
             x1 *= w_factor / w
             y1 *= h_factor / h
             x2 *= w_factor / w
@@ -124,10 +132,11 @@ class ListDataset(Dataset):
 
             boxes = np.zeros([len(label['children']), 5])
             # Returns (x, y, w, h)
+            boxes[:, 0] = lb
             boxes[:, 1] = ((x1 + x2) / 2) / padded_w
             boxes[:, 2] = ((y1 + y2) / 2) / padded_h
-            boxes[:, 3] *= w_factor / padded_w
-            boxes[:, 4] *= h_factor / padded_h
+            boxes[:, 3] = (x2 - x1) / padded_w
+            boxes[:, 4] = (y2 - y1) / padded_h
 
             targets = torch.zeros((len(boxes), 6))
             targets[:, 1:] = torch.from_numpy(boxes)

@@ -55,7 +55,8 @@ if __name__ == "__main__":
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
-
+    print("============== CLASS NAME ==============")
+    print(class_names)
     # Initiate model
     model = Darknet(opt.model_def).to(device)
     model.apply(weights_init_normal)
@@ -68,7 +69,7 @@ if __name__ == "__main__":
             model.load_darknet_weights(opt.pretrained_weights)
 
     # Get dataloader
-    dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)
+    dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training, class_names=class_names)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=opt.batch_size,
@@ -77,16 +78,6 @@ if __name__ == "__main__":
         pin_memory=True,
         collate_fn=dataset.collate_fn,
     )
-    # path_zip_images, path_zip_labels = None, None
-    # dataset = ECPDataset(path_zip_images, path_zip_labels, transform=ToTarget())
-    # dataloader = torch.utils.data.DataLoader(
-    #     dataset,
-    #     batch_size=opt.batch_size,
-    #     shuffle=True,
-    #     num_workers=opt.n_cpu,
-    #     pin_memory=True,
-    #     collate_fn=dataset.collate_fn,
-    # )
 
     optimizer = torch.optim.Adam(model.parameters())
 
@@ -172,6 +163,7 @@ if __name__ == "__main__":
                 nms_thres=0.5,
                 img_size=opt.img_size,
                 batch_size=8,
+                class_names=class_names
             )
             evaluation_metrics = [
                 ("val_precision", precision.mean()),
