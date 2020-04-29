@@ -1,20 +1,15 @@
 # PyTorch-YOLOv3
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
-## Installation
+## Short instruction for running on ECP dataset
 ##### Clone and install requirements
-    $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
+    $ git clone https://github.com/kminoda/PyTorch-YOLOv3
     $ cd PyTorch-YOLOv3/
     $ sudo pip3 install -r requirements.txt
 
-##### Download pretrained weights
-    $ cd weights/
-    $ bash download_weights.sh
+##### Generate images & labels list for ECP
+    $ python3 generate_ecp_list.py --path_ecp /path/to/ecp/day --path_out data/ecp
 
-##### Download COCO
-    $ cd data/
-    $ bash get_coco_dataset.sh
-    
 ## Test
 Evaluates the model on COCO test.
 
