@@ -41,11 +41,11 @@ def get_imgs_labels_lists(path):
         folder = os.path.join(ecp_labels_val, location)
         for file in os.listdir(folder):
             labels_val_list.append(os.path.join(ecp_labels_val, location, file))
-
-    for location in os.listdir(ecp_img_test):
-        folder = os.path.join(ecp_img_test, location)
-        for file in os.listdir(folder):
-            img_test_list.append(os.path.join(ecp_img_test, location, file))
+    if os.path.exists(ecp_img_test):
+        for location in os.listdir(ecp_img_test):
+            folder = os.path.join(ecp_img_test, location)
+            for file in os.listdir(folder):
+                img_test_list.append(os.path.join(ecp_img_test, location, file))
     img_train_list = natsorted(img_train_list)
     labels_train_list = natsorted(labels_train_list)
     img_val_list = natsorted(img_val_list)
@@ -97,7 +97,8 @@ if __name__ == "__main__":
             f.write(file)
             f.write("\n")
     path_w = os.path.join(opt.path_out, './test.txt')
-    with open(path_w, mode='w') as f:
-        for file in img_test_list:
-            f.write(file)
-            f.write("\n")
+    if os.path.exists(path_w):
+        with open(path_w, mode='w') as f:
+            for file in img_test_list:
+                f.write(file)
+                f.write("\n")
