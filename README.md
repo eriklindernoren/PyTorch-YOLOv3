@@ -5,11 +5,12 @@ A minimal PyTorch implementation of YOLOv3 for Deep Learning for Autonomous Vehi
 This is a short discription for running our code on ECP dataset. Please follow this instruction in order to use them. The specific results are shown in our report.
 
 ##### Workspace for this project with proper python environment.
+It uses virtualenv for python environment (in second line).
     $ cd /data/dlav/group_6/koji_workspace/PyTorch-YOLOv3
     $ source /data/dlav/group_6/pytorch_env/bin/activate
 
 ##### Training
-In order to execute training, please execute this command. It uses virtualenv for python environment.  
+In order to execute training, please execute this command.
 ```
 $ python3 train.py  --model_def config/yolov3-custom.cfg --data_config config/ecp.data
 ```
