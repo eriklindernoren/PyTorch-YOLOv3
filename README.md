@@ -10,12 +10,16 @@ This is a short discription for running our code on ECP dataset. Please follow t
 
 ##### Training
 In order to execute training, please execute these command. It uses virtualenv for python environment.  
+```
     $ python3 generate_ecp_list.py --path_ecp /path/to/ECP --path_out ./data/ecp
     $ python3 train.py  --model_def config/yolov3-custom.cfg --data_config config/ecp.data
+```
 
 ##### Detecting 
 If you want to test our code with trained model, please execute this command.  
+```
     $ python3 detect.py --image_folder path/to/img --weights_path ./weights/yolov3_300420.pth --model_def config/yolov3-custon.cfg --class_path data/ecp/ecp.names --img_size 416
+```
 
 
 ## Short instruction for running on ECP dataset
