@@ -11,6 +11,9 @@ import json
 from utils.augmentations import horisontal_flip
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
+import warnings
+warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore')
 
 
 def pad_to_square(img, pad_value):
@@ -116,8 +119,12 @@ class ListDataset(Dataset):
                                  np.zeros(len(label['children']))
             for i, child in enumerate(label['children']):
                 x1[i], y1[i], x2[i], y2[i] = child['x0'], child['y0'], child['x1'], child['y1']
+                if child['identity'] == None:
+                    return img_path, img, torch.zeros((0, 6))
                 if not child['identity'] in self.class_names:
-                    print('CLASS NOT IN LIST! -> '+child['identity'])
+                    print('CLASS NOT IN LIST! -> ')
+                    print(label_path)
+                    print(child['identity'])
                 lb[i] = self.class_names.index(child['identity'])
             x1 *= w_factor / w
             y1 *= h_factor / h

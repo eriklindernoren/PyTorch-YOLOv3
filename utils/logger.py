@@ -1,5 +1,7 @@
 import tensorflow as tf
-
+import warnings
+warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore')
 
 class Logger(object):
     def __init__(self, log_dir):

@@ -24,7 +24,8 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 import warnings
-warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

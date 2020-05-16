@@ -1,7 +1,9 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-
+import warnings
+warnings.filterwarnings("ignore")
+warnings.simplefilter('ignore')
 
 def horisontal_flip(images, targets):
     images = torch.flip(images, [-1])
