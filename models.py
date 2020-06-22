@@ -148,6 +148,18 @@ class YOLOLayer(nn.Module):
             .permute(0, 1, 3, 4, 2)
             .contiguous()
         )
+        # if (prediction[..., 4].shape == torch.Size([1, 3, 26, 26])):
+        #     tmpv = torch.sigmoid(prediction[...,0, :, :, 4])
+        #     # 10,7
+        #     print(tmpv[0,10,6])
+        #     print(tmpv.shape)
+        #     tmpv = tmpv[tmpv >= 0.5]
+        #     print(tmpv.shape)
+        #     print(tmpv)
+        #prediction[..., 0]=0
+        #prediction[..., 1]=0
+        #prediction[..., 2]=0
+        #prediction[..., 3]=0
 
         # Get outputs
         x = torch.sigmoid(prediction[..., 0])  # Center x
@@ -176,7 +188,8 @@ class YOLOLayer(nn.Module):
             ),
             -1,
         )
-
+        print(grid_size)
+        print(output.shape)
         if targets is None:
             return output, 0
         else:
@@ -249,7 +262,15 @@ class Darknet(nn.Module):
         layer_outputs, yolo_outputs = [], []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def["type"] in ["convolutional", "upsample", "maxpool"]:
+                if i == 93:
+                  print("#" + str(i) + ","+ module_def["type"])
+                  print(x.shape)
+                  print(x[0,:,10,6])
                 x = module(x)
+                if i == 93:
+                  print(x.shape)
+                  print(x[0,4,10,6])
+                  print(torch.sigmoid(x[0,4,10,6]))
             elif module_def["type"] == "route":
                 x = torch.cat([layer_outputs[int(layer_i)] for layer_i in module_def["layers"].split(",")], 1)
             elif module_def["type"] == "shortcut":
@@ -280,6 +301,9 @@ class Darknet(nn.Module):
 
         ptr = 0
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
+            #93
+            #print(module_def["type"])
+            #print(i)
             if i == cutoff:
                 break
             if module_def["type"] == "convolutional":
@@ -308,11 +332,19 @@ class Darknet(nn.Module):
                     # Load conv. bias
                     num_b = conv_layer.bias.numel()
                     conv_b = torch.from_numpy(weights[ptr : ptr + num_b]).view_as(conv_layer.bias)
+                    if i == 93:
+                        print(conv_b[4])
                     conv_layer.bias.data.copy_(conv_b)
                     ptr += num_b
                 # Load conv. weights
                 num_w = conv_layer.weight.numel()
                 conv_w = torch.from_numpy(weights[ptr : ptr + num_w]).view_as(conv_layer.weight)
+                if i == 93:
+                    v = torch.squeeze(conv_w[4,...])
+                    print(v)
+                    print("conv_w.shape")
+                    print(conv_w.shape)
+                    #conv_w[4, 24, 0, 0] = 0.35
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
 

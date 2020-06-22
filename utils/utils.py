@@ -50,6 +50,30 @@ def rescale_boxes(boxes, current_dim, original_shape):
     return boxes
 
 
+def rescale_boxes_class(boxes, current_dim, original_shape):
+    """ Rescales bounding boxes to the original shape """
+    orig_h, orig_w = original_shape
+    # The amount of padding that was added
+    scale = (current_dim / max(original_shape))
+    pad_x = max(orig_h - orig_w, 0) * scale
+    pad_y = max(orig_w - orig_h, 0) * scale
+    # Image height and width after padding is removed
+    unpad_h = current_dim - pad_y
+    unpad_w = current_dim - pad_x
+    # Rescale bounding boxes to dimension of original image
+    boxes[:, 0] = ((boxes[:, 0] - pad_x // 2) / unpad_w) * orig_w
+    boxes[:, 1] = ((boxes[:, 1] - pad_y // 2) / unpad_h) * orig_h
+    boxes[:, 2] = boxes[:, 0] + (416/13)*(current_dim / max(original_shape))
+    boxes[:, 3] = boxes[:, 1] + (416/13)*(current_dim / max(original_shape))
+    
+    score = boxes[:, 4] * boxes[:, 5:].max(1)[0]
+    # Sort by it
+    image_pred = boxes[(-score).argsort()]
+    class_confs, class_preds = boxes[:, 5:].max(1, keepdim=True)
+    detections = torch.cat((boxes[:, :5], class_confs.float(), class_preds.float()), 1)
+    
+    return detections
+
 def xywh2xyxy(x):
     y = x.new(x.shape)
     y[..., 0] = x[..., 0] - x[..., 2] / 2
@@ -237,17 +261,23 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
     for image_i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
         image_pred = image_pred[image_pred[:, 4] >= conf_thres]
+        #print(image_pred.shape)
+        #image_pred = image_pred[3:4,:]
+        #print(image_pred.shape)
+        #print(image_pred[:, 4])
         # If none are remaining => process next image
         if not image_pred.size(0):
             continue
         # Object confidence times class confidence
         score = image_pred[:, 4] * image_pred[:, 5:].max(1)[0]
         # Sort by it
-        image_pred = image_pred[(-score).argsort()]
+        #image_pred = image_pred[(-score).argsort()]
         class_confs, class_preds = image_pred[:, 5:].max(1, keepdim=True)
         detections = torch.cat((image_pred[:, :5], class_confs.float(), class_preds.float()), 1)
         # Perform non-maximum suppression
         keep_boxes = []
+        print("--")
+        print(detections.size(0))
         while detections.size(0):
             large_overlap = bbox_iou(detections[0, :4].unsqueeze(0), detections[:, :4]) > nms_thres
             label_match = detections[0, -1] == detections[:, -1]

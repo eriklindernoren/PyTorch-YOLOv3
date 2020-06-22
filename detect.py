@@ -107,16 +107,17 @@ if __name__ == "__main__":
             # Rescale boxes to original image
             detections = rescale_boxes(detections, opt.img_size, img.shape[:2])
             unique_labels = detections[:, -1].cpu().unique()
-            n_cls_preds = len(unique_labels)
+            n_cls_preds = 16 # len(unique_labels)
             bbox_colors = random.sample(colors, n_cls_preds)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
 
-                print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
+                print("\t+ Label: %s, Conf: %.5f , ObjConf: %.5f" % (classes[int(cls_pred)], cls_conf.item(), conf))
 
                 box_w = x2 - x1
                 box_h = y2 - y1
 
-                color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
+                #color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
+                color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])%16]
                 # Create a Rectangle patch
                 bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
                 # Add the bbox to the plot
