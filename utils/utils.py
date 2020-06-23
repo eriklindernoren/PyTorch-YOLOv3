@@ -257,14 +257,22 @@ def non_max_suppression(prediction, conf_thres=0.5, nms_thres=0.4):
 
     # From (center x, center y, width, height) to (x1, y1, x2, y2)
     prediction[..., :4] = xywh2xyxy(prediction[..., :4])
+    # print("--shape--")
+    # torch.set_printoptions(precision=3,sci_mode=False)
+    # #print(prediction[0,((13*13*3)+(26*26*2)):((13*13*3)+(26*26*3)),4])
+    # print(prediction[0,((13*13*3)+(26*26*2)+26*13+8),4])
+    # for i in range((13*13*3)+(26*26*2),(13*13*3)+(26*26*3)):
+    #     if (prediction[0,i,4] > 0.32 and prediction[0,i,4] < 0.33):
+    #         print(str(i) + ","+ str(prediction[0,i,4]))
     output = [None for _ in range(len(prediction))]
     for image_i, image_pred in enumerate(prediction):
         # Filter out confidence scores below threshold
         image_pred = image_pred[image_pred[:, 4] >= conf_thres]
-        #print(image_pred.shape)
-        #image_pred = image_pred[3:4,:]
-        #print(image_pred.shape)
-        #print(image_pred[:, 4])
+        print("util")
+        print(image_pred.shape)
+        #image_pred = image_pred[14:15,:]
+        print(image_pred.shape)
+        #print(image_pred)
         # If none are remaining => process next image
         if not image_pred.size(0):
             continue

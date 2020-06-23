@@ -156,10 +156,10 @@ class YOLOLayer(nn.Module):
         #     tmpv = tmpv[tmpv >= 0.5]
         #     print(tmpv.shape)
         #     print(tmpv)
-        #prediction[..., 0]=0
-        #prediction[..., 1]=0
-        #prediction[..., 2]=0
-        #prediction[..., 3]=0
+        # prediction[..., 0]=0
+        # prediction[..., 1]=0
+        # prediction[..., 2]=0
+        # prediction[..., 3]=0
 
         # Get outputs
         x = torch.sigmoid(prediction[..., 0])  # Center x
@@ -179,6 +179,9 @@ class YOLOLayer(nn.Module):
         pred_boxes[..., 1] = y.data + self.grid_y
         pred_boxes[..., 2] = torch.exp(w.data) * self.anchor_w
         pred_boxes[..., 3] = torch.exp(h.data) * self.anchor_h
+        #print("pred_boxes[14:15,:]")
+        #print(pred_boxes.shape)
+        #print(pred_boxes[14:15,...])
 
         output = torch.cat(
             (
@@ -265,12 +268,19 @@ class Darknet(nn.Module):
                 if i == 93:
                   print("#" + str(i) + ","+ module_def["type"])
                   print(x.shape)
-                  print(x[0,:,10,6])
+                  print("i:")
+                  print(x[0,:,13,8])
                 x = module(x)
                 if i == 93:
+                  xx=x[0,85*2+4,...]
+                  #x[...,4]=-10
+                  print("xx:")
+                  #x[0,85*2+4,...]=xx
                   print(x.shape)
-                  print(x[0,4,10,6])
-                  print(torch.sigmoid(x[0,4,10,6]))
+                  #x[0,85*2+4,13,8]=100
+                  print(x[0,85*2+4,13,8])
+                  print(torch.sigmoid(x[0,85*2+4,13,8]))
+                  #print(torch.sigmoid(x[0,4,10,6]))
             elif module_def["type"] == "route":
                 x = torch.cat([layer_outputs[int(layer_i)] for layer_i in module_def["layers"].split(",")], 1)
             elif module_def["type"] == "shortcut":
@@ -333,18 +343,21 @@ class Darknet(nn.Module):
                     num_b = conv_layer.bias.numel()
                     conv_b = torch.from_numpy(weights[ptr : ptr + num_b]).view_as(conv_layer.bias)
                     if i == 93:
-                        print(conv_b[4])
+                        print(conv_b[85*2+4])
                     conv_layer.bias.data.copy_(conv_b)
                     ptr += num_b
                 # Load conv. weights
                 num_w = conv_layer.weight.numel()
                 conv_w = torch.from_numpy(weights[ptr : ptr + num_w]).view_as(conv_layer.weight)
                 if i == 93:
-                    v = torch.squeeze(conv_w[4,...])
+                    v = torch.squeeze(conv_w[85*2+4,...])
                     print(v)
                     print("conv_w.shape")
                     print(conv_w.shape)
                     #conv_w[4, 24, 0, 0] = 0.35
+                    conv_w[85*2+4, 273, 0, 0] = 0.34*3
+                    conv_w[85*2+4,  69, 0, 0] = 0.34*3
+                    conv_w[85*2+4, 153, 0, 0] = 0.20*3
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
 
