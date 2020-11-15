@@ -34,8 +34,8 @@ if __name__ == "__main__":
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
     opt = parser.parse_args()
-    print(opt)
-
+    data = {'results': []}
+    print(data)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     os.makedirs("output", exist_ok=True)
@@ -66,6 +66,7 @@ if __name__ == "__main__":
     imgs = []  # Stores image paths
     img_detections = []  # Stores detections for each image index
 
+    data = {'results': []}
     print("\nPerforming object detection:")
     prev_time = time.time()
     for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
@@ -94,7 +95,6 @@ if __name__ == "__main__":
     print("\nSaving images:")
     # Iterate through images and save plot of detections
     for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
-
         print("(%d) Image: '%s'" % (img_i, path))
 
         # Create plot
@@ -110,10 +110,43 @@ if __name__ == "__main__":
             unique_labels = detections[:, -1].cpu().unique()
             n_cls_preds = len(unique_labels)
             bbox_colors = random.sample(colors, n_cls_preds)
+            #print(detections[0][4], detections[0][5])
+            dict_ = {
+                "Images": path,
+                "Conf": []
+            }
+
+            data['results'].append(dict_)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
 
-                print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
 
+                print("\t Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
+  data = {'results': []}
+    print("\nPerforming object detection:")
+    prev_time = time.time()
+    for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
+        # Configure input
+        input_imgs = Variable(input_imgs.type(Tensor))
+
+        # Get detections
+        with torch.no_grad():
+            detections = model(input_imgs)
+            detections = non_max_suppression(detections, opt.conf_thres, opt.nms_thres)
+
+        # Log progress
+        current_time = time.time()
+        inference_time = datetime.timedelta(seconds=current_time - prev_time)
+        prev_time = current_time
+        print("\t+ Batch %d, Inference Time: %s" % (batch_i, inference_time))
+
+        # Save image and detections
+        imgs.extend(img_pat
+                dict_2 = {
+                    "Name": classes[int(cls_pred)],
+                    "Confidence": cls_conf.item()
+                }
+                #print(img_i, path)
+                data['results'][img_i]['Conf'].append(dict_2)
                 box_w = x2 - x1
                 box_h = y2 - y1
 
@@ -139,3 +172,7 @@ if __name__ == "__main__":
         filename = path.split("/")[-1].split(".")[0]
         plt.savefig(f"output/{filename}.png", bbox_inches="tight", pad_inches=0.0)
         plt.close()
+json_file = json.dumps(data)
+os.makedirs('./results', exist_ok=True)
+with open(os.path.join('results', 'output.json'), 'w') as f:
+    f.write(json_file)
