@@ -3,7 +3,7 @@ A minimal PyTorch implementation of YOLOv3, with support for training, inference
 
 ## Installation
 ##### Clone and install requirements
-    $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
+    $ git clone git@github.com:fusic/PyTorch-YOLOv3.git
     $ cd PyTorch-YOLOv3/
     $ sudo pip3 install -r requirements.txt
 
