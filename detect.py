@@ -11,7 +11,7 @@ import datetime
 import argparse
 
 from PIL import Image
-
+import json
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets
@@ -35,7 +35,6 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
     opt = parser.parse_args()
     data = {'results': []}
-    print(data)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     os.makedirs("output", exist_ok=True)
@@ -121,26 +120,6 @@ if __name__ == "__main__":
 
 
                 print("\t Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
-  data = {'results': []}
-    print("\nPerforming object detection:")
-    prev_time = time.time()
-    for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
-        # Configure input
-        input_imgs = Variable(input_imgs.type(Tensor))
-
-        # Get detections
-        with torch.no_grad():
-            detections = model(input_imgs)
-            detections = non_max_suppression(detections, opt.conf_thres, opt.nms_thres)
-
-        # Log progress
-        current_time = time.time()
-        inference_time = datetime.timedelta(seconds=current_time - prev_time)
-        prev_time = current_time
-        print("\t+ Batch %d, Inference Time: %s" % (batch_i, inference_time))
-
-        # Save image and detections
-        imgs.extend(img_pat
                 dict_2 = {
                     "Name": classes[int(cls_pred)],
                     "Confidence": cls_conf.item()

@@ -1,0 +1,1 @@
+{"results": [{"Images": "data/samples2/dog.jpg", "Conf": [{"Name": "dog", "Confidence": 0.9933484196662903}, {"Name": "bicycle", "Confidence": 0.9998107552528381}, {"Name": "truck", "Confidence": 0.9422900676727295}]}]}
