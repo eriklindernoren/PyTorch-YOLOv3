@@ -21,53 +21,80 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
-    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
-    parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
-    parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
-    parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
-    parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
-    parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
-    opt = parser.parse_args()
+import boto3
+import sys
+import json
+import time
+from flask import Flask, request
+import cv2
+import numpy as np
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--image_folder", type=str, default="/tmp/images/", help="path to dataset")
+parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
+parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
+parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
+parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
+parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
+parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
+parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
+parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
+parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
+opt = parser.parse_args()
+data = {'results': []}
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+os.makedirs("output", exist_ok=True)
+
+# Set up model
+model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
+
+if opt.weights_path.endswith(".weights"):
+    # Load darknet weights
+    model.load_darknet_weights(opt.weights_path)
+else:
+    # Load checkpoint weights
+    model.load_state_dict(torch.load(opt.weights_path))
+
+model.eval()  # Set in evaluation mode
+
+#dataloader = DataLoader(
+ #   ImageFolder(opt.image_folder, img_size=opt.img_size),
+  #  batch_size=opt.batch_size,
+   # shuffle=False,
+    #num_workers=opt.n_cpu,
+#)
+
+classes = load_classes(opt.class_path)  # Extracts class labels from file
+
+Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+
+app = Flask(__name__)
+
+@app.route('/', methods=['POST'])
+def main(_argv=None):
+    requests = request.json
+
+    # s3ストレージからダウンロード
+    s3 = boto3.client('s3')
+    i = 0
+    for v in requests.values():
+      i = i + 1
+      result_bucket = v['upload_bucketname']
+      s3.download_file(v['download_bucketname'],
+                       v['download_bucketimage'],
+                       '/tmp/images/{0}'.format(v['download_bucketimage']))
+    imgs = []  # Stores image paths
+    img_detections = []  # Stores detections for each image index
+
     data = {'results': []}
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    os.makedirs("output", exist_ok=True)
-
-    # Set up model
-    model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
-
-    if opt.weights_path.endswith(".weights"):
-        # Load darknet weights
-        model.load_darknet_weights(opt.weights_path)
-    else:
-        # Load checkpoint weights
-        model.load_state_dict(torch.load(opt.weights_path))
-
-    model.eval()  # Set in evaluation mode
-
+    print("\nPerforming object detection:")
     dataloader = DataLoader(
         ImageFolder(opt.image_folder, img_size=opt.img_size),
         batch_size=opt.batch_size,
         shuffle=False,
         num_workers=opt.n_cpu,
     )
-    print(ImageFolder(opt.image_folder, img_size=opt.img_size))
-
-    classes = load_classes(opt.class_path)  # Extracts class labels from file
-
-    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-
-    imgs = []  # Stores image paths
-    img_detections = []  # Stores detections for each image index
-
-    data = {'results': []}
-    print("\nPerforming object detection:")
     prev_time = time.time()
     for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
         # Configure input
@@ -95,6 +122,7 @@ if __name__ == "__main__":
     print("\nSaving images:")
     # Iterate through images and save plot of detections
     for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
+        print(img_i)
         print("(%d) Image: '%s'" % (img_i, path))
 
         # Create plot
@@ -102,6 +130,13 @@ if __name__ == "__main__":
         plt.figure()
         fig, ax = plt.subplots(1)
         ax.imshow(img)
+
+        dict_ = {
+            "Images": path,
+            "Conf": []
+        }
+
+        data['results'].append(dict_)
 
         # Draw bounding boxes and labels of detections
         if detections is not None:
@@ -111,12 +146,6 @@ if __name__ == "__main__":
             n_cls_preds = len(unique_labels)
             bbox_colors = random.sample(colors, n_cls_preds)
             #print(detections[0][4], detections[0][5])
-            dict_ = {
-                "Images": path,
-                "Conf": []
-            }
-
-            data['results'].append(dict_)
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
 
 
@@ -152,7 +181,16 @@ if __name__ == "__main__":
         filename = path.split("/")[-1].split(".")[0]
         plt.savefig(f"output/{filename}.png", bbox_inches="tight", pad_inches=0.0)
         plt.close()
-json_file = json.dumps(data)
-os.makedirs('./results', exist_ok=True)
-with open(os.path.join('results', 'output.json'), 'w') as f:
-    f.write(json_file)
+    json_file = json.dumps(data)
+    os.makedirs('./results', exist_ok=True)
+    with open(os.path.join('results', 'output.json'), 'w') as f:
+        f.write(json_file)
+    s3.upload_file(
+        'results/output.json',
+        result_bucket,
+        requests['image1']['upload_bucketfile']
+        )
+    return data
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
