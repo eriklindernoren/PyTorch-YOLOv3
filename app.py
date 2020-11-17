@@ -139,7 +139,6 @@ def main(_argv=None):
             unique_labels = detections[:, -1].cpu().unique()
             n_cls_preds = len(unique_labels)
             bbox_colors = random.sample(colors, n_cls_preds)
-            #print(detections[0][4], detections[0][5])
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
 
 
@@ -168,7 +167,6 @@ def main(_argv=None):
                             }
                     ]
                 }
-                #print(img_i, path)
                 data['results'][img_i]['Conf'].append(conf_dict)
                 box_w = x2 - x1
                 box_h = y2 - y1
