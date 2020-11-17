@@ -46,6 +46,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 os.makedirs("output", exist_ok=True)
 
+os.makedirs("/tmp/images/", exist_ok=True)
+
 # Set up model
 model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
 
@@ -57,13 +59,6 @@ else:
     model.load_state_dict(torch.load(opt.weights_path))
 
 model.eval()  # Set in evaluation mode
-
-#dataloader = DataLoader(
- #   ImageFolder(opt.image_folder, img_size=opt.img_size),
-  #  batch_size=opt.batch_size,
-   # shuffle=False,
-    #num_workers=opt.n_cpu,
-#)
 
 classes = load_classes(opt.class_path)  # Extracts class labels from file
 
@@ -122,7 +117,6 @@ def main(_argv=None):
     print("\nSaving images:")
     # Iterate through images and save plot of detections
     for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
-        print(img_i)
         print("(%d) Image: '%s'" % (img_i, path))
 
         # Create plot
@@ -150,9 +144,29 @@ def main(_argv=None):
 
 
                 print("\t Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
+                
+                box_w = x2 - x1
+                box_h = y2 - y1
+                # bboxは高さ、幅、左、上のピクセルを表示しています
                 dict_2 = {
                     "Name": classes[int(cls_pred)],
-                    "Confidence": cls_conf.item()
+                    "Confidence": cls_conf.item(),
+                    "Instances": [
+                    {
+                        "BoundingBox": {
+                            "Width": int(box_w),
+                            "Height": int(box_h),
+                            "Left": int(x1),
+                            "Top": int(y2)
+                        },
+                        "Confidence": cls_conf.item()
+                    }   
+                ],
+                        "Parents": [
+                            {
+                                "Name": classes[int(cls_pred)]
+                            }
+                    ]
                 }
                 #print(img_i, path)
                 data['results'][img_i]['Conf'].append(dict_2)
