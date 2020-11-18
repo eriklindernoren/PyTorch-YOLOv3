@@ -75,9 +75,12 @@ def main(_argv=None):
     for v in requests.values():
       i = i + 1
       result_bucket = v['upload_bucketname']
+      print(v['download_bucketimage'])
+      print('/tmp/images/{0}'.format(v['download_bucketimage']))
       s3.download_file(v['download_bucketname'],
-                       v['download_bucketimage'],
-                       '/tmp/images/{0}'.format(v['download_bucketimage']))
+                       v['download_imagepath'],
+                       '/tmp/images/{}'.format(v['download_bucketimage']))
+      print(v['download_bucketimage'])
     imgs = []  # Stores image paths
     img_detections = []  # Stores detections for each image index
 
