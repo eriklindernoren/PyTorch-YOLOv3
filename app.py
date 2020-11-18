@@ -79,6 +79,7 @@ def main(_argv=None):
                        v['download_imagepath'],
                        '/tmp/images/{}'.format(v['download_bucketimage']))
       print(v['download_bucketimage'])
+
     imgs = []  # Stores image paths
     img_detections = []  # Stores detections for each image index
 
@@ -198,6 +199,7 @@ def main(_argv=None):
     os.makedirs('./results', exist_ok=True)
     with open(os.path.join('results', 'output.json'), 'w') as f:
         f.write(json_file)
+        
     # 指定したS3にアップロード
     s3.upload_file(
         'results/output.json',

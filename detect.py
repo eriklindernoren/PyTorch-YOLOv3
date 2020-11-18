@@ -11,7 +11,7 @@ import datetime
 import argparse
 
 from PIL import Image
-
+import json
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets
@@ -34,7 +34,6 @@ if __name__ == "__main__":
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
     opt = parser.parse_args()
-    print(opt)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -58,6 +57,7 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=opt.n_cpu,
     )
+    print(ImageFolder(opt.image_folder, img_size=opt.img_size))
 
     classes = load_classes(opt.class_path)  # Extracts class labels from file
 
@@ -113,6 +113,7 @@ if __name__ == "__main__":
             for x1, y1, x2, y2, conf, cls_conf, cls_pred in detections:
 
                 print("\t+ Label: %s, Conf: %.5f" % (classes[int(cls_pred)], cls_conf.item()))
+
 
                 box_w = x2 - x1
                 box_h = y2 - y1
