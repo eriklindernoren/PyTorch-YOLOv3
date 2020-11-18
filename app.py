@@ -71,9 +71,7 @@ def main(_argv=None):
 
     # s3ストレージからダウンロード
     s3 = boto3.client('s3')
-    i = 0
     for v in requests.values():
-      i = i + 1
       result_bucket = v['upload_bucketname']
       print(v['download_bucketimage'])
       print('/tmp/images/{0}'.format(v['download_bucketimage']))
@@ -200,6 +198,7 @@ def main(_argv=None):
     os.makedirs('./results', exist_ok=True)
     with open(os.path.join('results', 'output.json'), 'w') as f:
         f.write(json_file)
+    # 指定したS3にアップロード
     s3.upload_file(
         'results/output.json',
         result_bucket,
