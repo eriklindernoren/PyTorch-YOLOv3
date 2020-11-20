@@ -1,0 +1,44 @@
+ * Serving Flask app "app" (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: on
+ * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 173-737-152
+116.94.0.124 - - [20/Nov/2020 09:38:03] "[37mPOST / HTTP/1.1[0m" 200 -
+116.94.0.124 - - [20/Nov/2020 09:38:28] "[37mPOST / HTTP/1.1[0m" 200 -
+ * Detected change in '/home/ubuntu/PyTorch-YOLOv3/app.py', reloading
+
+Performing object detection:
+	+ Batch 0, Inference Time: 0:00:00.112144
+
+Saving images:
+(0) Image: '/tmp/images/esp-eye-id-1-delay-20201120110517_0276.png'
+-------------------------
+{'results': [{'Images': '/tmp/images/esp-eye-id-1-delay-20201120110517_0276.png', 'Conf': []}]}
+
+Performing object detection:
+	+ Batch 0, Inference Time: 0:00:00.099379
+
+Saving images:
+(0) Image: '/tmp/images/esp-eye-id-1-delay-20201120110517_0276.png'
+-------------------------
+{'results': [{'Images': '/tmp/images/esp-eye-id-1-delay-20201120110517_0276.png', 'Conf': []}]}
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 173-737-152
+116.94.0.124 - - [20/Nov/2020 09:40:49] "[37mPOST / HTTP/1.1[0m" 200 -
+ * Detected change in '/home/ubuntu/PyTorch-YOLOv3/app.py', reloading
+
+Performing object detection:
+	+ Batch 0, Inference Time: 0:00:00.108964
+
+Saving images:
+(0) Image: '/tmp/images/esp-eye-id-1-delay-20201120110441_0892.png'
+-------------------------
+{'results': [{'Images': '/tmp/images/esp-eye-id-1-delay-20201120110441_0892.png', 'Conf': []}]}
+ * Restarting with stat
+ * Debugger is active!
+ * Debugger PIN: 173-737-152

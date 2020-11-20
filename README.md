@@ -30,4 +30,4 @@ A minimal PyTorch implementation of YOLOv3, with support for training, inference
     $ paste <(awk "{print \"$PWD\"}" <trainvalno5k.part) trainvalno5k.part | tr -d '\t' > trainvalno5k.txt    
 
 ## API start
-    $ python3.6 app.py
+    $ nohup python3.6 app.py > out.log &

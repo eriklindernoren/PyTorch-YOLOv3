@@ -25,9 +25,10 @@ import boto3
 import sys
 import json
 import time
-from flask import Flask, request
+from flask import *
 import cv2
 import numpy as np
+import shutil
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_folder", type=str, default="/tmp/images/", help="path to dataset")
@@ -43,9 +44,7 @@ parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint mod
 opt = parser.parse_args()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-os.makedirs("output", exist_ok=True)
-
-os.makedirs("/tmp/images/", exist_ok=True)
+#os.makedirs("output", exist_ok=True)
 
 # Set up model
 model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
@@ -69,16 +68,15 @@ app = Flask(__name__)
 def main(_argv=None):
     requests = request.json
 
+    shutil.rmtree("/tmp/images", ignore_errors=True)
+    os.makedirs("/tmp/images/", exist_ok=True)
     # s3ストレージからダウンロード
     s3 = boto3.client('s3')
     for v in requests.values():
       result_bucket = v['upload_bucketname']
-      print(v['download_bucketimage'])
-      print('/tmp/images/{0}'.format(v['download_bucketimage']))
       s3.download_file(v['download_bucketname'],
                        v['download_imagepath'],
                        '/tmp/images/{}'.format(v['download_bucketimage']))
-      print(v['download_bucketimage'])
     imgs = []  # Stores image paths
     img_detections = []  # Stores detections for each image index
 
@@ -113,18 +111,13 @@ def main(_argv=None):
     cmap = plt.get_cmap("tab20b")
     colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 
-    print("\nSaving images:")
-
     data = {'results': []}
     # Iterate through images and save plot of detections
     for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
         print("(%d) Image: '%s'" % (img_i, path))
+        img = np.array(Image.open(path))
 
         # Create plot
-        img = np.array(Image.open(path))
-        plt.figure()
-        fig, ax = plt.subplots(1)
-        ax.imshow(img)
 
         image_dict = {
             "Images": path,
@@ -176,24 +169,6 @@ def main(_argv=None):
                 # Create a Rectangle patch
                 bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
                 # Add the bbox to the plot
-                ax.add_patch(bbox)
-                # Add label
-                plt.text(
-                    x1,
-                    y1,
-                    s=classes[int(cls_pred)],
-                    color="white",
-                    verticalalignment="top",
-                    bbox={"color": color, "pad": 0},
-                )
-
-        # Save generated image with detections
-        plt.axis("off")
-        plt.gca().xaxis.set_major_locator(NullLocator())
-        plt.gca().yaxis.set_major_locator(NullLocator())
-        filename = path.split("/")[-1].split(".")[0]
-        plt.savefig(f"output/{filename}.png", bbox_inches="tight", pad_inches=0.0)
-        plt.close()
     json_file = json.dumps(data)
     os.makedirs('./results', exist_ok=True)
     with open(os.path.join('results', 'output.json'), 'w') as f:
@@ -204,7 +179,7 @@ def main(_argv=None):
         result_bucket,
         requests['image1']['upload_bucketfile']
         )
-    return data
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
