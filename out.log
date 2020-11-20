@@ -42,3 +42,9 @@ Saving images:
  * Restarting with stat
  * Debugger is active!
  * Debugger PIN: 173-737-152
+ * Detected change in '/home/ubuntu/PyTorch-YOLOv3/app.py', reloading
+ * Restarting with stat
+  File "/home/ubuntu/PyTorch-YOLOv3/app.py", line 80
+    <<<<<<< HEAD
+     ^
+SyntaxError: invalid syntax

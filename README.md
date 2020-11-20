@@ -13,11 +13,8 @@ A minimal PyTorch implementation of YOLOv3, with support for training, inference
 
 ##### Download COCO
     $ cd data/
-
-    # Clone COCO API
     $ git clone https://github.com/pdollar/coco
     $ cd coco
-# Download COCO Metadata
     $ wget -c https://pjreddie.com/media/files/instances_train-val2014.zip
     $ wget -c https://pjreddie.com/media/files/coco/5k.part
     $ wget -c https://pjreddie.com/media/files/coco/trainvalno5k.part
