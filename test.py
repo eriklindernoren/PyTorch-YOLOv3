@@ -34,7 +34,10 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
     for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc="Detecting objects")):
-
+        
+        if targets is None:
+            continue
+            
         # Extract labels
         labels += targets[:, 1].tolist()
         # Rescale target
@@ -95,7 +98,7 @@ if __name__ == "__main__":
         conf_thres=opt.conf_thres,
         nms_thres=opt.nms_thres,
         img_size=opt.img_size,
-        batch_size=8,
+        batch_size=opt.batch_size,
     )
 
     print("Average Precisions:")
