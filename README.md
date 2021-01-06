@@ -1,4 +1,4 @@
-**WARNING: This repository has gone stale since I unfortunately do not have the time to maintain it anymore. For an actively maintained fork please have a look at [Flova's PyTorch-YOLOv3 fork](https://github.com/Flova/PyTorch-YOLOv3)**
+**WARNING: This repository has gone stale as I unfortunately do not have the time to maintain it anymore. If you would like to continue the development of it as a contributor send me an email.**
 
 
 # PyTorch-YOLOv3
