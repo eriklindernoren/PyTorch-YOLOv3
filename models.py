@@ -137,7 +137,6 @@ class YOLOLayer(nn.Module):
         # Tensors for cuda support
         FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
         LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
-        ByteTensor = torch.cuda.ByteTensor if x.is_cuda else torch.ByteTensor
 
         self.img_dim = img_dim
         num_samples = x.size(0)
@@ -155,7 +154,7 @@ class YOLOLayer(nn.Module):
         w = prediction[..., 2]  # Width
         h = prediction[..., 3]  # Height
         pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
-        pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
+        pred_cls = torch.sigmoid(prediction[..., 5:]        ByteTensor = torch.cuda.ByteTensor if x.is_cuda else torch.ByteTensor)  # Cls pred.
 
         # If grid size does not match current we compute new offsets
         if grid_size != self.grid_size:
