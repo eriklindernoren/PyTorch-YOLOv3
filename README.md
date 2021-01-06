@@ -1,3 +1,6 @@
+**WARNING: This repository has gone stale since I unfortunately do not have the time to maintain it anymore. For an actively maintained fork please have a look at [Flova's PyTorch-YOLOv3 fork](https://github.com/Flova/PyTorch-YOLOv3)**
+
+
 # PyTorch-YOLOv3
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
