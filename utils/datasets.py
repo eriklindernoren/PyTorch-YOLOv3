@@ -2,12 +2,17 @@ import glob
 import random
 import os
 import sys
+import warnings
 import numpy as np
 from PIL import Image
+
+import imgaug.augmenters as iaa
+from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
+from imgaug.augmentables.segmaps import SegmentationMapsOnImage
+
 import torch
 import torch.nn.functional as F
 
-from utils.augmentations import horisontal_flip
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
 
@@ -57,7 +62,7 @@ class ImageFolder(Dataset):
 
 
 class ListDataset(Dataset):
-    def __init__(self, list_path, img_size=416, augment=True, multiscale=True, normalized_labels=True):
+    def __init__(self, list_path, img_size=416, multiscale=True, transform=None):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
 
@@ -67,12 +72,11 @@ class ListDataset(Dataset):
         ]
         self.img_size = img_size
         self.max_objects = 100
-        self.augment = augment
         self.multiscale = multiscale
-        self.normalized_labels = normalized_labels
         self.min_size = self.img_size - 3 * 32
         self.max_size = self.img_size + 3 * 32
         self.batch_count = 0
+        self.transform = transform
 
     def __getitem__(self, index):
 
@@ -82,19 +86,7 @@ class ListDataset(Dataset):
 
         img_path = self.img_files[index % len(self.img_files)].rstrip()
 
-        # Extract image as PyTorch tensor
-        img = transforms.ToTensor()(Image.open(img_path).convert('RGB'))
-
-        # Handle images with less than three channels
-        if len(img.shape) != 3:
-            img = img.unsqueeze(0)
-            img = img.expand((3, img.shape[1:]))
-
-        _, h, w = img.shape
-        h_factor, w_factor = (h, w) if self.normalized_labels else (1, 1)
-        # Pad to square resolution
-        img, pad = pad_to_square(img, 0)
-        _, padded_h, padded_w = img.shape
+        img = np.array(Image.open(img_path).convert('RGB'), dtype=np.uint8)
 
         # ---------
         #  Label
@@ -102,55 +94,34 @@ class ListDataset(Dataset):
 
         label_path = self.label_files[index % len(self.img_files)].rstrip()
 
-        targets = None
-        if os.path.exists(label_path):
-            boxes = torch.from_numpy(np.loadtxt(label_path).reshape(-1, 5))
-            # Extract coordinates for unpadded + unscaled image
-            x1 = w_factor * (boxes[:, 1] - boxes[:, 3] / 2)
-            y1 = h_factor * (boxes[:, 2] - boxes[:, 4] / 2)
-            x2 = w_factor * (boxes[:, 1] + boxes[:, 3] / 2)
-            y2 = h_factor * (boxes[:, 2] + boxes[:, 4] / 2)
-            # Adjust for added padding
-            x1 += pad[0]
-            y1 += pad[2]
-            x2 += pad[1]
-            y2 += pad[3]
-            # Returns (x, y, w, h)
-            boxes[:, 1] = ((x1 + x2) / 2) / padded_w
-            boxes[:, 2] = ((y1 + y2) / 2) / padded_h
-            boxes[:, 3] *= w_factor / padded_w
-            boxes[:, 4] *= h_factor / padded_h
+        # Ignore warning if file is empty
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            boxes = np.loadtxt(label_path).reshape(-1, 5)
 
-            targets = torch.zeros((len(boxes), 6))
-            targets[:, 1:] = boxes
+        # Apply transforms
+        if self.transform:
+            img, bb_targets = self.transform((img, boxes))
 
-        # Apply augmentations
-        if self.augment:
-            if np.random.random() < 0.5:
-                img, targets = horisontal_flip(img, targets)
-
-        return img_path, img, targets
+        return img_path, img, bb_targets
 
     def collate_fn(self, batch):
-        paths, imgs, targets = list(zip(*batch))
-        # Remove empty placeholder targets
-        targets = [boxes for boxes in targets if boxes is not None]
-        # Add sample index to targets
-        for i, boxes in enumerate(targets):
-            boxes[:, 0] = i
-            
-        try:
-            targets = torch.cat(targets, 0)
-        except RuntimeError as e_inst:
-            targets = None # No boxes for an image
-            
+        self.batch_count += 1
+        paths, imgs, bb_targets = list(zip(*batch))
+        
         # Selects new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
             self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
+        
         # Resize images to input shape
         imgs = torch.stack([resize(img, self.img_size) for img in imgs])
-        self.batch_count += 1
-        return paths, imgs, targets
+
+        # Add sample index to targets
+        for i, boxes in enumerate(bb_targets):
+            boxes[:, 0] = i
+        bb_targets = torch.cat(bb_targets, 0)
+        
+        return paths, imgs, bb_targets
 
     def __len__(self):
         return len(self.img_files)
