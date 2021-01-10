@@ -105,6 +105,16 @@ class ToTensor(object):
         return img, bb_targets
 
 
+class Resize(object):
+    def __init__(self, size):
+        self.size = size
+
+    def __call__(self, data):
+        img, boxes = data
+        img = F.interpolate(img.unsqueeze(0), size=self.size, mode="nearest").squeeze(0)
+        return img, boxes
+
+
 DEFAULT_TRANSFORMS = transforms.Compose([
         AbsoluteLabels(),
         PadSquare(),
