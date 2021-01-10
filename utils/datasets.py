@@ -35,23 +35,16 @@ def resize(image, size):
     return image
 
 
-def random_resize(images, min_size=288, max_size=448):
-    new_size = random.sample(list(range(min_size, max_size + 1, 32)), 1)[0]
-    images = F.interpolate(images, size=new_size, mode="nearest")
-    return images
-
-
 class ImageFolder(Dataset):
-    def __init__(self, folder_path, img_size=416, transform=None):
+    def __init__(self, folder_path, transform=None):
         self.files = sorted(glob.glob("%s/*.*" % folder_path))
-        self.img_size = img_size
         self.transform = transform
 
     def __getitem__(self, index):
 
         img_path = self.files[index % len(self.files)]
         img = np.array(
-            Image.open(img_path).convert('RGB').resize((self.img_size, self.img_size)), 
+            Image.open(img_path).convert('RGB'), 
             dtype=np.uint8)
 
         # Label Placeholder
