@@ -7,3 +7,4 @@ terminaltables
 pillow
 tqdm
 imgaug
+nonechucks

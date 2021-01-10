@@ -21,6 +21,7 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
+import nonechucks as nc
 
 def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
     model.eval()
@@ -28,7 +29,11 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
     # Get dataloader
     dataset = ListDataset(path, img_size=img_size, multiscale=False, transform=DEFAULT_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, num_workers=1, collate_fn=dataset.collate_fn
+        nc.SafeDataset(dataset), 
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=1,
+        collate_fn=dataset.collate_fn
     )
 
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
