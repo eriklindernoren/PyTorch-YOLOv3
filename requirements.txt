@@ -6,3 +6,4 @@ tensorboard
 terminaltables
 pillow
 tqdm
+imgaug
