@@ -42,18 +42,22 @@ def random_resize(images, min_size=288, max_size=448):
 
 
 class ImageFolder(Dataset):
-    def __init__(self, folder_path, img_size=416):
+    def __init__(self, folder_path, img_size=416, transform=None):
         self.files = sorted(glob.glob("%s/*.*" % folder_path))
         self.img_size = img_size
+        self.transform = transform
 
     def __getitem__(self, index):
+
         img_path = self.files[index % len(self.files)]
-        # Extract image as PyTorch tensor
-        img = transforms.ToTensor()(Image.open(img_path))
-        # Pad to square resolution
-        img, _ = pad_to_square(img, 0)
-        # Resize
-        img = resize(img, self.img_size)
+        img = np.array(Image.open(img_path).convert('RGB'), dtype=np.uint8)
+
+        # Label Placeholder
+        boxes = np.zeros((1, 5))
+
+        # Apply transforms
+        if self.transform:
+            img, _ = self.transform((img, boxes))
 
         return img_path, img
 
@@ -70,6 +74,7 @@ class ListDataset(Dataset):
             path.replace("images", "labels").replace(".png", ".txt").replace(".jpg", ".txt")
             for path in self.img_files
         ]
+
         self.img_size = img_size
         self.max_objects = 100
         self.multiscale = multiscale

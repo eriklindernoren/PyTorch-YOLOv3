@@ -4,6 +4,8 @@ from models import *
 from utils.logger import *
 from utils.utils import *
 from utils.datasets import *
+from utils.augmentations import *
+from utils.transforms import *
 from utils.parse_config import *
 from test import evaluate
 
@@ -64,7 +66,7 @@ if __name__ == "__main__":
             model.load_darknet_weights(opt.pretrained_weights)
 
     # Get dataloader
-    dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)
+    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, transform=AUGMENTATION_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=opt.batch_size,
