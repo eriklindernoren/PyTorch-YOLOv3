@@ -15,27 +15,24 @@ class ImgAug(object):
         self.augmentations = augmentations
 
     def __call__(self, data):
+        # Unpack data
         img, boxes = data
 
+        # Convert xywh to xyxy
+        boxes = np.array(boxes)
+        boxes[:, 1:] = xywh2xyxy_np(boxes[:, 1:])
+        
         # Convert bounding boxes to imgaug        
-        bounding_boxes = []
-        for box in boxes:
-            # Extract coordinates for unpadded + unscaled image
-            conv_box = xywh2xyxy_np(np.array([box[1:]]))[0]
+        bounding_boxes = BoundingBoxesOnImage(
+            [BoundingBox(*box[1:], label=box[0]) for box in boxes], 
+            shape=img.shape)
 
-            bounding_boxes.append(
-                BoundingBox(*conv_box, label=box[0]))
-        bounding_boxes = BoundingBoxesOnImage(bounding_boxes, shape=img.shape)
-
-        # ---------
-        #  Augmentations
-        # ---------
+        # Apply augmentations
         img, bounding_boxes = self.augmentations(
             image=img, 
             bounding_boxes=bounding_boxes)
 
-
-        # Clip out of image
+        # Clip out of image boxes
         bounding_boxes = bounding_boxes.clip_out_of_image()
 
         # Convert bounding boxes back to numpy
