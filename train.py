@@ -25,8 +25,6 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
-import nonechucks as nc
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -73,7 +71,7 @@ if __name__ == "__main__":
     # Get dataloader
     dataset = ListDataset(train_path, multiscale=opt.multiscale_training, transform=AUGMENTATION_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
-        nc.SafeDataset(dataset),
+        dataset,
         batch_size=opt.batch_size,
         shuffle=True,
         num_workers=opt.n_cpu,
