@@ -136,12 +136,12 @@ if __name__ == "__main__":
                 for j, yolo in enumerate(model.yolo_layers):
                     for name, metric in yolo.metrics.items():
                         if name != "grid_size":
-                            tensorboard_log += [(f"{name}_{j+1}", metric)]
-                tensorboard_log += [("loss", loss.item())]
+                            tensorboard_log += [(f"train/{name}_{j+1}", metric)]
+                tensorboard_log += [("train/loss", to_cpu(loss).item())]
                 logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             log_str += AsciiTable(metric_table).table
-            log_str += f"\nTotal loss {loss.item()}"
+            log_str += f"\nTotal loss {to_cpu(loss).item()}"
 
             # Determine approximate time left for epoch
             epoch_batches_left = len(dataloader) - (batch_i + 1)
@@ -165,10 +165,10 @@ if __name__ == "__main__":
                 batch_size=8,
             )
             evaluation_metrics = [
-                ("val_precision", precision.mean()),
-                ("val_recall", recall.mean()),
-                ("val_mAP", AP.mean()),
-                ("val_f1", f1.mean()),
+                ("validation/precision", precision.mean()),
+                ("validation/recall", recall.mean()),
+                ("validation/mAP", AP.mean()),
+                ("validation/f1", f1.mean()),
             ]
             logger.list_of_scalars_summary(evaluation_metrics, epoch)
 
