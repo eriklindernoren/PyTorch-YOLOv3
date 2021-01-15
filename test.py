@@ -3,6 +3,8 @@ from __future__ import division
 from models import *
 from utils.utils import *
 from utils.datasets import *
+from utils.augmentations import *
+from utils.transforms import *
 from utils.parse_config import *
 
 import os
@@ -19,14 +21,17 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
-
 def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
     model.eval()
 
     # Get dataloader
-    dataset = ListDataset(path, img_size=img_size, augment=False, multiscale=False)
+    dataset = ListDataset(path, img_size=img_size, multiscale=False, transform=DEFAULT_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=False, num_workers=1, collate_fn=dataset.collate_fn
+        dataset, 
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=1,
+        collate_fn=dataset.collate_fn
     )
 
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor

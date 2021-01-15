@@ -4,6 +4,8 @@ from models import *
 from utils.logger import *
 from utils.utils import *
 from utils.datasets import *
+from utils.augmentations import *
+from utils.transforms import *
 from utils.parse_config import *
 from test import evaluate
 
@@ -22,6 +24,7 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -66,7 +69,7 @@ if __name__ == "__main__":
             model.load_darknet_weights(opt.pretrained_weights)
 
     # Get dataloader
-    dataset = ListDataset(train_path, augment=True, multiscale=opt.multiscale_training)
+    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, transform=AUGMENTATION_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=opt.batch_size,
@@ -133,12 +136,12 @@ if __name__ == "__main__":
                 for j, yolo in enumerate(model.yolo_layers):
                     for name, metric in yolo.metrics.items():
                         if name != "grid_size":
-                            tensorboard_log += [(f"{name}_{j+1}", metric)]
-                tensorboard_log += [("loss", loss.item())]
+                            tensorboard_log += [(f"train/{name}_{j+1}", metric)]
+                tensorboard_log += [("train/loss", to_cpu(loss).item())]
                 logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             log_str += AsciiTable(metric_table).table
-            log_str += f"\nTotal loss {loss.item()}"
+            log_str += f"\nTotal loss {to_cpu(loss).item()}"
 
             # Determine approximate time left for epoch
             epoch_batches_left = len(dataloader) - (batch_i + 1)
@@ -162,10 +165,10 @@ if __name__ == "__main__":
                 batch_size=8,
             )
             evaluation_metrics = [
-                ("val_precision", precision.mean()),
-                ("val_recall", recall.mean()),
-                ("val_mAP", AP.mean()),
-                ("val_f1", f1.mean()),
+                ("validation/precision", precision.mean()),
+                ("validation/recall", recall.mean()),
+                ("validation/mAP", AP.mean()),
+                ("validation/f1", f1.mean()),
             ]
             logger.list_of_scalars_summary(evaluation_metrics, epoch)
 
