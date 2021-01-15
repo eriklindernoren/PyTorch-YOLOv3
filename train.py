@@ -41,10 +41,11 @@ if __name__ == "__main__":
     parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
     parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
     parser.add_argument("--verbose", "-v", default=False, action='store_true', help="Makes the training more verbose")
+    parser.add_argument("--logdir", type=str, default="logs", help="Defines the directory where the training log files are stored")
     opt = parser.parse_args()
     print(opt)
 
-    logger = Logger("logs")
+    logger = Logger(opt.logdir)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -79,7 +80,7 @@ if __name__ == "__main__":
         collate_fn=dataset.collate_fn,
     )
 
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0000)
 
     metrics = [
         "grid_size",
