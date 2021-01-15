@@ -101,6 +101,10 @@ Track training progress in Tensorboard:
 $ tensorboard --logdir='logs' --port=6006
 ```
 
+Storing the logs on a slow drive possibly leads to a significant training speed decrease.
+
+You can adjust the log directory using `--logdir <path>` when running `tensorboard` or the `train.py`.
+
 ## Train on Custom Dataset
 
 #### Custom model
