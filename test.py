@@ -21,15 +21,13 @@ from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
 
-import nonechucks as nc
-
 def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
     model.eval()
 
     # Get dataloader
     dataset = ListDataset(path, img_size=img_size, multiscale=False, transform=DEFAULT_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
-        nc.SafeDataset(dataset), 
+        dataset, 
         batch_size=batch_size,
         shuffle=False,
         num_workers=1,
