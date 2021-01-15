@@ -82,34 +82,51 @@ class ListDataset(Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-
+        
         # ---------
         #  Image
         # ---------
+        try:
 
-        img_path = self.img_files[index % len(self.img_files)].rstrip()
+            img_path = self.img_files[index % len(self.img_files)].rstrip()
 
-        img = np.array(Image.open(img_path).convert('RGB'), dtype=np.uint8)
+            img = np.array(Image.open(img_path).convert('RGB'), dtype=np.uint8)
+        except Exception as e:
+            print(f"Could not read image '{img_path}'.")
+            return
 
         # ---------
         #  Label
         # ---------
+        try:
+            label_path = self.label_files[index % len(self.img_files)].rstrip()
 
-        label_path = self.label_files[index % len(self.img_files)].rstrip()
+            # Ignore warning if file is empty
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                boxes = np.loadtxt(label_path).reshape(-1, 5)
+        except Exception as e:
+            print(f"Could not read label '{label_path}'.")
+            return
 
-        # Ignore warning if file is empty
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            boxes = np.loadtxt(label_path).reshape(-1, 5)
-
-        # Apply transforms
+        # -----------
+        #  Transform
+        # -----------
         if self.transform:
-            img, bb_targets = self.transform((img, boxes))
+            try:
+                img, bb_targets = self.transform((img, boxes))
+            except:
+                print(f"Could not apply transform.")
+                return
 
         return img_path, img, bb_targets
 
     def collate_fn(self, batch):
         self.batch_count += 1
+
+        # Drop invalid images
+        batch = [data for data in batch if data is not None]
+
         paths, imgs, bb_targets = list(zip(*batch))
         
         # Selects new image size every tenth batch
