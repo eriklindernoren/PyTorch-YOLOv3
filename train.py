@@ -27,55 +27,56 @@ import torch.optim as optim
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
-    parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
-    parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
-    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
-    parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
-    parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
-    parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
-    parser.add_argument("--evaluation_interval", type=int, default=1, help="interval evaluations on validation set")
-    parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
-    parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
-    parser.add_argument("--verbose", "-v", default=False, action='store_true', help="Makes the training more verbose")
-    parser.add_argument("--logdir", type=str, default="logs", help="Defines the directory where the training log files are stored")
-    opt = parser.parse_args()
-    print(opt)
+    parser = argparse.ArgumentParser(description="Train YOLO model.")
+    parser.add_argument("-m", "--model", type=str, required=True, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
+    parser.add_argument("-d", "--data", type=str, required=True, default="config/coco.data", help="Path to data config file (.data)")
+    parser.add_argument("-b", "--batch_size", type=int, default=8, help="Size of each image batch")
+    parser.add_argument("-e", "--epochs", type=int, default=100, help="Number of epochs")
+    parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
+    parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension")
+    parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
+    parser.add_argument("--pretrained_weights", type=str, help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
+    parser.add_argument("--checkpoint_interval", type=int, default=1, help="Interval of epochs between saving model weights")
+    parser.add_argument("--evaluation_interval", type=int, default=1, help="Interval of epochs between evaluations on validation set")
+    parser.add_argument("--gradient_accumulations", type=int, default=2, help="Number of gradient accumulations before step")
+    parser.add_argument("--multiscale_training", action="store_false", help="Allow for multi-scale training")
+    parser.add_argument("--logdir", type=str, default="logs", help="Directory for training log files (e.g. for TensorBoard)")
+    # parser.add_argument("--n_image_preview", type=int, default=0, help="Show every n-th image as preview in TensorBoard")
+    args = parser.parse_args()
+    print(args)
 
-    logger = Logger(opt.logdir)
+    logger = Logger(args.logdir)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Create output directories if missing
     os.makedirs("output", exist_ok=True)
     os.makedirs("checkpoints", exist_ok=True)
 
     # Get data configuration
-    data_config = parse_data_config(opt.data_config)
+    data_config = parse_data_config(args.data)
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
 
     # Initiate model
-    model = Darknet(opt.model_def).to(device)
+    model = Darknet(args.model).to(device)
     model.apply(weights_init_normal)
 
-    # If specified we start from checkpoint
-    if opt.pretrained_weights:
-        if opt.pretrained_weights.endswith(".pth"):
-            model.load_state_dict(torch.load(opt.pretrained_weights))
+    # If specified, we start from checkpoint
+    if args.pretrained_weights:
+        if args.pretrained_weights.endswith(".pth"):
+            model.load_state_dict(torch.load(args.pretrained_weights))
         else:
-            model.load_darknet_weights(opt.pretrained_weights)
+            model.load_darknet_weights(args.pretrained_weights)  # Usually .weights
 
     # Get dataloader
-    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, transform=AUGMENTATION_TRANSFORMS)
+    dataset = ListDataset(train_path, multiscale=args.multiscale_training, transform=AUGMENTATION_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=opt.batch_size,
+        batch_size=args.batch_size,
         shuffle=True,
-        num_workers=opt.n_cpu,
+        num_workers=args.n_cpu,
         pin_memory=True,
         collate_fn=dataset.collate_fn,
     )
@@ -99,7 +100,7 @@ if __name__ == "__main__":
         "conf_noobj",
     ]
 
-    for epoch in range(opt.epochs):
+    for epoch in range(args.epochs):
         model.train()
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
@@ -111,7 +112,7 @@ if __name__ == "__main__":
             loss, outputs = model(imgs, targets)
             loss.backward()
 
-            if batches_done % opt.gradient_accumulations == 0:
+            if batches_done % args.gradient_accumulations == 0:
                 # Accumulates gradient before each step
                 optimizer.step()
                 optimizer.zero_grad()
@@ -120,7 +121,7 @@ if __name__ == "__main__":
             #   Log progress
             # ----------------
 
-            log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, opt.epochs, batch_i, len(dataloader))
+            log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, args.epochs, batch_i, len(dataloader))
 
             metric_table = [["Metrics", *[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]]
 
@@ -149,11 +150,11 @@ if __name__ == "__main__":
             time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
             log_str += f"\n---- ETA {time_left}"
 
-            if opt.verbose: print(log_str)
+            if args.verbose: print(log_str)
 
             model.seen += imgs.size(0)
 
-        if epoch % opt.evaluation_interval == 0:
+        if epoch % args.evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
             precision, recall, AP, f1, ap_class = evaluate(
@@ -162,7 +163,7 @@ if __name__ == "__main__":
                 iou_thres=0.5,
                 conf_thres=0.5,
                 nms_thres=0.5,
-                img_size=opt.img_size,
+                img_size=args.img_size,
                 batch_size=8,
             )
             evaluation_metrics = [
@@ -180,5 +181,5 @@ if __name__ == "__main__":
             print(AsciiTable(ap_table).table)
             print(f"---- mAP {AP.mean()}")
 
-        if epoch % opt.checkpoint_interval == 0:
+        if epoch % args.checkpoint_interval == 0:
             torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)

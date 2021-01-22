@@ -25,45 +25,45 @@ import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--image_folder", type=str, default="data/samples", help="path to dataset")
-    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--weights_path", type=str, default="weights/yolov3.weights", help="path to weights file")
-    parser.add_argument("--class_path", type=str, default="data/coco.names", help="path to class label file")
-    parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
-    parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
-    parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
-    parser.add_argument("--checkpoint_model", type=str, help="path to checkpoint model")
-    opt = parser.parse_args()
-    print(opt)
+    parser = argparse.ArgumentParser(description="Detect objects on images.")
+    parser.add_argument("-m", "--model", type=str, required=True, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
+    parser.add_argument("-c", "--classes", type=str, default="data/coco.names", help="Path to classes label file (.names)")
+    parser.add_argument("-w", "--weights", type=str, required=True, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth")
+    parser.add_argument("-i", "--images", type=str, default="data/samples", help="Path to directory with images to inference")
+    parser.add_argument("-b", "--batch_size", type=int, default=8, help="Size of each image batch")
+    parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
+    parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
+    parser.add_argument("--iou_thres", type=float, default=0.5, help="IOU threshold required to qualify as detected")
+    parser.add_argument("--conf_thres", type=float, default=0.5, help="Object confidence threshold")
+    parser.add_argument("--nms_thres", type=float, default=0.5, help="IOU threshold for non-maximum suppression")
+    args = parser.parse_args()
+    print(args)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     os.makedirs("output", exist_ok=True)
 
     # Set up model
-    model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
+    model = Darknet(args.model, img_size=args.img_size).to(device)
 
-    if opt.weights_path.endswith(".weights"):
+    if args.weights.endswith(".weights"):
         # Load darknet weights
-        model.load_darknet_weights(opt.weights_path)
+        model.load_darknet_weights(args.weights)
     else:
         # Load checkpoint weights
-        model.load_state_dict(torch.load(opt.weights_path))
+        model.load_state_dict(torch.load(args.weights))
 
     model.eval()  # Set in evaluation mode
 
     dataloader = DataLoader(
-        ImageFolder(opt.image_folder, transform= \
-            transforms.Compose([DEFAULT_TRANSFORMS, Resize(opt.img_size)])),
-        batch_size=opt.batch_size,
+        ImageFolder(args.images, transform= \
+            transforms.Compose([DEFAULT_TRANSFORMS, Resize(args.img_size)])),
+        batch_size=args.batch_size,
         shuffle=False,
-        num_workers=opt.n_cpu,
+        num_workers=args.n_cpu,
     )
 
-    classes = load_classes(opt.class_path)  # Extracts class labels from file
+    classes = load_classes(args.classes)  # Extracts class labels from file
 
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         # Get detections
         with torch.no_grad():
             detections = model(input_imgs)
-            detections = non_max_suppression(detections, opt.conf_thres, opt.nms_thres)
+            detections = non_max_suppression(detections, args.conf_thres, args.nms_thres)
 
         # Log progress
         current_time = time.time()
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         # Draw bounding boxes and labels of detections
         if detections is not None:
             # Rescale boxes to original image
-            detections = rescale_boxes(detections, opt.img_size, img.shape[:2])
+            detections = rescale_boxes(detections, args.img_size, img.shape[:2])
             unique_labels = detections[:, -1].cpu().unique()
             n_cls_preds = len(unique_labels)
             bbox_colors = random.sample(colors, n_cls_preds)

@@ -21,7 +21,7 @@ A minimal PyTorch implementation of YOLOv3, with support for training, inference
 ## Test
 Evaluates the model on COCO test.
 
-    $ python3 test.py --weights_path weights/yolov3.weights
+    $ python3 test.py --weights weights/yolov3.weights
 
 | Model                   | mAP (min. 50 IoU) |
 | ----------------------- |:-----------------:|
@@ -40,7 +40,7 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 | Darknet-53 (paper)      | Titan X  | 76       |
 | Darknet-53 (this impl.) | 1080ti   | 74       |
 
-    $ python3 detect.py --image_folder data/samples/
+    $ python3 detect.py --images data/samples/
 
 <p align="center"><img src="assets/giraffe.png" width="480"\></p>
 <p align="center"><img src="assets/dog.png" width="480"\></p>
@@ -48,22 +48,12 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 <p align="center"><img src="assets/messi.png" width="480"\></p>
 
 ## Train
-```
-$ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
-                [--gradient_accumulations GRADIENT_ACCUMULATIONS]
-                [--model_def MODEL_DEF] [--data_config DATA_CONFIG]
-                [--pretrained_weights PRETRAINED_WEIGHTS] [--n_cpu N_CPU]
-                [--img_size IMG_SIZE]
-                [--checkpoint_interval CHECKPOINT_INTERVAL]
-                [--evaluation_interval EVALUATION_INTERVAL]
-                [--compute_map COMPUTE_MAP]
-                [--multiscale_training MULTISCALE_TRAINING]
-```
+For argument descriptions have a lock at `python3 train.py --help`
 
 #### Example (COCO)
 To train on COCO using a Darknet-53 backend pretrained on ImageNet run: 
 ```
-$ python3 train.py --data_config config/coco.data  --pretrained_weights weights/darknet53.conv.74
+$ python3 train.py --data config/coco.data  --pretrained_weights weights/darknet53.conv.74
 ```
 
 #### Training log
@@ -131,7 +121,7 @@ In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that
 To train on the custom dataset run:
 
 ```
-$ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data
+$ python3 train.py --model config/yolov3-custom.cfg --data config/custom.data
 ```
 
 Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
