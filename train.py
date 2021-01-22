@@ -7,7 +7,7 @@ from utils.datasets import *
 from utils.augmentations import *
 from utils.transforms import *
 from utils.parse_config import *
-from test import evaluate
+from test import evaluate, print_eval_stats
 
 from terminaltables import AsciiTable
 
@@ -40,6 +40,9 @@ if __name__ == "__main__":
     parser.add_argument("--evaluation_interval", type=int, default=1, help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--gradient_accumulations", type=int, default=2, help="Number of gradient accumulations before step")
     parser.add_argument("--multiscale_training", action="store_false", help="Allow for multi-scale training")
+    parser.add_argument("--iou_thres", type=float, default=0.5, help="Evaluation: IOU threshold required to qualify as detected")
+    parser.add_argument("--conf_thres", type=float, default=0.5, help="Evaluation: Object confidence threshold")
+    parser.add_argument("--nms_thres", type=float, default=0.5, help="Evaluation: IOU threshold for non-maximum suppression")
     parser.add_argument("--logdir", type=str, default="logs", help="Directory for training log files (e.g. for TensorBoard)")
     # parser.add_argument("--n_image_preview", type=int, default=0, help="Show every n-th image as preview in TensorBoard")
     args = parser.parse_args()
@@ -156,7 +159,9 @@ if __name__ == "__main__":
 
         # Save model to checkpoint file
         if epoch % args.checkpoint_interval == 0:
-            torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)
+            checkpoint_path = f"checkpoints/yolov3_ckpt_{epoch}.pth"
+            print(f"Save checkpoint to: '{checkpoint_path}'")
+            torch.save(model.state_dict(), checkpoint_path)
 
         # Evaluate model
         if epoch % args.evaluation_interval == 0:
@@ -165,12 +170,14 @@ if __name__ == "__main__":
             precision, recall, AP, f1, ap_class = evaluate(
                 model,
                 path=valid_path,
-                iou_thres=0.5,
-                conf_thres=0.5,
-                nms_thres=0.5,
+                iou_thres=args.iou_thres,
+                conf_thres=args.conf_thres,
+                nms_thres=args.nms_thres,
                 img_size=args.img_size,
-                batch_size=8,
+                batch_size=args.batch_size,
             )
+
+            # Log the evaluation results
             evaluation_metrics = [
                 ("validation/precision", precision.mean()),
                 ("validation/recall", recall.mean()),
@@ -179,9 +186,4 @@ if __name__ == "__main__":
             ]
             logger.list_of_scalars_summary(evaluation_metrics, epoch)
 
-            # Print class APs and mAP
-            ap_table = [["Index", "Class name", "AP"]]
-            for i, c in enumerate(ap_class):
-                ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-            print(AsciiTable(ap_table).table)
-            print(f"---- mAP {AP.mean()}")
+            print_eval_stats(AP, ap_class, class_names)

@@ -14,6 +14,8 @@ import datetime
 import argparse
 import tqdm
 
+from terminaltables import AsciiTable
+
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets
@@ -63,6 +65,14 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
 
     return precision, recall, AP, f1, ap_class
 
+    def print_eval_stats(AP, ap_class, class_names):
+        # Prints class AP and mean AP
+        ap_table = [["Index", "Class", "AP"]]
+        for i, c in enumerate(ap_class):
+            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+        print(AsciiTable(ap_table).table)
+        print(f"---- mAP {AP.mean():.5f} ----")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate validation data.")
@@ -93,8 +103,6 @@ if __name__ == "__main__":
         # Load checkpoint weights
         model.load_state_dict(torch.load(args.weights))
 
-    print("Compute mAP...")
-
     precision, recall, AP, f1, ap_class = evaluate(
         model,
         path=valid_path,
@@ -105,8 +113,4 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
     )
 
-    print("Average Precisions:")
-    for i, c in enumerate(ap_class):
-        print(f"+ Class '{c}' ({class_names[c]}) - AP: {AP[i]}")
-
-    print(f"mAP: {AP.mean()}")
+    print_eval_stats(AP, ap_class, class_names)
