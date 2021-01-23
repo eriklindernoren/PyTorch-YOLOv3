@@ -30,6 +30,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--classes", type=str, default="data/coco.names", help="Path to classes label file (.names)")
     parser.add_argument("-w", "--weights", type=str, required=True, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth")
     parser.add_argument("-i", "--images", type=str, default="data/samples", help="Path to directory with images to inference")
+    parser.add_argument("-o", "--output", type=str, default="output", help="Output directory")
     parser.add_argument("-b", "--batch_size", type=int, default=8, help="Size of each image batch")
     parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
@@ -41,7 +42,8 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    os.makedirs("output", exist_ok=True)
+    # Create output directories if missing
+    os.makedirs(args.output, exist_ok=True)
 
     # Set up model
     model = Darknet(args.model, img_size=args.img_size).to(device)
@@ -141,6 +143,6 @@ if __name__ == "__main__":
         plt.gca().xaxis.set_major_locator(NullLocator())
         plt.gca().yaxis.set_major_locator(NullLocator())
         filename = os.path.basename(path).split(".")[0]
-        output_path = os.path.join("output", f"{filename}.png")
+        output_path = os.path.join(args.output, f"{filename}.png")
         plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
         plt.close()
