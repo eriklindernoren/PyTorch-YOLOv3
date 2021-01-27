@@ -28,8 +28,8 @@ import torch.optim as optim
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train YOLO model.")
-    parser.add_argument("-m", "--model", type=str, required=True, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
-    parser.add_argument("-d", "--data", type=str, required=True, default="config/coco.data", help="Path to data config file (.data)")
+    parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
+    parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
     parser.add_argument("-b", "--batch_size", type=int, default=8, help="Size of each image batch")
     parser.add_argument("-e", "--epochs", type=int, default=100, help="Number of epochs")
     parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")

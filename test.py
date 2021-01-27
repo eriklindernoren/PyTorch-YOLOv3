@@ -24,6 +24,25 @@ from torch.autograd import Variable
 import torch.optim as optim
 
 def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size):
+    """Evaluate model on validation dataset.
+
+    :param model: Model to evaluate
+    :type model: [type]
+    :param path: Path to file listing all validation image-paths
+    :type path: str
+    :param iou_thres: IOU threshold required to qualify as detected
+    :type iou_thres: float
+    :param conf_thres: Object confidence threshold
+    :type conf_thres: float
+    :param nms_thres: IOU threshold for non-maximum suppression
+    :type nms_thres: float
+    :param img_size: Size of each image dimension for yolo
+    :type img_size: int
+    :param batch_size: Size of each image batch
+    :type batch_size: int
+    :return: precision, recall, AP, f1, ap_class
+    :rtype: [np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+    """
     model.eval()  # Set model to evaluation mode
 
     # Get dataloader
@@ -76,9 +95,9 @@ def evaluate(model, path, iou_thres, conf_thres, nms_thres, img_size, batch_size
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate validation data.")
-    parser.add_argument("-m", "--model", type=str, required=True, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
-    parser.add_argument("-d", "--data", type=str, required=True, default="config/coco.data", help="Path to data config file (.data)")
-    parser.add_argument("-w", "--weights", type=str, required=True, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth")
+    parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
+    parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
+    parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
     parser.add_argument("-b", "--batch_size", type=int, default=8, help="Size of each image batch")
     parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
