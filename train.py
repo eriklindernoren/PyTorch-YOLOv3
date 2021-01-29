@@ -189,7 +189,7 @@ if __name__ == "__main__":
         if epoch % args.evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
-            precision, recall, AP, f1, ap_class = evaluate(
+            metrics_output = evaluate(
                 model,
                 path=valid_path,
                 iou_thres=args.iou_thres,
@@ -199,11 +199,11 @@ if __name__ == "__main__":
                 batch_size=args.batch_size,
             )
 
-            # Log the evaluation results
-            evaluation_metrics = [
-                ("validation/precision", precision.mean()),
-                ("validation/recall", recall.mean()),
-                ("validation/mAP", AP.mean()),
-                ("validation/f1", f1.mean()),
-            ]
-            logger.list_of_scalars_summary(evaluation_metrics, epoch)
+            if metrics_output is not None:
+                precision, recall, AP, f1, ap_class = metrics_output
+                evaluation_metrics = [
+                    ("validation/precision", precision.mean()),
+                    ("validation/recall", recall.mean()),
+                    ("validation/mAP", AP.mean()),
+                    ("validation/f1", f1.mean())]
+                logger.list_of_scalars_summary(evaluation_metrics, epoch)

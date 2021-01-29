@@ -51,7 +51,7 @@ def evaluate(model_path, weights_path, img_path,
     """
     dataloader = _create_validation_data_loader(img_path, batch_size, img_size, n_cpu)
     model = _load_model(model_path, weights_path)
-    precision, recall, AP, f1, ap_class = _evaluate(
+    metrics_output = _evaluate(
         model,
         dataloader,
         img_size,
@@ -59,16 +59,20 @@ def evaluate(model_path, weights_path, img_path,
         conf_thres,
         nms_thres)
     if print_stats:
-        print_eval_stats(AP, ap_class, class_names)
-    return precision, recall, AP, f1, ap_class
+        print_eval_stats(metrics_output)
+    return metrics_output
 
-def print_eval_stats(AP, ap_class, class_names):
-    # Prints class AP and mean AP
-    ap_table = [["Index", "Class", "AP"]]
-    for i, c in enumerate(ap_class):
-        ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-    print(AsciiTable(ap_table).table)
-    print(f"---- mAP {AP.mean():.5f} ----")
+def print_eval_stats(metrics_output):
+    if metrics_output is not None:
+        precision, recall, AP, f1, ap_class = metrics_output
+        # Prints class AP and mean AP
+        ap_table = [["Index", "Class", "AP"]]
+        for i, c in enumerate(ap_class):
+            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+        print(AsciiTable(ap_table).table)
+        print(f"---- mAP {AP.mean():.5f} ----")
+    else:
+        print( "---- mAP not measured (no detections found by model) ----")
 
 def _evaluate(model, dataloader, img_size, iou_thres, conf_thres, nms_thres):
     """Evaluate model on validation dataset.
@@ -111,7 +115,10 @@ def _evaluate(model, dataloader, img_size, iou_thres, conf_thres, nms_thres):
             outputs = non_max_suppression(outputs, conf_thres=conf_thres, nms_thres=nms_thres)
 
         sample_metrics += get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
-
+    
+    if len(sample_metrics) == 0:  # No detections over whole validation set.
+        return None
+    
     # Concatenate sample statistics
     true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
     precision, recall, AP, f1, ap_class = ap_per_class(true_positives, pred_scores, pred_labels, labels)
