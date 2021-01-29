@@ -231,7 +231,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
         batch_size=batch_size,
         shuffle=False,
         num_workers=n_cpu,
-    )
+        pin_memory=True)
 
 def _load_model(model_path, weights_path):
     """Loads the yolo model from file.

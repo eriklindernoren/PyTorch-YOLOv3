@@ -138,8 +138,8 @@ def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
         batch_size=batch_size,
         shuffle=False,
         num_workers=n_cpu,
-        collate_fn=dataset.collate_fn
-    )
+        pin_memory=True,
+        collate_fn=dataset.collate_fn)
 
 def _load_model(model_path, weights_path):
     """Loads the yolo model from file.
