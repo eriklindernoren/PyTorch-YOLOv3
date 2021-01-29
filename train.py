@@ -9,14 +9,11 @@ from utils.datasets import *
 from utils.augmentations import *
 from utils.transforms import *
 from utils.parse_config import *
-from test import evaluate, print_eval_stats
+from test import evaluate
 
 from terminaltables import AsciiTable
 
 import os
-import sys
-import time
-import datetime
 import argparse
 import tqdm
 
@@ -26,6 +23,55 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
+
+
+def _create_data_loader(img_path, batch_size, img_size, n_cpu):
+    """Creates a DataLoader for training.
+
+    :param img_path: Path to file containing all paths to training images.
+    :type img_path: str
+    :param batch_size: Size of each image batch
+    :type batch_size: int
+    :param img_size: Size of each image dimension for yolo
+    :type img_size: int
+    :param n_cpu: Number of cpu threads to use during batch generation
+    :type n_cpu: int
+    :return: Returns DataLoader
+    :rtype: DataLoader
+    """
+    dataset = ListDataset(
+        img_path,
+        image_size=img_size,
+        multiscale=args.multiscale_training,
+        transform=AUGMENTATION_TRANSFORMS)
+    return dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=n_cpu,
+        pin_memory=True,
+        collate_fn=dataset.collate_fn)
+
+def _load_model(model_path, weights_path):
+    """Loads the (optionally pretrained) yolo model from file.
+
+    :param model_path: Path to model definition file (.cfg)
+    :type model_path: str
+    :param weights_path: Path to pretrained weights or checkpoint file (.weights or .pth)
+    :type weights_path: str
+    :return: Returns model
+    :rtype: Darknet
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Select device for inference
+    model = Darknet(args.model).to(device)
+    model.apply(weights_init_normal)
+
+    if weights_path:  # If pretrained weights are specified, start from checkpoint
+        if weights_path.endswith(".weights"):  # Load darknet weights
+            model.load_darknet_weights(weights_path)
+        else:  # Load checkpoint weights
+            model.load_state_dict(torch.load(weights_path))
+    return model
 
 
 if __name__ == "__main__":
@@ -50,9 +96,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-    logger = Logger(args.logdir)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger = Logger(args.logdir)  # Tensorboard logger
 
     # Create output directories if missing
     os.makedirs("output", exist_ok=True)
@@ -64,27 +108,9 @@ if __name__ == "__main__":
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
 
-    # Initiate model
-    model = Darknet(args.model).to(device)
-    model.apply(weights_init_normal)
+    dataloader = _create_data_loader(train_path, args.batch_size, args.img_size, args.n_cpu)
 
-    # If specified, we start from checkpoint
-    if args.pretrained_weights:
-        if args.pretrained_weights.endswith(".pth"):
-            model.load_state_dict(torch.load(args.pretrained_weights))
-        else:
-            model.load_darknet_weights(args.pretrained_weights)  # Usually .weights
-
-    # Get dataloader
-    dataset = ListDataset(train_path, multiscale=args.multiscale_training, transform=AUGMENTATION_TRANSFORMS)
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.n_cpu,
-        pin_memory=True,
-        collate_fn=dataset.collate_fn,
-    )
+    model = _load_model(args.model, args.pretrained_weights)
 
     optimizer = torch.optim.Adam(model.parameters())
 
@@ -106,8 +132,7 @@ if __name__ == "__main__":
     ]
 
     for epoch in range(args.epochs):
-        model.train()
-        start_time = time.time()
+        model.train()  # Set model to training mode
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
 
@@ -150,11 +175,6 @@ if __name__ == "__main__":
             log_str += AsciiTable(metric_table).table
             log_str += f"\nTotal loss {to_cpu(loss).item()}"
 
-            # Determine approximate time left for epoch
-            epoch_batches_left = len(dataloader) - (batch_i + 1)
-            time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
-            log_str += f"\n---- ETA {time_left}"
-
             if args.verbose: print(log_str)
 
             model.seen += imgs.size(0)
@@ -187,5 +207,3 @@ if __name__ == "__main__":
                 ("validation/f1", f1.mean()),
             ]
             logger.list_of_scalars_summary(evaluation_metrics, epoch)
-
-            print_eval_stats(AP, ap_class, class_names)
