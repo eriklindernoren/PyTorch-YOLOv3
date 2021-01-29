@@ -163,17 +163,22 @@ if __name__ == "__main__":
                 row_metrics = [formats[metric] % yolo.metrics.get(metric, 0) for yolo in model.yolo_layers]
                 metric_table += [[metric, *row_metrics]]
 
-                # Tensorboard logging
-                tensorboard_log = []
-                for j, yolo in enumerate(model.yolo_layers):
-                    for name, metric in yolo.metrics.items():
-                        if name != "grid_size":
-                            tensorboard_log += [(f"train/{name}_{j+1}", metric)]
-                tensorboard_log += [("train/loss", to_cpu(loss).item())]
-                logger.list_of_scalars_summary(tensorboard_log, batches_done)
-
             log_str += AsciiTable(metric_table).table
             log_str += f"\nTotal loss {to_cpu(loss).item()}"
+
+            # Tensorboard logging
+            tensorboard_log = []
+            for j, yolo in enumerate(model.yolo_layers):
+                for name, metric in yolo.metrics.items():
+                    if name != "grid_size":
+                        tensorboard_log += [(f"train/{name}_{j+1}", metric)]
+            tensorboard_log += [("train/loss", to_cpu(loss).item())]
+            logger.list_of_scalars_summary(tensorboard_log, batches_done)
+
+            # Determine approximate time left for epoch
+            epoch_batches_left = len(dataloader) - (batch_i + 1)
+            time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
+            log_str += f"\n---- ETA {time_left}"
 
             if args.verbose: print(log_str)
 
