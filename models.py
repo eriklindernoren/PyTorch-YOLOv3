@@ -205,7 +205,7 @@ class YOLOLayer(nn.Module):
             conf50 = (pred_conf > 0.5).float()
             iou50 = (iou_scores > 0.5).float()
             iou75 = (iou_scores > 0.75).float()
-            detected_mask = conf50 * class_mask * tconf
+            detected_mask = conf50 * class_mask
             precision = torch.sum(iou50 * detected_mask) / (conf50.sum() + 1e-16)
             recall50 = torch.sum(iou50 * detected_mask) / (obj_mask.sum() + 1e-16)
             recall75 = torch.sum(iou75 * detected_mask) / (obj_mask.sum() + 1e-16)
