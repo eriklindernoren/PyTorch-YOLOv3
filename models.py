@@ -35,6 +35,7 @@ def create_modules(module_defs):
     })
     assert hyperparams["height"] == hyperparams["width"], \
         "Height and width should be equal! Non square images are padded with zeros."
+    output_filters = [hyperparams["channels"]]
     module_list = nn.ModuleList()
     for module_i, module_def in enumerate(module_defs):
         modules = nn.Sequential()
