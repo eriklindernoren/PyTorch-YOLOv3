@@ -9,7 +9,7 @@ from utils.datasets import *
 from utils.augmentations import *
 from utils.transforms import *
 from utils.parse_config import *
-from test import evaluate
+from test import _evaluate, _create_validation_data_loader
 
 from terminaltables import AsciiTable
 
@@ -41,16 +41,17 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     """
     dataset = ListDataset(
         img_path,
-        image_size=img_size,
+        img_size=img_size,
         multiscale=args.multiscale_training,
         transform=AUGMENTATION_TRANSFORMS)
-    return dataloader = torch.utils.data.DataLoader(
+    dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=n_cpu,
         pin_memory=True,
         collate_fn=dataset.collate_fn)
+    return dataloader
 
 def _load_model(model_path, weights_path):
     """Loads the (optionally pretrained) yolo model from file.
@@ -59,8 +60,8 @@ def _load_model(model_path, weights_path):
     :type model_path: str
     :param weights_path: Path to pretrained weights or checkpoint file (.weights or .pth)
     :type weights_path: str
-    :return: Returns model
-    :rtype: Darknet
+    :return: Returns model and device string
+    :rtype: Darknet, str
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Select device for inference
     model = Darknet(args.model).to(device)
@@ -71,7 +72,7 @@ def _load_model(model_path, weights_path):
             model.load_darknet_weights(weights_path)
         else:  # Load checkpoint weights
             model.load_state_dict(torch.load(weights_path))
-    return model
+    return model, device
 
 
 if __name__ == "__main__":
@@ -109,8 +110,9 @@ if __name__ == "__main__":
     class_names = load_classes(data_config["names"])
 
     dataloader = _create_data_loader(train_path, args.batch_size, args.img_size, args.n_cpu)
+    validation_dataloader = _create_validation_data_loader(valid_path, args.batch_size, args.img_size, args.n_cpu)
 
-    model = _load_model(args.model, args.pretrained_weights)
+    model, device = _load_model(args.model, args.pretrained_weights)
 
     optimizer = torch.optim.Adam(model.parameters())
 
@@ -132,6 +134,8 @@ if __name__ == "__main__":
     ]
 
     for epoch in range(args.epochs):
+        print("")
+
         model.train()  # Set model to training mode
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
@@ -147,12 +151,14 @@ if __name__ == "__main__":
                 optimizer.step()
                 optimizer.zero_grad()
 
-            # ----------------
-            #   Log progress
-            # ----------------
+            model.seen += imgs.size(0)
 
-            log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, args.epochs, batch_i, len(dataloader))
+        # ----------------
+        #   Log progress
+        # ----------------
 
+        if args.verbose:
+            log_str = ""
             metric_table = [["Metrics", *[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]]
 
             # Log metrics at each YOLO layer
@@ -164,44 +170,36 @@ if __name__ == "__main__":
                 metric_table += [[metric, *row_metrics]]
 
             log_str += AsciiTable(metric_table).table
-            log_str += f"\nTotal loss {to_cpu(loss).item()}"
+            log_str += f"\nTotal loss: {to_cpu(loss).item()}"
+            print(log_str)
 
-            # Tensorboard logging
-            tensorboard_log = []
-            for j, yolo in enumerate(model.yolo_layers):
-                for name, metric in yolo.metrics.items():
-                    if name != "grid_size":
-                        tensorboard_log += [(f"train/{name}_{j+1}", metric)]
-            tensorboard_log += [("train/loss", to_cpu(loss).item())]
-            logger.list_of_scalars_summary(tensorboard_log, batches_done)
-
-            # Determine approximate time left for epoch
-            epoch_batches_left = len(dataloader) - (batch_i + 1)
-            time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
-            log_str += f"\n---- ETA {time_left}"
-
-            if args.verbose: print(log_str)
-
-            model.seen += imgs.size(0)
+        # Tensorboard logging
+        tensorboard_log = []
+        for j, yolo in enumerate(model.yolo_layers):
+            for name, metric in yolo.metrics.items():
+                if name != "grid_size":
+                    tensorboard_log += [(f"train/{name}_{j+1}", metric)]
+        tensorboard_log += [("train/loss", to_cpu(loss).item())]
+        logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
         # Save model to checkpoint file
         if epoch % args.checkpoint_interval == 0:
             checkpoint_path = f"checkpoints/yolov3_ckpt_{epoch}.pth"
-            print(f"Save checkpoint to: '{checkpoint_path}'")
+            print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
             torch.save(model.state_dict(), checkpoint_path)
 
         # Evaluate model
         if epoch % args.evaluation_interval == 0:
-            print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
-            metrics_output = evaluate(
+            metrics_output = _evaluate(
                 model,
-                path=valid_path,
+                validation_dataloader,
+                class_names,
+                img_size=args.img_size,
                 iou_thres=args.iou_thres,
                 conf_thres=args.conf_thres,
                 nms_thres=args.nms_thres,
-                img_size=args.img_size,
-                batch_size=args.batch_size,
+                verbose=args.verbose
             )
 
             if metrics_output is not None:

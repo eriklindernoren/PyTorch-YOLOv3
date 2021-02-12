@@ -22,9 +22,9 @@ from torchvision import transforms
 from torch.autograd import Variable
 
 
-def evaluate(model_path, weights_path, img_path,
+def evaluate(model_path, weights_path, img_path, class_names,
     batch_size=8, img_size=416, n_cpu=8,
-    iou_thres=0.5, conf_thres=0.5, nms_thres=0.5, print_stats=True):
+    iou_thres=0.5, conf_thres=0.5, nms_thres=0.5, verbose=True):
     """Evaluate model on validation dataset.
 
     :param model_path: Path to model definition file (.cfg)
@@ -33,6 +33,8 @@ def evaluate(model_path, weights_path, img_path,
     :type weights_path: str
     :param img_path: Path to file containing all paths to validation images.
     :type img_path: str
+    :param class_names: List of class names
+    :type class_names: [str]
     :param batch_size: Size of each image batch, defaults to 8
     :type batch_size: int, optional
     :param img_size: Size of each image dimension for yolo, defaults to 416
@@ -45,8 +47,8 @@ def evaluate(model_path, weights_path, img_path,
     :type conf_thres: float, optional
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
     :type nms_thres: float, optional
-    :param print_stats: If True, prints stats of model, defaults to True
-    :type print_stats: bool, optional
+    :param verbose: If True, prints stats of model, defaults to True
+    :type verbose: bool, optional
     :return: Returns precision, recall, AP, f1, ap_class
     """
     dataloader = _create_validation_data_loader(img_path, batch_size, img_size, n_cpu)
@@ -54,33 +56,37 @@ def evaluate(model_path, weights_path, img_path,
     metrics_output = _evaluate(
         model,
         dataloader,
+        class_names,
         img_size,
         iou_thres,
         conf_thres,
-        nms_thres)
-    if print_stats:
-        print_eval_stats(metrics_output)
+        nms_thres,
+        verbose)
     return metrics_output
 
-def print_eval_stats(metrics_output):
+def print_eval_stats(metrics_output, class_names, verbose):
     if metrics_output is not None:
         precision, recall, AP, f1, ap_class = metrics_output
-        # Prints class AP and mean AP
-        ap_table = [["Index", "Class", "AP"]]
-        for i, c in enumerate(ap_class):
-            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-        print(AsciiTable(ap_table).table)
+
+        if verbose:
+            # Prints class AP and mean AP
+            ap_table = [["Index", "Class", "AP"]]
+            for i, c in enumerate(ap_class):
+                ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+            print(AsciiTable(ap_table).table)
         print(f"---- mAP {AP.mean():.5f} ----")
     else:
         print( "---- mAP not measured (no detections found by model) ----")
 
-def _evaluate(model, dataloader, img_size, iou_thres, conf_thres, nms_thres):
+def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, nms_thres, verbose):
     """Evaluate model on validation dataset.
 
     :param model: Model to evaluate
     :type model: models.Darknet
     :param dataloader: Dataloader provides the batches of images with targets
     :type dataloader: DataLoader
+    :param class_names: List of class names
+    :type class_names: [str]
     :param img_size: Size of each image dimension for yolo
     :type img_size: int
     :param iou_thres: IOU threshold required to qualify as detected
@@ -89,6 +95,8 @@ def _evaluate(model, dataloader, img_size, iou_thres, conf_thres, nms_thres):
     :type conf_thres: float
     :param nms_thres: IOU threshold for non-maximum suppression
     :type nms_thres: float
+    :param verbose: If True, prints stats of model
+    :type verbose: bool
     :return: Returns precision, recall, AP, f1, ap_class
     """
     model.eval()  # Set model to evaluation mode
@@ -117,13 +125,16 @@ def _evaluate(model, dataloader, img_size, iou_thres, conf_thres, nms_thres):
         sample_metrics += get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
     
     if len(sample_metrics) == 0:  # No detections over whole validation set.
+        print("---- No detections over whole validation set ----")
         return None
     
     # Concatenate sample statistics
     true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
-    precision, recall, AP, f1, ap_class = ap_per_class(true_positives, pred_scores, pred_labels, labels)
+    metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, labels)
 
-    return precision, recall, AP, f1, ap_class
+    print_eval_stats(metrics_output, class_names, verbose)
+
+    return metrics_output
 
 def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
     """Creates a DataLoader for validation.
@@ -139,14 +150,15 @@ def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
     :return: Returns DataLoader
     :rtype: DataLoader
     """
-    dataset = ListDataset(img_path, image_size=img_size, multiscale=False, transform=DEFAULT_TRANSFORMS)
-    return dataloader = DataLoader(
+    dataset = ListDataset(img_path, img_size=img_size, multiscale=False, transform=DEFAULT_TRANSFORMS)
+    dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=n_cpu,
         pin_memory=True,
         collate_fn=dataset.collate_fn)
+    return dataloader
 
 def _load_model(model_path, weights_path):
     """Loads the yolo model from file.
@@ -173,6 +185,7 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
     parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
     parser.add_argument("-b", "--batch_size", type=int, default=8, help="Size of each image batch")
+    parser.add_argument("-v", "--verbose", action='store_true', help="Makes the validation more verbose")
     parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--iou_thres", type=float, default=0.5, help="IOU threshold required to qualify as detected")
@@ -188,12 +201,13 @@ if __name__ == "__main__":
 
     precision, recall, AP, f1, ap_class = evaluate(
         args.model,
-        args.weights
+        args.weights,
         valid_path,
+        class_names,
         batch_size=args.batch_size,
         img_size=args.img_size,
-        n_cpu=args.n_cpu
+        n_cpu=args.n_cpu,
         iou_thres=args.iou_thres,
         conf_thres=args.conf_thres,
         nms_thres=args.nms_thres,
-        print_stats=True)
+        verbose=True)

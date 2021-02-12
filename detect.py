@@ -226,12 +226,13 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     dataset = ImageFolder(
         img_path,
         transform=transforms.Compose([DEFAULT_TRANSFORMS, Resize(img_size)]))
-    return dataloader = DataLoader(
+    dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=n_cpu,
         pin_memory=True)
+    return dataloader
 
 def _load_model(model_path, weights_path):
     """Loads the yolo model from file.
@@ -272,12 +273,12 @@ if __name__ == "__main__":
 
     detect_directory(
         args.model,
-        args.weights
+        args.weights,
         args.images,
         classes,
         args.output,
         batch_size=args.batch_size,
         img_size=args.img_size,
-        n_cpu=args.n_cpu
+        n_cpu=args.n_cpu,
         conf_thres=args.conf_thres,
         nms_thres=args.nms_thres)
