@@ -18,7 +18,21 @@ def create_modules(module_defs):
     Constructs module list of layer blocks from module configuration in module_defs
     """
     hyperparams = module_defs.pop(0)
-    output_filters = [int(hyperparams["channels"])]
+    hyperparams.update({
+        'batch': int(hyperparams['batch']),
+        'subdivisions': int(hyperparams['subdivisions']),
+        'width': int(hyperparams['width']),
+        'height': int(hyperparams['height']),
+        'channels': int(hyperparams['channels']),
+        'momentum': float(hyperparams['momentum']),
+        'decay': float(hyperparams['decay']),
+        'learning_rate': float(hyperparams['learning_rate']),
+        'burn_in': int(hyperparams['burn_in']),
+        'max_batches': int(hyperparams['max_batches']),
+        'policy': hyperparams['policy'],
+        'lr_steps': zip(list(map(int,   hyperparams["steps"].split(","))), 
+                        list(map(float, hyperparams["scales"].split(","))))
+    })
     module_list = nn.ModuleList()
     for module_i, module_def in enumerate(module_defs):
         modules = nn.Sequential()
