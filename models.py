@@ -33,6 +33,8 @@ def create_modules(module_defs):
         'lr_steps': zip(list(map(int,   hyperparams["steps"].split(","))), 
                         list(map(float, hyperparams["scales"].split(","))))
     })
+    assert hyperparams["height"] == hyperparams["width"], \
+        "Height and width should be equal! Non square images are padded with zeros."
     module_list = nn.ModuleList()
     for module_i, module_def in enumerate(module_defs):
         modules = nn.Sequential()
