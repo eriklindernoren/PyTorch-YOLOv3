@@ -52,7 +52,7 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
     :type nms_thres: float, optional
     """
     dataloader = _create_data_loader(img_path, batch_size, img_size, n_cpu)
-    models = load_model(model_path, weights_path)
+    model = _load_model(model_path, weights_path)
     img_detections, imgs = detect(
         model,
         dataloader,
@@ -153,7 +153,7 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path):
     colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 
     # Iterate through images and save plot of detections
-    for (image_path, detections) in tqdm(zip(imgs, img_detections), desc="Saving output images"):
+    for (image_path, detections) in tqdm.tqdm(zip(imgs, img_detections), desc="Saving output images"):
         _draw_and_save_output_image(image_path, detections, img_size, colors, output_path)
 
 def _draw_and_save_output_image(image_path, detections, img_size, colors, output_path):
@@ -174,6 +174,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     img = np.array(Image.open(image_path))
     plt.figure()
     fig, ax = plt.subplots(1)
+    ax.imshow(img)
 
     # Draw bounding boxes and labels of detections
     if detections is not None:
