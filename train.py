@@ -53,6 +53,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
         collate_fn=dataset.collate_fn)
     return dataloader
 
+
 def _load_model(model_path, weights_path):
     """Loads the (optionally pretrained) yolo model from file.
 
@@ -153,10 +154,16 @@ if __name__ == "__main__":
 
             model.seen += imgs.size(0)
 
-        # ----------------
-        #   Log progress
-        # ----------------
+            # Tensorboard logging
+            tensorboard_log = []
+            for j, yolo in enumerate(model.yolo_layers):
+                for name, metric in yolo.metrics.items():
+                    if name != "grid_size":
+                        tensorboard_log += [(f"train/{name}_{j+1}", metric)]
+            tensorboard_log += [("train/loss", to_cpu(loss).item())]
+            logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
+        # Print statistics
         if args.verbose:
             log_str = ""
             metric_table = [["Metrics", *[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]]
@@ -172,15 +179,6 @@ if __name__ == "__main__":
             log_str += AsciiTable(metric_table).table
             log_str += f"\nTotal loss: {to_cpu(loss).item()}"
             print(log_str)
-
-        # Tensorboard logging
-        tensorboard_log = []
-        for j, yolo in enumerate(model.yolo_layers):
-            for name, metric in yolo.metrics.items():
-                if name != "grid_size":
-                    tensorboard_log += [(f"train/{name}_{j+1}", metric)]
-        tensorboard_log += [("train/loss", to_cpu(loss).item())]
-        logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
         # Save model to checkpoint file
         if epoch % args.checkpoint_interval == 0:
