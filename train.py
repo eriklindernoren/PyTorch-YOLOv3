@@ -71,14 +71,18 @@ if __name__ == "__main__":
     dataset = ListDataset(train_path, multiscale=opt.multiscale_training, img_size=opt.img_size, transform=AUGMENTATION_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=opt.batch_size,
+        batch_size= model.hyperparams['batch'] // model.hyperparams['subdivisions'],
         shuffle=True,
         num_workers=opt.n_cpu,
         pin_memory=True,
         collate_fn=dataset.collate_fn,
     )
 
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.SGD(
+        model.parameters(), 
+        lr=model.hyperparams['learning_rate'], 
+        weight_decay=model.hyperparams['decay'],
+        momentum=model.hyperparams['momentum'])
 
     metrics = [
         "grid_size",
