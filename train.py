@@ -101,8 +101,6 @@ if __name__ == "__main__":
         "conf_noobj",
     ]
 
-    step = 0
-
     for epoch in range(opt.epochs):
         model.train()
         start_time = time.time()
@@ -120,23 +118,19 @@ if __name__ == "__main__":
             ###############
 
             if batches_done % model.hyperparams['subdivisions'] == 0:
-                # Calculate the current step
-                step += model.hyperparams['batch']
-
                 # Adapt learning rate
                 # Get learning rate defined in cfg
                 lr = model.hyperparams['learning_rate']
-
-                if step < model.hyperparams['burn_in']:
+                if batches_done < model.hyperparams['burn_in']:
                     # Burn in
-                    lr *= (step / model.hyperparams['burn_in'])
+                    lr *= (batches_done / model.hyperparams['burn_in'])
                 else:
                     # Set and parse the learning rate to the steps defined in the cfg
                     for threshold, value in model.hyperparams['lr_steps']:
-                        if step > threshold:
+                        if batches_done > threshold:
                             lr *= value
                 # Log the learning rate
-                logger.scalar_summary("learning_rate", lr, step)
+                logger.scalar_summary("learning_rate", lr, batches_done)
                 # Set learning rate
                 for g in optimizer.param_groups:
                         g['lr'] = lr
@@ -172,7 +166,7 @@ if __name__ == "__main__":
                     if name != "grid_size":
                         tensorboard_log += [(f"train/{name}_{j+1}", metric)]
             tensorboard_log += [("train/loss", to_cpu(loss).item())]
-            logger.list_of_scalars_summary(tensorboard_log, step)
+            logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             # Determine approximate time left for epoch
             epoch_batches_left = len(dataloader) - (batch_i + 1)
