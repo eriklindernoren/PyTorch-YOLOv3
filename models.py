@@ -30,8 +30,8 @@ def create_modules(module_defs):
         'burn_in': int(hyperparams['burn_in']),
         'max_batches': int(hyperparams['max_batches']),
         'policy': hyperparams['policy'],
-        'lr_steps': zip(list(map(int,   hyperparams["steps"].split(","))), 
-                        list(map(float, hyperparams["scales"].split(","))))
+        'lr_steps': list(zip(map(int,   hyperparams["steps"].split(",")), 
+                             map(float, hyperparams["scales"].split(","))))
     })
     assert hyperparams["height"] == hyperparams["width"], \
         "Height and width should be equal! Non square images are padded with zeros."
@@ -278,6 +278,7 @@ class Darknet(nn.Module):
                 yolo_outputs.append(x)
             layer_outputs.append(x)
         yolo_outputs = to_cpu(torch.cat(yolo_outputs, 1))
+        loss = loss / self.hyperparams['batch']
         return yolo_outputs if targets is None else (loss, yolo_outputs)
 
     def load_darknet_weights(self, weights_path):
