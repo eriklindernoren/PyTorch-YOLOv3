@@ -92,7 +92,7 @@ def create_modules(module_defs):
             img_size = int(hyperparams["height"])
             ignore_thres = float(module_def["ignore_thresh"])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes, ignore_thres, img_size)
+            yolo_layer = YOLOLayer(anchors, num_classes, img_size, ignore_thres)
             modules.add_module(f"yolo_{module_i}", yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -124,128 +124,46 @@ class EmptyLayer(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes, ignore_thres, img_dim=416):
+    def __init__(self, anchors, num_classes, img_size, ignore_thres):
         super(YOLOLayer, self).__init__()
-        self.anchors = anchors
+        #self.anchors = anchors
         self.num_anchors = len(anchors)
         self.num_classes = num_classes
         self.ignore_thres = 0.5
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
-        self.obj_scale = 1
-        self.noobj_scale = 0.5
+        self.no = num_classes + 5  # number of outputs per anchor
         self.metrics = {}
-        self.img_dim = img_dim
-        self.grid_size = 0  # grid size
+        self.grid = torch.zeros(1) # TODO
+        self.nl = 2 #TODO
+        anchors1 = []
+        for anchor in anchors:
+            anchors1.extend(list(anchor))
+        a = torch.tensor(anchors1).float().view(-1, 2)
+        self.register_buffer('anchors', a)
+        self.register_buffer('anchor_grid', a.clone().view(1, -1, 1, 1, 2))
+        self.img_size = img_size
 
-    def compute_grid_offsets(self, grid_size, cuda=True):
-        self.grid_size = grid_size
-        g = self.grid_size
-        FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
-        self.stride = self.img_dim / self.grid_size
-        # Calculate offsets for each grid
-        self.grid_x = torch.arange(g).repeat(g, 1).view([1, 1, g, g]).type(FloatTensor)
-        self.grid_y = torch.arange(g).repeat(g, 1).t().view([1, 1, g, g]).type(FloatTensor)
-        self.scaled_anchors = FloatTensor([(a_w / self.stride, a_h / self.stride) for a_w, a_h in self.anchors])
-        self.anchor_w = self.scaled_anchors[:, 0:1].view((1, self.num_anchors, 1, 1))
-        self.anchor_h = self.scaled_anchors[:, 1:2].view((1, self.num_anchors, 1, 1))
+    def forward(self, x):
+        stride = self.img_size // x.size(2)
+        bs, _, ny, nx = x.shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
+        x = x.view(bs, self.num_anchors, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
-    def forward(self, x, targets=None, img_dim=None):
+        if not self.training:  # inference
+            if self.grid.shape[2:4] != x.shape[2:4]:
+                self.grid = self._make_grid(nx, ny).to(x.device)
 
-        # Tensors for cuda support
-        FloatTensor = torch.cuda.FloatTensor if x.is_cuda else torch.FloatTensor
-        LongTensor = torch.cuda.LongTensor if x.is_cuda else torch.LongTensor
+            y = x.sigmoid()
+            y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid.to(x.device)) * stride  # xy
+            y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid  # wh
+            y = y.view(bs, -1, self.no)
 
-        self.img_dim = img_dim
-        num_samples = x.size(0)
-        grid_size = x.size(2)
+        return x if self.training else y
 
-        prediction = (
-            x.view(num_samples, self.num_anchors, self.num_classes + 5, grid_size, grid_size)
-            .permute(0, 1, 3, 4, 2)
-            .contiguous()
-        )
-
-        # Get outputs
-        x = torch.sigmoid(prediction[..., 0])  # Center x
-        y = torch.sigmoid(prediction[..., 1])  # Center y
-        w = prediction[..., 2]  # Width
-        h = prediction[..., 3]  # Height
-        pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
-        pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
-
-        # If grid size does not match current we compute new offsets
-        if grid_size != self.grid_size:
-            self.compute_grid_offsets(grid_size, cuda=x.is_cuda)
-
-        # Add offset and scale with anchors
-        pred_boxes = FloatTensor(prediction[..., :4].shape)
-        pred_boxes[..., 0] = x.data + self.grid_x
-        pred_boxes[..., 1] = y.data + self.grid_y
-        pred_boxes[..., 2] = torch.exp(w.data) * self.anchor_w
-        pred_boxes[..., 3] = torch.exp(h.data) * self.anchor_h
-
-        output = torch.cat(
-            (
-                pred_boxes.view(num_samples, -1, 4) * self.stride,
-                pred_conf.view(num_samples, -1, 1),
-                pred_cls.view(num_samples, -1, self.num_classes),
-            ),
-            -1,
-        )
-
-        if targets is None:
-            return output, 0
-        else:
-            iou_scores, class_mask, obj_mask, noobj_mask, tx, ty, tw, th, tcls, tconf = build_targets(
-                pred_boxes=pred_boxes,
-                pred_cls=pred_cls,
-                target=targets,
-                anchors=self.scaled_anchors,
-                ignore_thres=self.ignore_thres,
-            )
-
-            # Loss : Mask outputs to ignore non-existing objects (except with conf. loss)
-            loss_x = self.mse_loss(x[obj_mask], tx[obj_mask])
-            loss_y = self.mse_loss(y[obj_mask], ty[obj_mask])
-            loss_w = self.mse_loss(w[obj_mask], tw[obj_mask])
-            loss_h = self.mse_loss(h[obj_mask], th[obj_mask])
-            loss_conf_obj = self.bce_loss(pred_conf[obj_mask], tconf[obj_mask])
-            loss_conf_noobj = self.bce_loss(pred_conf[noobj_mask], tconf[noobj_mask])
-            loss_conf = self.obj_scale * loss_conf_obj + self.noobj_scale * loss_conf_noobj
-            loss_cls = self.bce_loss(pred_cls[obj_mask], tcls[obj_mask])
-            total_loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
-
-            # Metrics
-            cls_acc = 100 * class_mask[obj_mask].mean()
-            conf_obj = pred_conf[obj_mask].mean()
-            conf_noobj = pred_conf[noobj_mask].mean()
-            conf50 = (pred_conf > 0.5).float()
-            iou50 = (iou_scores > 0.5).float()
-            iou75 = (iou_scores > 0.75).float()
-            detected_mask = conf50 * class_mask * tconf
-            precision = torch.sum(iou50 * detected_mask) / (conf50.sum() + 1e-16)
-            recall50 = torch.sum(iou50 * detected_mask) / (obj_mask.sum() + 1e-16)
-            recall75 = torch.sum(iou75 * detected_mask) / (obj_mask.sum() + 1e-16)
-
-            self.metrics = {
-                "loss": to_cpu(total_loss).item(),
-                "x": to_cpu(loss_x).item(),
-                "y": to_cpu(loss_y).item(),
-                "w": to_cpu(loss_w).item(),
-                "h": to_cpu(loss_h).item(),
-                "conf": to_cpu(loss_conf).item(),
-                "cls": to_cpu(loss_cls).item(),
-                "cls_acc": to_cpu(cls_acc).item(),
-                "recall50": to_cpu(recall50).item(),
-                "recall75": to_cpu(recall75).item(),
-                "precision": to_cpu(precision).item(),
-                "conf_obj": to_cpu(conf_obj).item(),
-                "conf_noobj": to_cpu(conf_noobj).item(),
-                "grid_size": grid_size,
-            }
-
-            return output, total_loss
+    @staticmethod
+    def _make_grid(nx=20, ny=20):
+        yv, xv = torch.meshgrid([torch.arange(ny), torch.arange(nx)])
+        return torch.stack((xv, yv), 2).view((1, 1, ny, nx, 2)).float()
 
 
 class Darknet(nn.Module):
@@ -259,10 +177,9 @@ class Darknet(nn.Module):
         self.img_size = img_size
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
+        self.num_anchors = 6 #TODO
 
-    def forward(self, x, targets=None):
-        img_dim = x.shape[2]
-        loss = 0
+    def forward(self, x):
         layer_outputs, yolo_outputs = [], []
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
             if module_def["type"] in ["convolutional", "upsample", "maxpool"]:
@@ -273,13 +190,10 @@ class Darknet(nn.Module):
                 layer_i = int(module_def["from"])
                 x = layer_outputs[-1] + layer_outputs[layer_i]
             elif module_def["type"] == "yolo":
-                x, layer_loss = module[0](x, targets, img_dim)
-                loss += layer_loss
+                x = module[0](x)
                 yolo_outputs.append(x)
             layer_outputs.append(x)
-        yolo_outputs = to_cpu(torch.cat(yolo_outputs, 1))
-        loss = loss / self.hyperparams['batch']
-        return yolo_outputs if targets is None else (loss, yolo_outputs)
+        return yolo_outputs if self.training else torch.cat(yolo_outputs, 1)
 
     def load_darknet_weights(self, weights_path):
         """Parses and loads the weights stored in 'weights_path'"""
