@@ -7,6 +7,7 @@ from utils.datasets import *
 from utils.augmentations import *
 from utils.transforms import *
 from utils.parse_config import *
+from utils.loss import compute_loss
 from test import evaluate
 
 from terminaltables import AsciiTable
@@ -107,10 +108,13 @@ if __name__ == "__main__":
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
 
-            imgs = Variable(imgs.to(device))
-            targets = Variable(targets.to(device), requires_grad=False)
+            imgs = imgs.to(device, non_blocking=True)
+            targets = targets.to(device)
 
-            loss, outputs = model(imgs, targets)
+            outputs = model(imgs)
+
+            loss, other = compute_loss(outputs, targets, model)
+
             loss.backward()
 
             ###############
