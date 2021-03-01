@@ -3,6 +3,8 @@ from __future__ import division
 from models import *
 from utils.utils import *
 from utils.datasets import *
+from utils.augmentations import *
+from utils.transforms import *
 
 import os
 import sys
@@ -13,6 +15,7 @@ import argparse
 from PIL import Image
 
 import torch
+import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.autograd import Variable
@@ -53,7 +56,8 @@ if __name__ == "__main__":
     model.eval()  # Set in evaluation mode
 
     dataloader = DataLoader(
-        ImageFolder(opt.image_folder, img_size=opt.img_size),
+        ImageFolder(opt.image_folder, transform= \
+            transforms.Compose([DEFAULT_TRANSFORMS, Resize(opt.img_size)])),
         batch_size=opt.batch_size,
         shuffle=False,
         num_workers=opt.n_cpu,
@@ -136,6 +140,7 @@ if __name__ == "__main__":
         plt.axis("off")
         plt.gca().xaxis.set_major_locator(NullLocator())
         plt.gca().yaxis.set_major_locator(NullLocator())
-        filename = path.split("/")[-1].split(".")[0]
-        plt.savefig(f"output/{filename}.png", bbox_inches="tight", pad_inches=0.0)
+        filename = os.path.basename(path).split(".")[0]
+        output_path = os.path.join("output", f"{filename}.png")
+        plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
         plt.close()

@@ -1,3 +1,6 @@
+**WARNING: This repository has gone stale as I unfortunately do not have the time to maintain it anymore. If you would like to continue the development of it as a collaborator send me an email at eriklindernoren@gmail.com.**
+
+
 # PyTorch-YOLOv3
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
@@ -97,6 +100,10 @@ Track training progress in Tensorboard:
 ```
 $ tensorboard --logdir='logs' --port=6006
 ```
+
+Storing the logs on a slow drive possibly leads to a significant training speed decrease.
+
+You can adjust the log directory using `--logdir <path>` when running `tensorboard` or the `train.py`.
 
 ## Train on Custom Dataset
 
