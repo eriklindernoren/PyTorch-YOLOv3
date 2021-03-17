@@ -1,6 +1,3 @@
-**INFO: If you would like to support the development as a collaborator send me an email at eriklindernoren@gmail.com.**
-
-
 # PyTorch-YOLOv3
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
