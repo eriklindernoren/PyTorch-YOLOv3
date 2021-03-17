@@ -1,4 +1,4 @@
-**WARNING: This repository has gone stale as I unfortunately do not have the time to maintain it anymore. If you would like to continue the development of it as a collaborator send me an email at eriklindernoren@gmail.com.**
+**INFO: If you would like to support the development as a collaborator send me an email at eriklindernoren@gmail.com.**
 
 
 # PyTorch-YOLOv3
