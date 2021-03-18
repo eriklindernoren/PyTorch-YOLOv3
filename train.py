@@ -88,10 +88,6 @@ if __name__ == "__main__":
     elif (model.hyperparams['optimizer'] == "sgd"):
         optimizer = torch.optim.SGD(
             model.parameters(), 
-        model.parameters(), 
-            model.parameters(), 
-            lr=model.hyperparams['learning_rate'],
-        lr=model.hyperparams['learning_rate'], 
             lr=model.hyperparams['learning_rate'],
             weight_decay=model.hyperparams['decay'],
             momentum=model.hyperparams['momentum'])
