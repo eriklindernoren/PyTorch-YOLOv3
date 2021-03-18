@@ -4,7 +4,6 @@ import numpy as np
 
 import imgaug.augmenters as iaa
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
-from imgaug.augmentables.segmaps import SegmentationMapsOnImage
 
 from .utils import xywh2xyxy_np
 import torchvision.transforms as transforms

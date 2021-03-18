@@ -11,7 +11,6 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import imgaug.augmenters as iaa
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
-from imgaug.augmentables.segmaps import SegmentationMapsOnImage
 
 import torch
 import torch.nn.functional as F
