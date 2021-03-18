@@ -46,7 +46,7 @@ class ImageFolder(Dataset):
 
         img_path = self.files[index % len(self.files)]
         img = np.array(
-            Image.open(img_path).convert('RGB'), 
+            Image.open(img_path).convert('RGB'),
             dtype=np.uint8)
 
         # Label Placeholder
@@ -81,7 +81,7 @@ class ListDataset(Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        
+
         # ---------
         #  Image
         # ---------
@@ -127,11 +127,11 @@ class ListDataset(Dataset):
         batch = [data for data in batch if data is not None]
 
         paths, imgs, bb_targets = list(zip(*batch))
-        
+
         # Selects new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
             self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
-        
+
         # Resize images to input shape
         imgs = torch.stack([resize(img, self.img_size) for img in imgs])
 
@@ -139,7 +139,7 @@ class ListDataset(Dataset):
         for i, boxes in enumerate(bb_targets):
             boxes[:, 0] = i
         bb_targets = torch.cat(bb_targets, 0)
-        
+
         return paths, imgs, bb_targets
 
     def __len__(self):
