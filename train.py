@@ -69,7 +69,7 @@ if __name__ == "__main__":
             model.load_darknet_weights(opt.pretrained_weights)
 
     # Get dataloader
-    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, img_size=opt.img_size, transform=AUGMENTATION_TRANSFORMS)
+    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, img_size=opt.img_size, transform=DEFAULT_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size= model.hyperparams['batch'] // model.hyperparams['subdivisions'],
@@ -94,24 +94,8 @@ if __name__ == "__main__":
     else:
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
-    metrics = [
-        "grid_size",
-        "loss",
-        "x",
-        "y",
-        "w",
-        "h",
-        "conf",
-        "cls",
-        "cls_acc",
-        "recall50",
-        "recall75",
-        "precision",
-        "conf_obj",
-        "conf_noobj",
-    ]
-
     for epoch in range(opt.epochs):
+        print("\n---- Training Model ----")
         model.train()
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
@@ -122,7 +106,7 @@ if __name__ == "__main__":
 
             outputs = model(imgs)
 
-            loss, other = compute_loss(outputs, targets, model)
+            loss, loss_components = compute_loss(outputs, targets, model)
 
             loss.backward()
 
@@ -156,37 +140,26 @@ if __name__ == "__main__":
             # ----------------
             #   Log progress
             # ----------------
-
-            log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, opt.epochs, batch_i, len(dataloader))
-
-            metric_table = [["Metrics", *[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]]
-
-            # Log metrics at each YOLO layer
-            for i, metric in enumerate(metrics):
-                formats = {m: "%.6f" for m in metrics}
-                formats["grid_size"] = "%2d"
-                formats["cls_acc"] = "%.2f%%"
-                row_metrics = [formats[metric] % yolo.metrics.get(metric, 0) for yolo in model.yolo_layers]
-                metric_table += [[metric, *row_metrics]]
-
-            log_str += AsciiTable(metric_table).table
-            log_str += f"\nTotal loss {to_cpu(loss).item()}"
-
-            # Tensorboard logging
-            tensorboard_log = []
-            for j, yolo in enumerate(model.yolo_layers):
-                for name, metric in yolo.metrics.items():
-                    if name != "grid_size":
-                        tensorboard_log += [(f"train/{name}_{j+1}", metric)]
-            tensorboard_log += [("train/loss", to_cpu(loss).item())]
-            logger.list_of_scalars_summary(tensorboard_log, batches_done)
-
-            # Determine approximate time left for epoch
-            epoch_batches_left = len(dataloader) - (batch_i + 1)
-            time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
-            log_str += f"\n---- ETA {time_left}"
+            log_str = ""
+            log_str += AsciiTable(
+                [
+                    ["Type", "Value"],
+                    ["IoU loss", float(loss_components[0])],
+                    ["Object loss", float(loss_components[1])], 
+                    ["Class loss", float(loss_components[2])],
+                    ["Loss", float(loss_components[3])],
+                    ["Batch loss", to_cpu(loss).item()],
+                ]).table
 
             if opt.verbose: print(log_str)
+
+            # Tensorboard logging
+            tensorboard_log = [
+                    ("train/iou_loss", float(loss_components[0])),
+                    ("train/obj_loss", float(loss_components[1])), 
+                    ("train/class_loss", float(loss_components[2])),
+                    ("train/loss", to_cpu(loss).item())]
+            logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             model.seen += imgs.size(0)
 
@@ -213,12 +186,13 @@ if __name__ == "__main__":
                 ]
                 logger.list_of_scalars_summary(evaluation_metrics, epoch)
 
-                # Print class APs and mAP
-                ap_table = [["Index", "Class name", "AP"]]
-                for i, c in enumerate(ap_class):
-                    ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                print(AsciiTable(ap_table).table)
-                print(f"---- mAP {AP.mean()}")                
+                if opt.verbose:
+                    # Print class APs and mAP
+                    ap_table = [["Index", "Class name", "AP"]]
+                    for i, c in enumerate(ap_class):
+                        ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                    print(AsciiTable(ap_table).table)
+                    print(f"---- mAP {AP.mean()}")                
             else:
                 print( "---- mAP not measured (no detections found by model)")
 

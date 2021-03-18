@@ -3,6 +3,8 @@ import math
 import torch
 import torch.nn as nn
 
+from .utils import to_cpu
+
 # This new loss function is based on https://github.com/ultralytics/yolov3/blob/master/utils/loss.py
 
 def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-9):
@@ -187,7 +189,7 @@ def compute_loss(predictions, targets, model):  # predictions, targets, model
 
     loss = lbox + lobj + lcls
 
-    return loss * batch_size, torch.cat((lbox, lobj, lcls, loss)).detach()
+    return loss * batch_size, to_cpu(torch.cat((lbox, lobj, lcls, loss)))
 
 
 def build_targets(p, targets, model):
