@@ -25,6 +25,7 @@ def create_modules(module_defs):
         'width': int(hyperparams['width']),
         'height': int(hyperparams['height']),
         'channels': int(hyperparams['channels']),
+        'optimizer': hyperparams.get('optimizer'),
         'momentum': float(hyperparams['momentum']),
         'decay': float(hyperparams['decay']),
         'learning_rate': float(hyperparams['learning_rate']),

@@ -79,11 +79,24 @@ if __name__ == "__main__":
         collate_fn=dataset.collate_fn,
     )
 
-    optimizer = torch.optim.SGD(
+    if (model.hyperparams['optimizer'] in [None, "adam"]):
+        optimizer = torch.optim.Adam(
+            model.parameters(), 
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            )
+    elif (model.hyperparams['optimizer'] == "sgd"):
+        optimizer = torch.optim.SGD(
+            model.parameters(), 
         model.parameters(), 
+            model.parameters(), 
+            lr=model.hyperparams['learning_rate'],
         lr=model.hyperparams['learning_rate'], 
-        weight_decay=model.hyperparams['decay'],
-        momentum=model.hyperparams['momentum'])
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            momentum=model.hyperparams['momentum'])
+    else:
+        print("Unknown optimizer. Please choose between (adam, sgd).")
 
     metrics = [
         "grid_size",
