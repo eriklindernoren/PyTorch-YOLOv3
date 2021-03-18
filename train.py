@@ -191,7 +191,7 @@ if __name__ == "__main__":
                 conf_thres=0.1,
                 nms_thres=0.5,
                 img_size=opt.img_size,
-                batch_size=8,
+                batch_size=model.hyperparams['batch'] // model.hyperparams['subdivisions'],
             )
             
             if metrics_output is not None:
