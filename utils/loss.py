@@ -202,7 +202,7 @@ def build_targets(p, targets, model):
     off = torch.tensor([[0, 0]], device=targets.device).float() * g  # offsets
 
     for i, yolo_layer in enumerate(model.yolo_layers):
-        anchors = yolo_layer.anchors
+        anchors = yolo_layer.anchors / yolo_layer.stride
         gain[2:6] = torch.tensor(p[i].shape)[[3, 2, 3, 2]]  # xyxy gain
 
         # Match targets to anchors
