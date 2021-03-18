@@ -2,8 +2,8 @@ numpy
 torch>=1.2
 torchvision
 matplotlib
-tensorboard
+tensorboard>=1.15
 terminaltables
 pillow
 tqdm
-imgaug
+imgaug>=0.4
