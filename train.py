@@ -127,7 +127,7 @@ if __name__ == "__main__":
                         if batches_done > threshold:
                             lr *= value
                 # Log the learning rate
-                logger.scalar_summary("learning_rate", lr, batches_done)
+                logger.scalar_summary("train/learning_rate", lr, batches_done)
                 # Set learning rate
                 for g in optimizer.param_groups:
                         g['lr'] = lr
