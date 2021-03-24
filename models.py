@@ -176,7 +176,6 @@ class Darknet(nn.Module):
         self.img_size = img_size
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
-        self.num_anchors = 6 #TODO
 
     def forward(self, x):
         layer_outputs, yolo_outputs = [], []
