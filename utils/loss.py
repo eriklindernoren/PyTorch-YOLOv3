@@ -171,20 +171,15 @@ def compute_loss(predictions, targets, model):  # predictions, targets, model
             tobj[b, anchor, grid_j, grid_i] = (1.0 - model.gr) + model.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
 
             # Classification
-            #if model.nc > 1:  # cls loss (only if multiple classes)
             t = torch.full_like(ps[:, 5:], cn, device=device)  # targets
             t[range(num_targets), tcls[layer_index]] = cp
             lcls += BCEcls(ps[:, 5:], t)  # BCE
 
-            # Append targets to text file
-            # with open('targets.txt', 'a') as file:
-            #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
-
         lobj += BCEobj(layer_predictions[..., 4], tobj) * balance[layer_index]  # obj loss
 
-    lbox *= 0.05 * (3. / 2)                       #hyperparams['box']
-    lobj *= 1  * (80 / 80. * 3. / 2)            #hyperparams['obj']            #TODO
-    lcls *= 0.5 * ((416 / 640) ** 2 * 3. / 2)  #hyperparams['cls']
+    lbox *= 0.05 * (3. / 2)
+    lobj *= (3. / 2)
+    lcls *= 0.31
     batch_size = tobj.shape[0]  # batch size
 
     loss = lbox + lobj + lcls
