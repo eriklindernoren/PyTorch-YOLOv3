@@ -18,7 +18,24 @@ def create_modules(module_defs):
     Constructs module list of layer blocks from module configuration in module_defs
     """
     hyperparams = module_defs.pop(0)
-    output_filters = [int(hyperparams["channels"])]
+    hyperparams.update({
+        'batch': int(hyperparams['batch']),
+        'subdivisions': int(hyperparams['subdivisions']),
+        'width': int(hyperparams['width']),
+        'height': int(hyperparams['height']),
+        'channels': int(hyperparams['channels']),
+        'momentum': float(hyperparams['momentum']),
+        'decay': float(hyperparams['decay']),
+        'learning_rate': float(hyperparams['learning_rate']),
+        'burn_in': int(hyperparams['burn_in']),
+        'max_batches': int(hyperparams['max_batches']),
+        'policy': hyperparams['policy'],
+        'lr_steps': list(zip(map(int,   hyperparams["steps"].split(",")), 
+                             map(float, hyperparams["scales"].split(","))))
+    })
+    assert hyperparams["height"] == hyperparams["width"], \
+        "Height and width should be equal! Non square images are padded with zeros."
+    output_filters = [hyperparams["channels"]]
     module_list = nn.ModuleList()
     for module_i, module_def in enumerate(module_defs):
         modules = nn.Sequential()
@@ -73,8 +90,9 @@ def create_modules(module_defs):
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def["classes"])
             img_size = int(hyperparams["height"])
+            ignore_thres = float(module_def["ignore_thresh"])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes, img_size)
+            yolo_layer = YOLOLayer(anchors, num_classes, ignore_thres, img_size)
             modules.add_module(f"yolo_{module_i}", yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -98,7 +116,7 @@ class Upsample(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes, img_dim=416):
+    def __init__(self, anchors, num_classes, ignore_thres, img_dim=416):
         super(YOLOLayer, self).__init__()
         self.anchors = anchors
         self.num_anchors = len(anchors)
@@ -107,7 +125,7 @@ class YOLOLayer(nn.Module):
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
         self.obj_scale = 1
-        self.noobj_scale = 100
+        self.noobj_scale = 0.5
         self.metrics = {}
         self.img_dim = img_dim
         self.grid_size = 0  # grid size
@@ -252,6 +270,7 @@ class Darknet(nn.Module):
                 yolo_outputs.append(x)
             layer_outputs.append(x)
         yolo_outputs = to_cpu(torch.cat(yolo_outputs, 1))
+        loss = loss / self.hyperparams['batch']
         return yolo_outputs if targets is None else (loss, yolo_outputs)
 
     def load_darknet_weights(self, weights_path):

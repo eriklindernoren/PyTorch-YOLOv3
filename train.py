@@ -29,8 +29,6 @@ import torch.optim as optim
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
-    parser.add_argument("--batch_size", type=int, default=8, help="size of each image batch")
-    parser.add_argument("--gradient_accumulations", type=int, default=2, help="number of gradient accums before step")
     parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
     parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
     parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
@@ -73,14 +71,18 @@ if __name__ == "__main__":
     dataset = ListDataset(train_path, multiscale=opt.multiscale_training, img_size=opt.img_size, transform=AUGMENTATION_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=opt.batch_size,
+        batch_size= model.hyperparams['batch'] // model.hyperparams['subdivisions'],
         shuffle=True,
         num_workers=opt.n_cpu,
         pin_memory=True,
         collate_fn=dataset.collate_fn,
     )
 
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.SGD(
+        model.parameters(), 
+        lr=model.hyperparams['learning_rate'], 
+        weight_decay=model.hyperparams['decay'],
+        momentum=model.hyperparams['momentum'])
 
     metrics = [
         "grid_size",
@@ -111,9 +113,31 @@ if __name__ == "__main__":
             loss, outputs = model(imgs, targets)
             loss.backward()
 
-            if batches_done % opt.gradient_accumulations == 0:
-                # Accumulates gradient before each step
+            ###############
+            # Run optimizer
+            ###############
+
+            if batches_done % model.hyperparams['subdivisions'] == 0:
+                # Adapt learning rate
+                # Get learning rate defined in cfg
+                lr = model.hyperparams['learning_rate']
+                if batches_done < model.hyperparams['burn_in']:
+                    # Burn in
+                    lr *= (batches_done / model.hyperparams['burn_in'])
+                else:
+                    # Set and parse the learning rate to the steps defined in the cfg
+                    for threshold, value in model.hyperparams['lr_steps']:
+                        if batches_done > threshold:
+                            lr *= value
+                # Log the learning rate
+                logger.scalar_summary("learning_rate", lr, batches_done)
+                # Set learning rate
+                for g in optimizer.param_groups:
+                        g['lr'] = lr
+
+                # Run optimizer
                 optimizer.step()
+                # Reset gradients
                 optimizer.zero_grad()
 
             # ----------------
