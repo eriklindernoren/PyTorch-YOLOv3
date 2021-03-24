@@ -7,6 +7,7 @@ from utils.datasets import *
 from utils.augmentations import *
 from utils.transforms import *
 from utils.parse_config import *
+from utils.loss import compute_loss
 from test import evaluate
 
 from terminaltables import AsciiTable
@@ -28,7 +29,7 @@ import torch.optim as optim
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=100, help="number of epochs")
+    parser.add_argument("--epochs", type=int, default=300, help="number of epochs")
     parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
     parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
     parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
@@ -36,7 +37,6 @@ if __name__ == "__main__":
     parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
     parser.add_argument("--evaluation_interval", type=int, default=1, help="interval evaluations on validation set")
-    parser.add_argument("--compute_map", default=False, help="if True computes mAP every tenth batch")
     parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
     parser.add_argument("--verbose", "-v", default=False, action='store_true', help="Makes the training more verbose")
     parser.add_argument("--logdir", type=str, default="logs", help="Defines the directory where the training log files are stored")
@@ -78,39 +78,35 @@ if __name__ == "__main__":
         collate_fn=dataset.collate_fn,
     )
 
-    optimizer = torch.optim.SGD(
-        model.parameters(), 
-        lr=model.hyperparams['learning_rate'], 
-        weight_decay=model.hyperparams['decay'],
-        momentum=model.hyperparams['momentum'])
-
-    metrics = [
-        "grid_size",
-        "loss",
-        "x",
-        "y",
-        "w",
-        "h",
-        "conf",
-        "cls",
-        "cls_acc",
-        "recall50",
-        "recall75",
-        "precision",
-        "conf_obj",
-        "conf_noobj",
-    ]
+    if (model.hyperparams['optimizer'] in [None, "adam"]):
+        optimizer = torch.optim.Adam(
+            model.parameters(), 
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            )
+    elif (model.hyperparams['optimizer'] == "sgd"):
+        optimizer = torch.optim.SGD(
+            model.parameters(), 
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            momentum=model.hyperparams['momentum'])
+    else:
+        print("Unknown optimizer. Please choose between (adam, sgd).")
 
     for epoch in range(opt.epochs):
+        print("\n---- Training Model ----")
         model.train()
         start_time = time.time()
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
 
-            imgs = Variable(imgs.to(device))
-            targets = Variable(targets.to(device), requires_grad=False)
+            imgs = imgs.to(device, non_blocking=True)
+            targets = targets.to(device)
 
-            loss, outputs = model(imgs, targets)
+            outputs = model(imgs)
+
+            loss, loss_components = compute_loss(outputs, targets, model)
+
             loss.backward()
 
             ###############
@@ -130,7 +126,7 @@ if __name__ == "__main__":
                         if batches_done > threshold:
                             lr *= value
                 # Log the learning rate
-                logger.scalar_summary("learning_rate", lr, batches_done)
+                logger.scalar_summary("train/learning_rate", lr, batches_done)
                 # Set learning rate
                 for g in optimizer.param_groups:
                         g['lr'] = lr
@@ -143,37 +139,26 @@ if __name__ == "__main__":
             # ----------------
             #   Log progress
             # ----------------
-
-            log_str = "\n---- [Epoch %d/%d, Batch %d/%d] ----\n" % (epoch, opt.epochs, batch_i, len(dataloader))
-
-            metric_table = [["Metrics", *[f"YOLO Layer {i}" for i in range(len(model.yolo_layers))]]]
-
-            # Log metrics at each YOLO layer
-            for i, metric in enumerate(metrics):
-                formats = {m: "%.6f" for m in metrics}
-                formats["grid_size"] = "%2d"
-                formats["cls_acc"] = "%.2f%%"
-                row_metrics = [formats[metric] % yolo.metrics.get(metric, 0) for yolo in model.yolo_layers]
-                metric_table += [[metric, *row_metrics]]
-
-            log_str += AsciiTable(metric_table).table
-            log_str += f"\nTotal loss {to_cpu(loss).item()}"
-
-            # Tensorboard logging
-            tensorboard_log = []
-            for j, yolo in enumerate(model.yolo_layers):
-                for name, metric in yolo.metrics.items():
-                    if name != "grid_size":
-                        tensorboard_log += [(f"train/{name}_{j+1}", metric)]
-            tensorboard_log += [("train/loss", to_cpu(loss).item())]
-            logger.list_of_scalars_summary(tensorboard_log, batches_done)
-
-            # Determine approximate time left for epoch
-            epoch_batches_left = len(dataloader) - (batch_i + 1)
-            time_left = datetime.timedelta(seconds=epoch_batches_left * (time.time() - start_time) / (batch_i + 1))
-            log_str += f"\n---- ETA {time_left}"
+            log_str = ""
+            log_str += AsciiTable(
+                [
+                    ["Type", "Value"],
+                    ["IoU loss", float(loss_components[0])],
+                    ["Object loss", float(loss_components[1])], 
+                    ["Class loss", float(loss_components[2])],
+                    ["Loss", float(loss_components[3])],
+                    ["Batch loss", to_cpu(loss).item()],
+                ]).table
 
             if opt.verbose: print(log_str)
+
+            # Tensorboard logging
+            tensorboard_log = [
+                    ("train/iou_loss", float(loss_components[0])),
+                    ("train/obj_loss", float(loss_components[1])), 
+                    ("train/class_loss", float(loss_components[2])),
+                    ("train/loss", to_cpu(loss).item())]
+            logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             model.seen += imgs.size(0)
 
@@ -184,10 +169,10 @@ if __name__ == "__main__":
                 model,
                 path=valid_path,
                 iou_thres=0.5,
-                conf_thres=0.5,
+                conf_thres=0.1,
                 nms_thres=0.5,
                 img_size=opt.img_size,
-                batch_size=8,
+                batch_size=model.hyperparams['batch'] // model.hyperparams['subdivisions'],
             )
             
             if metrics_output is not None:
@@ -200,12 +185,13 @@ if __name__ == "__main__":
                 ]
                 logger.list_of_scalars_summary(evaluation_metrics, epoch)
 
-                # Print class APs and mAP
-                ap_table = [["Index", "Class name", "AP"]]
-                for i, c in enumerate(ap_class):
-                    ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                print(AsciiTable(ap_table).table)
-                print(f"---- mAP {AP.mean()}")                
+                if opt.verbose:
+                    # Print class APs and mAP
+                    ap_table = [["Index", "Class name", "AP"]]
+                    for i, c in enumerate(ap_class):
+                        ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                    print(AsciiTable(ap_table).table)
+                    print(f"---- mAP {AP.mean()}")                
             else:
                 print( "---- mAP not measured (no detections found by model)")
 

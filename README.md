@@ -46,14 +46,12 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 
 ## Train
 ```
-$ train.py [-h] [--epochs EPOCHS] [--batch_size BATCH_SIZE]
-                [--gradient_accumulations GRADIENT_ACCUMULATIONS]
+$ train.py [-h] [--epochs EPOCHS]
                 [--model_def MODEL_DEF] [--data_config DATA_CONFIG]
                 [--pretrained_weights PRETRAINED_WEIGHTS] [--n_cpu N_CPU]
                 [--img_size IMG_SIZE]
                 [--checkpoint_interval CHECKPOINT_INTERVAL]
                 [--evaluation_interval EVALUATION_INTERVAL]
-                [--compute_map COMPUTE_MAP]
                 [--multiscale_training MULTISCALE_TRAINING]
 ```
 
