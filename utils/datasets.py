@@ -67,10 +67,12 @@ class ListDataset(Dataset):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
 
-        self.label_files = [
-            path.replace("images", "labels").replace(".png", ".txt").replace(".jpg", ".txt")
-            for path in self.img_files
-        ]
+        self.label_files = []
+        for path in self.img_files:
+            label_file = os.path.join(os.path.split(os.path.dirname(path))[0], 'labels')
+            label_file = os.path.join(label_file, os.path.basename(path))
+            label_file = os.path.splitext(label_file)[0] + '.txt'
+            self.label_files.append(label_file)
 
         self.img_size = img_size
         self.max_objects = 100
