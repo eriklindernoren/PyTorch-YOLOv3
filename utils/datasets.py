@@ -69,8 +69,11 @@ class ListDataset(Dataset):
 
         self.label_files = []
         for path in self.img_files:
-            label_file = os.path.join(os.path.split(os.path.dirname(path))[0], 'labels')
-            label_file = os.path.join(label_file, os.path.basename(path))
+            image_dir = os.path.dirname(path) 
+            label_dir = "labels".join(image_dir.rsplit("images", 1))
+            assert label_dir != image_dir, \
+                 f"Image path must contain a folder named 'images'! \n'{image_dir}'"
+            label_file = os.path.join(label_dir, os.path.basename(path))
             label_file = os.path.splitext(label_file)[0] + '.txt'
             self.label_files.append(label_file)
 
