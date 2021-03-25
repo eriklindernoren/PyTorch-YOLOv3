@@ -6,7 +6,6 @@ import warnings
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
-import re
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -70,9 +69,9 @@ class ListDataset(Dataset):
 
         self.label_files = []
         for path in self.img_files:
-            label_file = path.replace("images", "labels")
-            label_file = re.compile(re.escape('png'), re.IGNORECASE).sub('txt', label_file)
-            label_file = re.compile(re.escape('jpg'), re.IGNORECASE).sub('txt', label_file)
+            label_file = os.path.join(os.path.split(os.path.dirname(path))[0], 'labels')
+            label_file = os.path.join(label_file, os.path.basename(path))
+            label_file = os.path.splitext(label_file)[0] + '.txt'
             self.label_files.append(label_file)
 
         self.img_size = img_size
