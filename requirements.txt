@@ -7,3 +7,4 @@ terminaltables
 pillow
 tqdm
 imgaug>=0.4
+torchsummary

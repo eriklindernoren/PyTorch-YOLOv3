@@ -25,6 +25,7 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
+from torchsummary import summary
 
 
 if __name__ == "__main__":
@@ -58,6 +59,10 @@ if __name__ == "__main__":
     # Initiate model
     model = Darknet(opt.model_def).to(device)
     model.apply(weights_init_normal)
+
+    # Print model
+    if opt.verbose:
+        summary(model, input_size=(3, model.hyperparams['height'], model.hyperparams['height']))
 
     # If specified we start from checkpoint
     if opt.pretrained_weights:
