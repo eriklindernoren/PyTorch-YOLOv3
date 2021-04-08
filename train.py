@@ -34,7 +34,6 @@ if __name__ == "__main__":
     parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
     parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
     parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--img_size", type=int, default=416, help="size of each image dimension")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
     parser.add_argument("--evaluation_interval", type=int, default=1, help="interval evaluations on validation set")
     parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
@@ -68,7 +67,7 @@ if __name__ == "__main__":
             model.load_darknet_weights(opt.pretrained_weights)
 
     # Get dataloader
-    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, img_size=opt.img_size, transform=AUGMENTATION_TRANSFORMS)
+    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, img_size=model.hyperparams['height'], transform=AUGMENTATION_TRANSFORMS)
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size= model.hyperparams['batch'] // model.hyperparams['subdivisions'],
@@ -171,7 +170,7 @@ if __name__ == "__main__":
                 iou_thres=0.5,
                 conf_thres=0.1,
                 nms_thres=0.5,
-                img_size=opt.img_size,
+                img_size=model.hyperparams['height'],
                 batch_size=model.hyperparams['batch'] // model.hyperparams['subdivisions'],
             )
             

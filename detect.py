@@ -44,7 +44,7 @@ if __name__ == "__main__":
     os.makedirs("output", exist_ok=True)
 
     # Set up model
-    model = Darknet(opt.model_def, img_size=opt.img_size).to(device)
+    model = Darknet(opt.model_def).to(device)
 
     if opt.weights_path.endswith(".weights"):
         # Load darknet weights
