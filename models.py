@@ -91,9 +91,8 @@ def create_modules(module_defs):
             anchors = [(anchors[i], anchors[i + 1]) for i in range(0, len(anchors), 2)]
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def["classes"])
-            ignore_thres = float(module_def["ignore_thresh"])
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes, ignore_thres)
+            yolo_layer = YOLOLayer(anchors, num_classes)
             modules.add_module(f"yolo_{module_i}", yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -117,11 +116,10 @@ class Upsample(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes, ignore_thres):
+    def __init__(self, anchors, num_classes):
         super(YOLOLayer, self).__init__()
         self.num_anchors = len(anchors)
         self.num_classes = num_classes
-        self.ignore_thres = 0.5
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
         self.no = num_classes + 5  # number of outputs per anchor
