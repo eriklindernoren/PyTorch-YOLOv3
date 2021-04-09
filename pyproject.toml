@@ -2,6 +2,7 @@
 name = "PyTorchYolo"
 version = "0.1.0"
 readme = "README.md"
+repository = "https://github.com/eriklindernoren/PyTorch-YOLOv3"
 description = "Minimal PyTorch implementation of YOLO"
 authors = ["Florian Vahl <florian@flova.de>", "Erik Linder-Noren <eriklindernoren@gmail.com>"]
 license = "GPL-3.0"
