@@ -2,23 +2,47 @@
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
 ## Installation
-##### Clone and install requirements
-    $ git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
-    $ cd PyTorch-YOLOv3/
-    $ sudo pip3 install -r requirements.txt
+### Install from source
 
-##### Download pretrained weights
-    $ cd weights/
-    $ bash download_weights.sh
+For normal training and evaluation we recommend installing the package from source using a poetry virtual enviroment.
 
-##### Download COCO
-    $ cd data/
-    $ bash get_coco_dataset.sh
-    
+```bash
+git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
+cd PyTorch-YOLOv3/
+pip install poetry --user
+poetry install
+```
+
+You need join the virtual enviroment by runing `poetry shell` in this directory before running any of the following commands without the `poetry run` prefix. Also have a look at the other installing method if you want to use the commands everywhere without opening a poetry shell.
+
+#### Download pretrained weights
+
+```bash
+cd weights/
+bash download_weights.sh
+```
+
+#### Download COCO
+
+```bash
+cd data/
+bash get_coco_dataset.sh
+```
+
+### Install via pip
+
+This installation method is less isolated and may conflict with other packages. It also only includes the code. Weights and the COCO dataset need to be installed as stated above. With this beeing said it is a good method if you want to use this package as dependency in another python project. See __API__ for further information regarding the packages api. It also enables the cli tools `yolo-detect`, `yolo-train`, and `yolo-test` everywhere without any additional commands.
+
+```bash
+pip3 install pytorchyolo --user
+```
+
 ## Test
-Evaluates the model on COCO test.
+Evaluates the model on COCO test dataset.
 
-    $ python3 test.py --weights weights/yolov3.weights
+```bash
+poetry run yolo-test --weights weights/yolov3.weights
+```
 
 | Model                   | mAP (min. 50 IoU) |
 | ----------------------- |:-----------------:|
@@ -37,7 +61,9 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 | Darknet-53 (paper)      | Titan X  | 76       |
 | Darknet-53 (this impl.) | 1080ti   | 74       |
 
-    $ python3 detect.py --images data/samples/
+```bash
+poetry run yolo-detect --images data/samples/
+```
 
 <p align="center"><img src="assets/giraffe.png" width="480"\></p>
 <p align="center"><img src="assets/dog.png" width="480"\></p>
@@ -49,33 +75,9 @@ For argument descriptions have a lock at `python3 train.py --help`
 
 #### Example (COCO)
 To train on COCO using a Darknet-53 backend pretrained on ImageNet run: 
-```
-$ python3 train.py --data config/coco.data  --pretrained_weights weights/darknet53.conv.74
-```
 
-#### Training log
-```
----- [Epoch 7/100, Batch 7300/14658] ----
-+------------+--------------+--------------+--------------+
-| Metrics    | YOLO Layer 0 | YOLO Layer 1 | YOLO Layer 2 |
-+------------+--------------+--------------+--------------+
-| grid_size  | 16           | 32           | 64           |
-| loss       | 1.554926     | 1.446884     | 1.427585     |
-| x          | 0.028157     | 0.044483     | 0.051159     |
-| y          | 0.040524     | 0.035687     | 0.046307     |
-| w          | 0.078980     | 0.066310     | 0.027984     |
-| h          | 0.133414     | 0.094540     | 0.037121     |
-| conf       | 1.234448     | 1.165665     | 1.223495     |
-| cls        | 0.039402     | 0.040198     | 0.041520     |
-| cls_acc    | 44.44%       | 43.59%       | 32.50%       |
-| recall50   | 0.361111     | 0.384615     | 0.300000     |
-| recall75   | 0.222222     | 0.282051     | 0.300000     |
-| precision  | 0.520000     | 0.300000     | 0.070175     |
-| conf_obj   | 0.599058     | 0.622685     | 0.651472     |
-| conf_noobj | 0.003778     | 0.004039     | 0.004044     |
-+------------+--------------+--------------+--------------+
-Total Loss 4.429395
----- ETA 0:35:48.821929
+```bash
+poetry run yolo-train --data config/coco.data  --pretrained_weights weights/darknet53.conv.74
 ```
 
 #### Tensorboard
@@ -84,8 +86,8 @@ Track training progress in Tensorboard:
 * Run the command below
 * Go to http://localhost:6006/
 
-```
-$ tensorboard --logdir='logs' --port=6006
+```bash
+poetry run tensorboard --logdir='logs' --port=6006
 ```
 
 Storing the logs on a slow drive possibly leads to a significant training speed decrease.
@@ -97,9 +99,9 @@ You can adjust the log directory using `--logdir <path>` when running `tensorboa
 #### Custom model
 Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in your dataset.
 
-```
-$ cd config/                                # Navigate to config dir
-$ bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-custom.cfg'
+```bash
+cd config/                                # Navigate to config dir
+bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-custom.cfg'
 ```
 
 #### Classes
@@ -117,8 +119,8 @@ In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that
 #### Train
 To train on the custom dataset run:
 
-```
-$ python3 train.py --model config/yolov3-custom.cfg --data config/custom.data
+```bash
+poetry run yolo-train --model config/yolov3-custom.cfg --data config/custom.data
 ```
 
 Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
