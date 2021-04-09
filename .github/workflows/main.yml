@@ -5,7 +5,6 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   main:
     runs-on: ubuntu-18.04
-
     steps:
       - uses: actions/checkout@v2
 
@@ -14,10 +13,11 @@ jobs:
         with:
           python-version: 3.7
 
+      - name: Upgrade pip
+        run: python3 -m pip install --upgrade pip
+
       - name: Install Poetry
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install setuptools-rust poetry --user
+        run: pip3 install poetry --user
         
       - name: Install Dependencies
         run: poetry install
@@ -28,5 +28,15 @@ jobs:
           poetry run yolo-train -h
           poetry run yolo-test -h
           poetry run yolo-detect -h
-
   
+  main:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Flake8 
+        uses: TrueBrain/actions-flake8@master
+        with:
+          only_warn: 1
+          max_line_length: 150
+          path: pytorchyolo
