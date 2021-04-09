@@ -16,6 +16,7 @@ import numpy as np
 from PIL import Image
 
 import torch
+import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchvision import datasets
@@ -52,7 +53,7 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
     :type nms_thres: float, optional
     """
     dataloader = _create_data_loader(img_path, batch_size, img_size, n_cpu)
-    model = _load_model(model_path, weights_path)
+    model = load_model(model_path, weights_path)
     img_detections, imgs = detect(
         model,
         dataloader,
@@ -77,20 +78,25 @@ def detect_image(model, image,
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
     :type nms_thres: float, optional
     :return: Detections on image
-    :rtype: [Tensor]
+    :rtype: nd.array
     """
     model.eval()  # Set model to evaluation mode
 
-    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
-
     # Configure input
-    input_img = Variable(image.type(Tensor))
+    input_img = transforms.Compose([
+        DEFAULT_TRANSFORMS, 
+        Resize(img_size)])(
+            (image, np.zeros((1, 5))))[0].unsqueeze(0)
+
+    if torch.cuda.is_available():
+        input_img = input_img.to("cuda")
 
     # Get detections
     with torch.no_grad():
         detections = model(input_img)
         detections = non_max_suppression(detections, conf_thres, nms_thres)
-    return detections
+        detections = rescale_boxes(detections[0], img_size, image.shape[:2])
+    return to_cpu(detections).numpy()
 
 def detect(model, dataloader, output_path,
     img_size, conf_thres, nms_thres):
@@ -108,7 +114,9 @@ def detect(model, dataloader, output_path,
     :type conf_thres: float, optional
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
     :type nms_thres: float, optional
-    :return: List of detections, List of input image paths
+    :return: List of detections. The coordinates are given for the padded image that is provided by the dataloader. 
+        Use `utils.rescale_boxes` to transform them into the desired input image coordinate system before its transformed by the dataloader),
+        List of input image paths
     :rtype: [Tensor], [str]
     """
     # Create output directory, if missing
@@ -176,33 +184,31 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     fig, ax = plt.subplots(1)
     ax.imshow(img)
 
-    # Draw bounding boxes and labels of detections
-    if detections is not None:
-        # Rescale boxes to original image
-        detections = rescale_boxes(detections, img_size, img.shape[:2])
-        unique_labels = detections[:, -1].cpu().unique()
-        n_cls_preds = len(unique_labels)
-        bbox_colors = random.sample(colors, n_cls_preds)
-        for x1, y1, x2, y2, conf, cls_pred in detections:
+    # Rescale boxes to original image
+    detections = rescale_boxes(detections, img_size, img.shape[:2])
+    unique_labels = detections[:, -1].cpu().unique()
+    n_cls_preds = len(unique_labels)
+    bbox_colors = random.sample(colors, n_cls_preds)
+    for x1, y1, x2, y2, conf, cls_pred in detections:
 
-            print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
-            
-            box_w = x2 - x1
-            box_h = y2 - y1
+        print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
+        
+        box_w = x2 - x1
+        box_h = y2 - y1
 
-            color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
-            # Create a Rectangle patch
-            bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
-            # Add the bbox to the plot
-            ax.add_patch(bbox)
-            # Add label
-            plt.text(
-                x1,
-                y1,
-                s=classes[int(cls_pred)],
-                color="white",
-                verticalalignment="top",
-                bbox={"color": color, "pad": 0})
+        color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
+        # Create a Rectangle patch
+        bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
+        # Add the bbox to the plot
+        ax.add_patch(bbox)
+        # Add label
+        plt.text(
+            x1,
+            y1,
+            s=classes[int(cls_pred)],
+            color="white",
+            verticalalignment="top",
+            bbox={"color": color, "pad": 0})
 
     # Save generated image with detections
     plt.axis("off")
@@ -237,24 +243,6 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
         num_workers=n_cpu,
         pin_memory=True)
     return dataloader
-
-def _load_model(model_path, weights_path):
-    """Loads the yolo model from file.
-
-    :param model_path: Path to model definition file (.cfg)
-    :type model_path: str
-    :param weights_path: Path to weights or checkpoint file (.weights or .pth)
-    :type weights_path: str
-    :return: Returns model
-    :rtype: Darknet
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Select device for inference
-    model = Darknet(model_path).to(device)
-    if weights_path.endswith(".weights"):  # Load darknet weights
-        model.load_darknet_weights(weights_path)
-    else:  # Load checkpoint weights
-        model.load_state_dict(torch.load(weights_path))
-    return model
 
 
 if __name__ == "__main__":

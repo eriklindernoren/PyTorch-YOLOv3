@@ -56,29 +56,6 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     return dataloader
 
 
-def _load_model(model_path, weights_path):
-    """Loads the (optionally pretrained) yolo model from file.
-
-    :param model_path: Path to model definition file (.cfg)
-    :type model_path: str
-    :param weights_path: Path to pretrained weights or checkpoint file (.weights or .pth)
-    :type weights_path: str
-    :return: Returns model and device string
-    :rtype: Darknet, str
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Select device for inference
-    model = Darknet(args.model).to(device)
-
-    model.apply(weights_init_normal)
-
-    if weights_path:  # If pretrained weights are specified, start from checkpoint
-        if weights_path.endswith(".weights"):  # Load darknet weights
-            model.load_darknet_weights(weights_path)
-        else:  # Load checkpoint weights
-            model.load_state_dict(torch.load(weights_path))
-    return model, device
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
@@ -109,7 +86,17 @@ if __name__ == "__main__":
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
 
-    mini_batch_size = hyperparams['batch'] // model.hyperparams['subdivisions']
+    # ############
+    # Create model
+    # ############
+
+    model, device = load_model(args.model, args.pretrained_weights)
+
+    # Print model
+    if args.verbose:
+        summary(model, input_size=(3, model.hyperparams['height'], model.hyperparams['height']))
+
+    mini_batch_size = model.hyperparams['batch'] // model.hyperparams['subdivisions']
 
     # #################
     # Create Dataloader
@@ -125,19 +112,9 @@ if __name__ == "__main__":
     # Load validation dataloader
     validation_dataloader = _create_validation_data_loader(
         valid_path, 
-        mini_batch_size], 
+        mini_batch_size, 
         model.hyperparams['height'], 
         args.n_cpu)
-
-    # ############
-    # Create model
-    # ############
-
-    model, device = _load_model(args.model, args.pretrained_weights)
-
-    # Print model
-    if args.verbose:
-        summary(model, input_size=(3, model.hyperparams['height'], model.hyperparams['height']))
 
     # ################
     # Create optimizer

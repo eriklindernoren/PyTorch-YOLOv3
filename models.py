@@ -261,3 +261,21 @@ class Darknet(nn.Module):
                 conv_layer.weight.data.cpu().numpy().tofile(fp)
 
         fp.close()
+
+def load_model(model_path, weights_path):
+    """Loads the yolo model from file.
+
+    :param model_path: Path to model definition file (.cfg)
+    :type model_path: str
+    :param weights_path: Path to weights or checkpoint file (.weights or .pth)
+    :type weights_path: str
+    :return: Returns model
+    :rtype: Darknet
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Select device for inference
+    model = Darknet(model_path).to(device)
+    if weights_path.endswith(".weights"):  # Load darknet weights
+        model.load_darknet_weights(weights_path)
+    else:  # Load checkpoint weights
+        model.load_state_dict(torch.load(weights_path))
+    return model
