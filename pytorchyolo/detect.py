@@ -5,30 +5,28 @@ from __future__ import division
 import os
 import argparse
 import tqdm
+import random
 import numpy as np
 
 from PIL import Image
 
 import torch
-import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from torchvision import datasets
 from torch.autograd import Variable
 
-from pytorchyolo.models import *
-from pytorchyolo.utils.utils import *
-from pytorchyolo.utils.datasets import *
-from pytorchyolo.utils.augmentations import *
-from pytorchyolo.utils.transforms import *
+from pytorchyolo.models import load_model
+from pytorchyolo.utils.utils import load_classes, rescale_boxes, non_max_suppression, to_cpu
+from pytorchyolo.utils.datasets import ImageFolder
+from pytorchyolo.utils.transforms import Resize, DEFAULT_TRANSFORMS
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
 
-def detect_directory(model_path, weights_path, img_path, classes, output_path, 
-    batch_size=8, img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5):
+def detect_directory(model_path, weights_path, img_path, classes, output_path,
+                     batch_size=8, img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5):
     """Detects objects on all images in specified directory and saves output images with drawn detections.
 
     :param model_path: Path to model definition file (.cfg)
@@ -61,10 +59,11 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
         img_size,
         conf_thres,
         nms_thres)
-    _draw_and_save_output_images(img_detections, imgs, img_size, output_path)
+    _draw_and_save_output_images(
+        img_detections, imgs, img_size, output_path, classes)
 
-def detect_image(model, image,
-    img_size=416, conf_thres=0.5, nms_thres=0.5):
+
+def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
     """Inferences one image with model.
 
     :param model: Model for inference
@@ -84,7 +83,7 @@ def detect_image(model, image,
 
     # Configure input
     input_img = transforms.Compose([
-        DEFAULT_TRANSFORMS, 
+        DEFAULT_TRANSFORMS,
         Resize(img_size)])(
             (image, np.zeros((1, 5))))[0].unsqueeze(0)
 
@@ -98,8 +97,8 @@ def detect_image(model, image,
         detections = rescale_boxes(detections[0], img_size, image.shape[:2])
     return to_cpu(detections).numpy()
 
-def detect(model, dataloader, output_path,
-    img_size, conf_thres, nms_thres):
+
+def detect(model, dataloader, output_path, img_size, conf_thres, nms_thres):
     """Inferences images with model.
 
     :param model: Model for inference
@@ -114,7 +113,7 @@ def detect(model, dataloader, output_path,
     :type conf_thres: float, optional
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
     :type nms_thres: float, optional
-    :return: List of detections. The coordinates are given for the padded image that is provided by the dataloader. 
+    :return: List of detections. The coordinates are given for the padded image that is provided by the dataloader.
         Use `utils.rescale_boxes` to transform them into the desired input image coordinate system before its transformed by the dataloader),
         List of input image paths
     :rtype: [Tensor], [str]
@@ -143,7 +142,8 @@ def detect(model, dataloader, output_path,
         imgs.extend(img_paths)
     return img_detections, imgs
 
-def _draw_and_save_output_images(img_detections, imgs, img_size, output_path):
+
+def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, classes):
     """Draws detections in output images and stores them.
 
     :param img_detections: List of detections
@@ -154,6 +154,8 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path):
     :type img_size: int
     :param output_path: Path of output directory
     :type output_path: str
+    :param classes: List of class names
+    :type classes: [str]
     """
     # TODO: Draw class names...
     # Bounding-box colors
@@ -162,9 +164,11 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path):
 
     # Iterate through images and save plot of detections
     for (image_path, detections) in tqdm.tqdm(zip(imgs, img_detections), desc="Saving output images"):
-        _draw_and_save_output_image(image_path, detections, img_size, colors, output_path)
+        _draw_and_save_output_image(
+            image_path, detections, img_size, colors, output_path, classes)
 
-def _draw_and_save_output_image(image_path, detections, img_size, colors, output_path):
+
+def _draw_and_save_output_image(image_path, detections, img_size, colors, output_path, classes):
     """Draws detections in output image and stores this.
 
     :param image_path: Path to input image
@@ -177,6 +181,8 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     :type colors: []
     :param output_path: Path of output directory
     :type output_path: str
+    :param classes: List of class names
+    :type classes: [str]
     """
     # Create plot
     img = np.array(Image.open(image_path))
@@ -192,7 +198,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     for x1, y1, x2, y2, conf, cls_pred in detections:
 
         print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
-        
+
         box_w = x2 - x1
         box_h = y2 - y1
 
@@ -218,6 +224,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     output_path = os.path.join(output_path, f"{filename}.png")
     plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
     plt.close()
+
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     """Creates a DataLoader for inferencing.
@@ -274,6 +281,7 @@ def run():
         n_cpu=args.n_cpu,
         conf_thres=args.conf_thres,
         nms_thres=args.nms_thres)
+
 
 if __name__ == '__main__':
     run()

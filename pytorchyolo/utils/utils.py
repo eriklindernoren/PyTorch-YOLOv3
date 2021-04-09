@@ -1,15 +1,11 @@
 from __future__ import division
-import math
+
 import time
 import tqdm
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
 import torchvision
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 
 def to_cpu(tensor):
@@ -28,15 +24,15 @@ def load_classes(path):
 def weights_init_normal(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
-        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find("BatchNorm2d") != -1:
-        torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
-        torch.nn.init.constant_(m.bias.data, 0.0)
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0.0)
 
 
 def rescale_boxes(boxes, current_dim, original_shape):
-    """ 
-    Rescales bounding boxes to the original shape 
+    """
+    Rescales bounding boxes to the original shape
     """
     orig_h, orig_w = original_shape
 
@@ -217,8 +213,10 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
         b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
     else:
         # Get the coordinates of bounding boxes
-        b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
-        b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
+        b1_x1, b1_y1, b1_x2, b1_y2 = \
+            box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
+        b2_x1, b2_y1, b2_x2, b2_y2 = \
+            box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
 
     # get the corrdinates of the intersection rectangle
     inter_rect_x1 = torch.max(b1_x1, b2_x1)
@@ -259,8 +257,10 @@ def box_iou(box1, box2):
     area2 = box_area(box2.T)
 
     # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
-    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
-    return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
+    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) -
+             torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
+    # iou = inter / (area1 + area2 - inter)
+    return inter / (area1[:, None] + area2 - inter)
 
 
 def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, labels=()):
@@ -273,7 +273,8 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
     xc = prediction[..., 4] > conf_thres  # candidates
 
     # Settings
-    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+    # (pixels) minimum and maximum box width and height
+    max_wh = 4096
     max_det = 300  # maximum number of detections per image
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
     time_limit = 1.0  # seconds to quit after
@@ -283,6 +284,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
     t = time.time()
     output = [torch.zeros((0, 6), device=prediction.device)] * prediction.shape[0]
+
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
@@ -328,11 +330,13 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         if not n:  # no boxes
             continue
         elif n > max_nms:  # excess boxes
-            x = x[x[:, 4].argsort(descending=True)[:max_nms]]  # sort by confidence
+            # sort by confidence
+            x = x[x[:, 4].argsort(descending=True)[:max_nms]]
 
         # Batched NMS
         c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
-        boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
+        # boxes (offset by class), scores
+        boxes, scores = x[:, :4] + c, x[:, 4]
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]

@@ -2,29 +2,24 @@
 
 from __future__ import division
 
-from pytorchyolo.models import *
-from pytorchyolo.utils.utils import *
-from pytorchyolo.utils.datasets import *
-from pytorchyolo.utils.augmentations import *
-from pytorchyolo.utils.transforms import *
-from pytorchyolo.utils.parse_config import *
-
-import os
 import argparse
 import tqdm
+import numpy as np
 
 from terminaltables import AsciiTable
 
 import torch
 from torch.utils.data import DataLoader
-from torchvision import datasets
-from torchvision import transforms
 from torch.autograd import Variable
 
+from pytorchyolo.models import load_model
+from pytorchyolo.utils.utils import load_classes, ap_per_class, get_batch_statistics, non_max_suppression, to_cpu, xywh2xyxy
+from pytorchyolo.utils.datasets import ListDataset
+from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
+from pytorchyolo.utils.parse_config import parse_data_config
 
-def evaluate_model_file(model_path, weights_path, img_path, class_names,
-    batch_size=8, img_size=416, n_cpu=8,
-    iou_thres=0.5, conf_thres=0.5, nms_thres=0.5, verbose=True):
+
+def evaluate_model_file(model_path, weights_path, img_path, class_names, batch_size=8, img_size=416, n_cpu=8, iou_thres=0.5, conf_thres=0.5, nms_thres=0.5, verbose=True):
     """Evaluate model on validation dataset.
 
     :param model_path: Path to model definition file (.cfg)
@@ -51,7 +46,8 @@ def evaluate_model_file(model_path, weights_path, img_path, class_names,
     :type verbose: bool, optional
     :return: Returns precision, recall, AP, f1, ap_class
     """
-    dataloader = _create_validation_data_loader(img_path, batch_size, img_size, n_cpu)
+    dataloader = _create_validation_data_loader(
+        img_path, batch_size, img_size, n_cpu)
     model = load_model(model_path, weights_path)
     metrics_output = _evaluate(
         model,
@@ -64,10 +60,10 @@ def evaluate_model_file(model_path, weights_path, img_path, class_names,
         verbose)
     return metrics_output
 
+
 def print_eval_stats(metrics_output, class_names, verbose):
     if metrics_output is not None:
         precision, recall, AP, f1, ap_class = metrics_output
-
         if verbose:
             # Prints class AP and mean AP
             ap_table = [["Index", "Class", "AP"]]
@@ -76,7 +72,8 @@ def print_eval_stats(metrics_output, class_names, verbose):
             print(AsciiTable(ap_table).table)
         print(f"---- mAP {AP.mean():.5f} ----")
     else:
-        print( "---- mAP not measured (no detections found by model) ----")
+        print("---- mAP not measured (no detections found by model) ----")
+
 
 def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, nms_thres, verbose):
     """Evaluate model on validation dataset.
@@ -119,21 +116,25 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
             outputs = non_max_suppression(outputs, conf_thres=conf_thres, iou_thres=nms_thres)
 
         sample_metrics += get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
-    
+
     if len(sample_metrics) == 0:  # No detections over whole validation set.
         print("---- No detections over whole validation set ----")
         return None
-    
+
     # Concatenate sample statistics
-    true_positives, pred_scores, pred_labels = [np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
-    metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, labels)
+    true_positives, pred_scores, pred_labels = [
+        np.concatenate(x, 0) for x in list(zip(*sample_metrics))]
+    metrics_output = ap_per_class(
+        true_positives, pred_scores, pred_labels, labels)
 
     print_eval_stats(metrics_output, class_names, verbose)
 
     return metrics_output
 
+
 def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
-    """Creates a DataLoader for validation.
+    """
+    Creates a DataLoader for validation.
 
     :param img_path: Path to file containing all paths to validation images.
     :type img_path: str
@@ -156,6 +157,7 @@ def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
         collate_fn=dataset.collate_fn)
     return dataloader
 
+
 def run():
     parser = argparse.ArgumentParser(description="Evaluate validation data.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
@@ -173,7 +175,8 @@ def run():
 
     # Load configuration from data file
     data_config = parse_data_config(args.data)
-    valid_path = data_config["valid"]  # Path to file containing all images for validation
+    # Path to file containing all images for validation
+    valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])  # List of class names
 
     precision, recall, AP, f1, ap_class = evaluate_model_file(

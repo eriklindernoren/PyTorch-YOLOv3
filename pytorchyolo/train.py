@@ -8,27 +8,24 @@ import tqdm
 
 import torch
 from torch.utils.data import DataLoader
-from torchvision import datasets
-from torchvision import transforms
-from torch.autograd import Variable
 import torch.optim as optim
 
-from pytorchyolo.models import *
-from pytorchyolo.utils.logger import *
-from pytorchyolo.utils.utils import *
-from pytorchyolo.utils.datasets import *
-from pytorchyolo.utils.augmentations import *
-from pytorchyolo.utils.transforms import *
-from pytorchyolo.utils.parse_config import *
+from pytorchyolo.models import load_model
+from pytorchyolo.utils.logger import Logger
+from pytorchyolo.utils.utils import to_cpu, load_classes
+from pytorchyolo.utils.datasets import ListDataset
+from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
+# from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
+from pytorchyolo.utils.parse_config import parse_data_config
 from pytorchyolo.utils.loss import compute_loss
 from pytorchyolo.test import _evaluate, _create_validation_data_loader
 
 from terminaltables import AsciiTable
 
-
 from torchsummary import summary
 
-def _create_data_loader(img_path, batch_size, img_size, n_cpu):
+
+def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_training=False):
     """Creates a DataLoader for training.
 
     :param img_path: Path to file containing all paths to training images.
@@ -39,15 +36,17 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     :type img_size: int
     :param n_cpu: Number of cpu threads to use during batch generation
     :type n_cpu: int
+    :param multiscale_training: Scale images to different sizes randomly
+    :type multiscale_training: bool
     :return: Returns DataLoader
     :rtype: DataLoader
     """
     dataset = ListDataset(
         img_path,
         img_size=img_size,
-        multiscale=args.multiscale_training,
+        multiscale=multiscale_training,
         transform=AUGMENTATION_TRANSFORMS)
-    dataloader = torch.utils.data.DataLoader(
+    dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=True,
@@ -106,16 +105,17 @@ def run():
 
     # Load training dataloader
     dataloader = _create_data_loader(
-        train_path, 
-        mini_batch_size, 
-        model.hyperparams['height'], 
-        args.n_cpu)
-    
+        train_path,
+        mini_batch_size,
+        model.hyperparams['height'],
+        args.n_cpu,
+        args.multiscale_training)
+
     # Load validation dataloader
     validation_dataloader = _create_validation_data_loader(
-        valid_path, 
-        mini_batch_size, 
-        model.hyperparams['height'], 
+        valid_path,
+        mini_batch_size,
+        model.hyperparams['height'],
         args.n_cpu)
 
     # ################
@@ -123,14 +123,14 @@ def run():
     # ################
 
     if (model.hyperparams['optimizer'] in [None, "adam"]):
-        optimizer = torch.optim.Adam(
-            model.parameters(), 
+        optimizer = optim.Adam(
+            model.parameters(),
             lr=model.hyperparams['learning_rate'],
             weight_decay=model.hyperparams['decay'],
-            )
+        )
     elif (model.hyperparams['optimizer'] == "sgd"):
-        optimizer = torch.optim.SGD(
-            model.parameters(), 
+        optimizer = optim.SGD(
+            model.parameters(),
             lr=model.hyperparams['learning_rate'],
             weight_decay=model.hyperparams['decay'],
             momentum=model.hyperparams['momentum'])
@@ -138,11 +138,11 @@ def run():
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
     for epoch in range(args.epochs):
-        
+
         print("\n---- Training Model ----")
 
         model.train()  # Set model to training mode
-        
+
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
 
@@ -175,7 +175,7 @@ def run():
                 logger.scalar_summary("train/learning_rate", lr, batches_done)
                 # Set learning rate
                 for g in optimizer.param_groups:
-                        g['lr'] = lr
+                    g['lr'] = lr
 
                 # Run optimizer
                 optimizer.step()
@@ -190,20 +190,21 @@ def run():
                 [
                     ["Type", "Value"],
                     ["IoU loss", float(loss_components[0])],
-                    ["Object loss", float(loss_components[1])], 
+                    ["Object loss", float(loss_components[1])],
                     ["Class loss", float(loss_components[2])],
                     ["Loss", float(loss_components[3])],
                     ["Batch loss", to_cpu(loss).item()],
                 ]).table
 
-            if args.verbose: print(log_str)
+            if args.verbose:
+                print(log_str)
 
             # Tensorboard logging
             tensorboard_log = [
-                    ("train/iou_loss", float(loss_components[0])),
-                    ("train/obj_loss", float(loss_components[1])), 
-                    ("train/class_loss", float(loss_components[2])),
-                    ("train/loss", to_cpu(loss).item())]
+                ("train/iou_loss", float(loss_components[0])),
+                ("train/obj_loss", float(loss_components[1])),
+                ("train/class_loss", float(loss_components[2])),
+                ("train/loss", to_cpu(loss).item())]
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             model.seen += imgs.size(0)
