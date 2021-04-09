@@ -3,7 +3,7 @@ name: Ubuntu CI
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  setup:
+  main:
     runs-on: ubuntu-18.04
 
     steps:
@@ -22,14 +22,11 @@ jobs:
       - name: Install Dependencies
         run: poetry install
 
-  helppages:
-    needs: setup
-    runs-on: ubuntu-18.04
-
-    steps:
       # Prints the help pages of all scripts to see if the imports etc. work
       - name: Test the help pages
         run: | 
           poetry run yolo-train -h
           poetry run yolo-test -h
           poetry run yolo-detect -h
+
+  
