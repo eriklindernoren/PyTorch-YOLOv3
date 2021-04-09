@@ -10,11 +10,15 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
       - name: Install Poetry
         run: |
-          sudo apt-get install python3-setuptools
-          pip3 install --upgrade pip
-          pip3 install poetry --user
+          python3 -m pip install --upgrade pip
+          pip3 install setuptools-rust poetry --user
         
       - name: Install Dependencies
         run: poetry install
