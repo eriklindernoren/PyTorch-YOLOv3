@@ -163,7 +163,8 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     colors = [cmap(i) for i in np.linspace(0, 1, 20)]
 
     # Iterate through images and save plot of detections
-    for (image_path, detections) in tqdm.tqdm(zip(imgs, img_detections), desc="Saving output images"):
+    for (image_path, detections) in zip(imgs, img_detections):
+        print(f"Image {image_path}:")
         _draw_and_save_output_image(
             image_path, detections, img_size, colors, output_path, classes)
 
