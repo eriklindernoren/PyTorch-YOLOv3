@@ -169,8 +169,8 @@ def run():
     parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--iou_thres", type=float, default=0.5, help="IOU threshold required to qualify as detected")
-    parser.add_argument("--conf_thres", type=float, default=0.5, help="Object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.5, help="IOU threshold for non-maximum suppression")
+    parser.add_argument("--conf_thres", type=float, default=0.01, help="Object confidence threshold")
+    parser.add_argument("--nms_thres", type=float, default=0.4, help="IOU threshold for non-maximum suppression")
     args = parser.parse_args()
     print(args)
 
