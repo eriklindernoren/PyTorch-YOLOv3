@@ -3,11 +3,10 @@ name: CI
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-18.04
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
       - name: Set up Python
@@ -23,5 +22,11 @@ jobs:
       - name: Install Dependencies
         run: poetry install
 
-      - name: Test the help page
-        run: poetry run yolo-train -h
+  helppages:
+      needs: setup
+      # Prints the help pages of all scripts to see if the imports etc. work
+      - name: Test the help pages
+        run: | 
+          poetry run yolo-train -h
+          poetry run yolo-test -h
+          poetry run yolo-detect -h
