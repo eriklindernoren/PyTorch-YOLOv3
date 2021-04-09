@@ -65,13 +65,13 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 poetry run yolo-detect --images data/samples/
 ```
 
-![](https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/giraffe.png)
-![](https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/dog.png)
-![](https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/traffic.png)
-![](https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/messi.png)
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/raw/master/assets/giraffe.png" width="480"\></p>
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/raw/master/assets/dog.png" width="480"\></p>
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/raw/master/assets/traffic.png" width="480"\></p>
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/raw/master/assets/messi.png" width="480"\></p>
 
 ## Train
-For argument descriptions have a lock at `python3 train.py --help`
+For argument descriptions have a lock at `poetry run yolo-train --help`
 
 #### Example (COCO)
 To train on COCO using a Darknet-53 backend pretrained on ImageNet run: 
@@ -92,7 +92,7 @@ poetry run tensorboard --logdir='logs' --port=6006
 
 Storing the logs on a slow drive possibly leads to a significant training speed decrease.
 
-You can adjust the log directory using `--logdir <path>` when running `tensorboard` or the `train.py`.
+You can adjust the log directory using `--logdir <path>` when running `tensorboard` and `yolo-train`.
 
 ## Train on Custom Dataset
 
