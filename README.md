@@ -9,7 +9,7 @@ For normal training and evaluation we recommend installing the package from sour
 ```bash
 git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
 cd PyTorch-YOLOv3/
-pip install poetry --user
+pip3 install poetry --user
 poetry install
 ```
 
