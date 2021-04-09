@@ -28,6 +28,15 @@ jobs:
           poetry run yolo-train -h
           poetry run yolo-test -h
           poetry run yolo-detect -h
+
+      - name: Demo Training
+        run: poetry run yolo-train --data config/custom.data  --model config/yolov3.cfg --epochs 5 
+
+      - name: Demo Evaluate
+        run: poetry run yolo-test --data config/custom.data  --model config/yolov3.cfg 
+
+      - name: Demo Detect 
+        run: poetry run yolo-detect --batch_size 2                                     
   
   linter:
     runs-on: ubuntu-18.04
