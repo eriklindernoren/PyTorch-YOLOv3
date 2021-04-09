@@ -2,7 +2,7 @@
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
 ## Installation
-### Install from source
+### Installing from source
 
 For normal training and evaluation we recommend installing the package from source using a poetry virtual enviroment.
 
