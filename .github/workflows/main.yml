@@ -13,6 +13,7 @@ jobs:
       - name: Install Poetry
         run: |
           sudo apt-get install python3-setuptools
+          pip3 install --upgrade pip
           pip3 install poetry --user
         
       - name: Install Dependencies
