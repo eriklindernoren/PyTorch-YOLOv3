@@ -160,7 +160,7 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     # TODO: Draw class names...
     # Bounding-box colors
     cmap = plt.get_cmap("tab20b")
-    colors = [cmap(i) for i in np.linspace(0, 1, 20)]
+    colors = [cmap(i) for i in np.linspace(0, 1, 40)]
 
     # Iterate through images and save plot of detections
     for (image_path, detections) in zip(imgs, img_detections):
@@ -190,7 +190,6 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     plt.figure()
     fig, ax = plt.subplots(1)
     ax.imshow(img)
-
     # Rescale boxes to original image
     detections = rescale_boxes(detections, img_size, img.shape[:2])
     unique_labels = detections[:, -1].cpu().unique()
