@@ -33,10 +33,10 @@ jobs:
         run: poetry run yolo-train --data config/custom.data  --model config/yolov3.cfg --epochs 5 
 
       - name: Demo Evaluate
-        run: poetry run yolo-test --data config/custom.data  --model config/yolov3.cfg 
+        run: poetry run yolo-test --data config/custom.data  --model config/yolov3.cfg --weights checkpoints/yolov3_ckpt_4.pth
 
       - name: Demo Detect 
-        run: poetry run yolo-detect --batch_size 2                                     
+        run: poetry run yolo-detect --batch_size 2 --weights checkpoints/yolov3_ckpt_4.pth
   
   linter:
     runs-on: ubuntu-18.04
