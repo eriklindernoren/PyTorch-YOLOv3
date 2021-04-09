@@ -1,4 +1,10 @@
+#! /usr/bin/env python3
+
 from __future__ import division
+
+import os
+import argparse
+import tqdm
 
 from models import *
 from utils.logger import *
@@ -8,16 +14,9 @@ from utils.augmentations import *
 from utils.transforms import *
 from utils.parse_config import *
 from utils.loss import compute_loss
-from test import evaluate
+from test import _evaluate, _create_validation_data_loader
 
 from terminaltables import AsciiTable
-
-import os
-import sys
-import time
-import datetime
-import argparse
-import tqdm
 
 import torch
 from torch.utils.data import DataLoader
@@ -25,62 +24,124 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
+
 from torchsummary import summary
+
+def _create_data_loader(img_path, batch_size, img_size, n_cpu):
+    """Creates a DataLoader for training.
+
+    :param img_path: Path to file containing all paths to training images.
+    :type img_path: str
+    :param batch_size: Size of each image batch
+    :type batch_size: int
+    :param img_size: Size of each image dimension for yolo
+    :type img_size: int
+    :param n_cpu: Number of cpu threads to use during batch generation
+    :type n_cpu: int
+    :return: Returns DataLoader
+    :rtype: DataLoader
+    """
+    dataset = ListDataset(
+        img_path,
+        img_size=img_size,
+        multiscale=args.multiscale_training,
+        transform=AUGMENTATION_TRANSFORMS)
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=n_cpu,
+        pin_memory=True,
+        collate_fn=dataset.collate_fn)
+    return dataloader
+
+
+def _load_model(model_path, weights_path):
+    """Loads the (optionally pretrained) yolo model from file.
+
+    :param model_path: Path to model definition file (.cfg)
+    :type model_path: str
+    :param weights_path: Path to pretrained weights or checkpoint file (.weights or .pth)
+    :type weights_path: str
+    :return: Returns model and device string
+    :rtype: Darknet, str
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Select device for inference
+    model = Darknet(args.model).to(device)
+
+    model.apply(weights_init_normal)
+
+    if weights_path:  # If pretrained weights are specified, start from checkpoint
+        if weights_path.endswith(".weights"):  # Load darknet weights
+            model.load_darknet_weights(weights_path)
+        else:  # Load checkpoint weights
+            model.load_state_dict(torch.load(weights_path))
+    return model, device
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=300, help="number of epochs")
-    parser.add_argument("--model_def", type=str, default="config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--data_config", type=str, default="config/coco.data", help="path to data config file")
-    parser.add_argument("--pretrained_weights", type=str, help="if specified starts from checkpoint model")
-    parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model weights")
-    parser.add_argument("--evaluation_interval", type=int, default=1, help="interval evaluations on validation set")
-    parser.add_argument("--multiscale_training", default=True, help="allow for multi-scale training")
-    parser.add_argument("--verbose", "-v", default=False, action='store_true', help="Makes the training more verbose")
-    parser.add_argument("--logdir", type=str, default="logs", help="Defines the directory where the training log files are stored")
-    opt = parser.parse_args()
-    print(opt)
+    parser = argparse.ArgumentParser(description="Train YOLO model.")
+    parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
+    parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
+    parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
+    parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
+    parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
+    parser.add_argument("--pretrained_weights", type=str, help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
+    parser.add_argument("--checkpoint_interval", type=int, default=1, help="Interval of epochs between saving model weights")
+    parser.add_argument("--evaluation_interval", type=int, default=1, help="Interval of epochs between evaluations on validation set")
+    parser.add_argument("--multiscale_training", action="store_false", help="Allow for multi-scale training")
+    parser.add_argument("--iou_thres", type=float, default=0.5, help="Evaluation: IOU threshold required to qualify as detected")
+    parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
+    parser.add_argument("--nms_thres", type=float, default=0.5, help="Evaluation: IOU threshold for non-maximum suppression")
+    parser.add_argument("--logdir", type=str, default="logs", help="Directory for training log files (e.g. for TensorBoard)")
+    args = parser.parse_args()
+    print(args)
 
-    logger = Logger(opt.logdir)
+    logger = Logger(args.logdir)  # Tensorboard logger
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    # Create output directories if missing
     os.makedirs("output", exist_ok=True)
     os.makedirs("checkpoints", exist_ok=True)
 
     # Get data configuration
-    data_config = parse_data_config(opt.data_config)
+    data_config = parse_data_config(args.data)
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
 
-    # Initiate model
-    model = Darknet(opt.model_def).to(device)
-    model.apply(weights_init_normal)
+    mini_batch_size = hyperparams['batch'] // model.hyperparams['subdivisions']
+
+    # #################
+    # Create Dataloader
+    # #################
+
+    # Load training dataloader
+    dataloader = _create_data_loader(
+        train_path, 
+        mini_batch_size, 
+        model.hyperparams['height'], 
+        args.n_cpu)
+    
+    # Load validation dataloader
+    validation_dataloader = _create_validation_data_loader(
+        valid_path, 
+        mini_batch_size], 
+        model.hyperparams['height'], 
+        args.n_cpu)
+
+    # ############
+    # Create model
+    # ############
+
+    model, device = _load_model(args.model, args.pretrained_weights)
 
     # Print model
-    if opt.verbose:
+    if args.verbose:
         summary(model, input_size=(3, model.hyperparams['height'], model.hyperparams['height']))
 
-    # If specified we start from checkpoint
-    if opt.pretrained_weights:
-        if opt.pretrained_weights.endswith(".pth"):
-            model.load_state_dict(torch.load(opt.pretrained_weights))
-        else:
-            model.load_darknet_weights(opt.pretrained_weights)
-
-    # Get dataloader
-    dataset = ListDataset(train_path, multiscale=opt.multiscale_training, img_size=model.hyperparams['height'], transform=AUGMENTATION_TRANSFORMS)
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size= model.hyperparams['batch'] // model.hyperparams['subdivisions'],
-        shuffle=True,
-        num_workers=opt.n_cpu,
-        pin_memory=True,
-        collate_fn=dataset.collate_fn,
-    )
+    # ################
+    # Create optimizer
+    # ################
 
     if (model.hyperparams['optimizer'] in [None, "adam"]):
         optimizer = torch.optim.Adam(
@@ -97,10 +158,12 @@ if __name__ == "__main__":
     else:
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
-    for epoch in range(opt.epochs):
+    for epoch in range(args.epochs):
+        
         print("\n---- Training Model ----")
-        model.train()
-        start_time = time.time()
+
+        model.train()  # Set model to training mode
+        
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
 
@@ -140,9 +203,9 @@ if __name__ == "__main__":
                 # Reset gradients
                 optimizer.zero_grad()
 
-            # ----------------
-            #   Log progress
-            # ----------------
+            # ############
+            # Log progress
+            # ############
             log_str = ""
             log_str += AsciiTable(
                 [
@@ -154,7 +217,7 @@ if __name__ == "__main__":
                     ["Batch loss", to_cpu(loss).item()],
                 ]).table
 
-            if opt.verbose: print(log_str)
+            if args.verbose: print(log_str)
 
             # Tensorboard logging
             tensorboard_log = [
@@ -166,38 +229,39 @@ if __name__ == "__main__":
 
             model.seen += imgs.size(0)
 
-        if epoch % opt.evaluation_interval == 0:
+        # #############
+        # Save progress
+        # #############
+
+        # Save model to checkpoint file
+        if epoch % args.checkpoint_interval == 0:
+            checkpoint_path = f"checkpoints/yolov3_ckpt_{epoch}.pth"
+            print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
+            torch.save(model.state_dict(), checkpoint_path)
+
+        # ########
+        # Evaluate
+        # ########
+
+        if epoch % args.evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
-            metrics_output = evaluate(
+            metrics_output = _evaluate(
                 model,
-                path=valid_path,
-                iou_thres=0.5,
-                conf_thres=0.1,
-                nms_thres=0.5,
+                validation_dataloader,
+                class_names,
                 img_size=model.hyperparams['height'],
-                batch_size=model.hyperparams['batch'] // model.hyperparams['subdivisions'],
+                iou_thres=args.iou_thres,
+                conf_thres=args.conf_thres,
+                nms_thres=args.nms_thres,
+                verbose=args.verbose
             )
-            
+
             if metrics_output is not None:
                 precision, recall, AP, f1, ap_class = metrics_output
                 evaluation_metrics = [
-                ("validation/precision", precision.mean()),
-                ("validation/recall", recall.mean()),
-                ("validation/mAP", AP.mean()),
-                ("validation/f1", f1.mean()),
-                ]
+                    ("validation/precision", precision.mean()),
+                    ("validation/recall", recall.mean()),
+                    ("validation/mAP", AP.mean()),
+                    ("validation/f1", f1.mean())]
                 logger.list_of_scalars_summary(evaluation_metrics, epoch)
-
-                if opt.verbose:
-                    # Print class APs and mAP
-                    ap_table = [["Index", "Class name", "AP"]]
-                    for i, c in enumerate(ap_class):
-                        ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                    print(AsciiTable(ap_table).table)
-                    print(f"---- mAP {AP.mean()}")                
-            else:
-                print( "---- mAP not measured (no detections found by model)")
-
-        if epoch % opt.checkpoint_interval == 0:
-            torch.save(model.state_dict(), f"checkpoints/yolov3_ckpt_%d.pth" % epoch)
