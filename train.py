@@ -85,12 +85,13 @@ if __name__ == "__main__":
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # ############
     # Create model
     # ############
 
-    model, device = load_model(args.model, args.pretrained_weights)
+    model = load_model(args.model, args.pretrained_weights)
 
     # Print model
     if args.verbose:
