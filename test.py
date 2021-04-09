@@ -22,7 +22,7 @@ from torchvision import transforms
 from torch.autograd import Variable
 
 
-def evaluate(model_path, weights_path, img_path, class_names,
+def evaluate_model_file(model_path, weights_path, img_path, class_names,
     batch_size=8, img_size=416, n_cpu=8,
     iou_thres=0.5, conf_thres=0.5, nms_thres=0.5, verbose=True):
     """Evaluate model on validation dataset.
@@ -52,7 +52,7 @@ def evaluate(model_path, weights_path, img_path, class_names,
     :return: Returns precision, recall, AP, f1, ap_class
     """
     dataloader = _create_validation_data_loader(img_path, batch_size, img_size, n_cpu)
-    model = _load_model(model_path, weights_path)
+    model = load_model(model_path, weights_path)
     metrics_output = _evaluate(
         model,
         dataloader,
@@ -105,11 +105,7 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
 
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
-    for (_, imgs, targets) in tqdm.tqdm(dataloader, desc="Validating"):
-
-        if targets is None:
-            continue
-
+    for _, imgs, targets in tqdm.tqdm(dataloader, desc="Validating"):
         # Extract labels
         labels += targets[:, 1].tolist()
         # Rescale target
@@ -119,8 +115,8 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
         imgs = Variable(imgs.type(Tensor), requires_grad=False)
 
         with torch.no_grad():
-            outputs = model(imgs)
-            outputs = non_max_suppression(outputs, conf_thres=conf_thres, nms_thres=nms_thres)
+            outputs = to_cpu(model(imgs))
+            outputs = non_max_suppression(outputs, conf_thres=conf_thres, iou_thres=nms_thres)
 
         sample_metrics += get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
     
@@ -160,25 +156,6 @@ def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
         collate_fn=dataset.collate_fn)
     return dataloader
 
-def _load_model(model_path, weights_path):
-    """Loads the yolo model from file.
-
-    :param model_path: Path to model definition file (.cfg)
-    :type model_path: str
-    :param weights_path: Path to weights or checkpoint file (.weights or .pth)
-    :type weights_path: str
-    :return: Returns model
-    :rtype: Darknet
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Select device for inference
-    model = Darknet(model_path).to(device)
-    if weights_path.endswith(".weights"):  # Load darknet weights
-        model.load_darknet_weights(weights_path)
-    else:  # Load checkpoint weights
-        model.load_state_dict(torch.load(weights_path))
-    return model
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate validation data.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
@@ -199,7 +176,7 @@ if __name__ == "__main__":
     valid_path = data_config["valid"]  # Path to file containing all images for validation
     class_names = load_classes(data_config["names"])  # List of class names
 
-    precision, recall, AP, f1, ap_class = evaluate(
+    precision, recall, AP, f1, ap_class = evaluate_model_file(
         args.model,
         args.weights,
         valid_path,

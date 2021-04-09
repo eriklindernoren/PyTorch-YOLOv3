@@ -11,7 +11,6 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import imgaug.augmenters as iaa
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
-from imgaug.augmentables.segmaps import SegmentationMapsOnImage
 
 import torch
 import torch.nn.functional as F
@@ -47,7 +46,7 @@ class ImageFolder(Dataset):
 
         img_path = self.files[index % len(self.files)]
         img = np.array(
-            Image.open(img_path).convert('RGB'), 
+            Image.open(img_path).convert('RGB'),
             dtype=np.uint8)
 
         # Label Placeholder
@@ -68,10 +67,15 @@ class ListDataset(Dataset):
         with open(list_path, "r") as file:
             self.img_files = file.readlines()
 
-        self.label_files = [
-            path.replace("images", "labels").replace(".png", ".txt").replace(".jpg", ".txt")
-            for path in self.img_files
-        ]
+        self.label_files = []
+        for path in self.img_files:
+            image_dir = os.path.dirname(path) 
+            label_dir = "labels".join(image_dir.rsplit("images", 1))
+            assert label_dir != image_dir, \
+                 f"Image path must contain a folder named 'images'! \n'{image_dir}'"
+            label_file = os.path.join(label_dir, os.path.basename(path))
+            label_file = os.path.splitext(label_file)[0] + '.txt'
+            self.label_files.append(label_file)
 
         self.img_size = img_size
         self.max_objects = 100
@@ -82,7 +86,7 @@ class ListDataset(Dataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        
+
         # ---------
         #  Image
         # ---------
@@ -128,11 +132,11 @@ class ListDataset(Dataset):
         batch = [data for data in batch if data is not None]
 
         paths, imgs, bb_targets = list(zip(*batch))
-        
+
         # Selects new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
             self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
-        
+
         # Resize images to input shape
         imgs = torch.stack([resize(img, self.img_size) for img in imgs])
 
@@ -140,7 +144,7 @@ class ListDataset(Dataset):
         for i, boxes in enumerate(bb_targets):
             boxes[:, 0] = i
         bb_targets = torch.cat(bb_targets, 0)
-        
+
         return paths, imgs, bb_targets
 
     def __len__(self):
