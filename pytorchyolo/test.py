@@ -2,12 +2,12 @@
 
 from __future__ import division
 
-from models import *
-from utils.utils import *
-from utils.datasets import *
-from utils.augmentations import *
-from utils.transforms import *
-from utils.parse_config import *
+from pytorchyolo.models import *
+from pytorchyolo.utils.utils import *
+from pytorchyolo.utils.datasets import *
+from pytorchyolo.utils.augmentations import *
+from pytorchyolo.utils.transforms import *
+from pytorchyolo.utils.parse_config import *
 
 import os
 import argparse
@@ -156,7 +156,7 @@ def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
         collate_fn=dataset.collate_fn)
     return dataloader
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(description="Evaluate validation data.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
@@ -188,3 +188,7 @@ if __name__ == "__main__":
         conf_thres=args.conf_thres,
         nms_thres=args.nms_thres,
         verbose=True)
+
+
+if __name__ == "__main__":
+    run()

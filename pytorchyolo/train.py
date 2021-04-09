@@ -6,24 +6,25 @@ import os
 import argparse
 import tqdm
 
-from models import *
-from utils.logger import *
-from utils.utils import *
-from utils.datasets import *
-from utils.augmentations import *
-from utils.transforms import *
-from utils.parse_config import *
-from utils.loss import compute_loss
-from test import _evaluate, _create_validation_data_loader
-
-from terminaltables import AsciiTable
-
 import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision import transforms
 from torch.autograd import Variable
 import torch.optim as optim
+
+from pytorchyolo.models import *
+from pytorchyolo.utils.logger import *
+from pytorchyolo.utils.utils import *
+from pytorchyolo.utils.datasets import *
+from pytorchyolo.utils.augmentations import *
+from pytorchyolo.utils.transforms import *
+from pytorchyolo.utils.parse_config import *
+from pytorchyolo.utils.loss import compute_loss
+from pytorchyolo.test import _evaluate, _create_validation_data_loader
+
+from terminaltables import AsciiTable
+
 
 from torchsummary import summary
 
@@ -56,8 +57,8 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     return dataloader
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train YOLO model.")
+def run():
+    parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
     parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
@@ -243,3 +244,7 @@ if __name__ == "__main__":
                     ("validation/mAP", AP.mean()),
                     ("validation/f1", f1.mean())]
                 logger.list_of_scalars_summary(evaluation_metrics, epoch)
+
+
+if __name__ == "__main__":
+    run()

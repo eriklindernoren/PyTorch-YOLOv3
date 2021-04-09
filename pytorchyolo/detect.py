@@ -2,12 +2,6 @@
 
 from __future__ import division
 
-from models import *
-from utils.utils import *
-from utils.datasets import *
-from utils.augmentations import *
-from utils.transforms import *
-
 import os
 import argparse
 import tqdm
@@ -21,6 +15,12 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.autograd import Variable
+
+from pytorchyolo.models import *
+from pytorchyolo.utils.utils import *
+from pytorchyolo.utils.datasets import *
+from pytorchyolo.utils.augmentations import *
+from pytorchyolo.utils.transforms import *
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -245,7 +245,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     return dataloader
 
 
-if __name__ == "__main__":
+def run():
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
@@ -274,3 +274,6 @@ if __name__ == "__main__":
         n_cpu=args.n_cpu,
         conf_thres=args.conf_thres,
         nms_thres=args.nms_thres)
+
+if __name__ == '__main__':
+    run()

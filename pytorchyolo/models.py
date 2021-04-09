@@ -7,8 +7,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
-from utils.parse_config import *
-from utils.utils import to_cpu, non_max_suppression, weights_init_normal
+from pytorchyolo.utils.parse_config import *
+from pytorchyolo.utils.utils import to_cpu, non_max_suppression, weights_init_normal
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
