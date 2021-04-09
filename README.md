@@ -65,10 +65,10 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 poetry run yolo-detect --images data/samples/
 ```
 
-<p align="center"><img src="assets/giraffe.png" width="480"\></p>
-<p align="center"><img src="assets/dog.png" width="480"\></p>
-<p align="center"><img src="assets/traffic.png" width="480"\></p>
-<p align="center"><img src="assets/messi.png" width="480"\></p>
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/giraffe.png" width="480"\></p>
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/dog.png" width="480"\></p>
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/traffic.png" width="480"\></p>
+<p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/assets/messi.png" width="480"\></p>
 
 ## Train
 For argument descriptions have a lock at `python3 train.py --help`
