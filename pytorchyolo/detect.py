@@ -157,19 +157,16 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     :param classes: List of class names
     :type classes: [str]
     """
-    # TODO: Draw class names...
-    # Bounding-box colors
-    cmap = plt.get_cmap("tab20b")
-    colors = [cmap(i) for i in np.linspace(0, 1, 40)]
+
 
     # Iterate through images and save plot of detections
     for (image_path, detections) in zip(imgs, img_detections):
         print(f"Image {image_path}:")
         _draw_and_save_output_image(
-            image_path, detections, img_size, colors, output_path, classes)
+            image_path, detections, img_size, output_path, classes)
 
 
-def _draw_and_save_output_image(image_path, detections, img_size, colors, output_path, classes):
+def _draw_and_save_output_image(image_path, detections, img_size, output_path, classes):
     """Draws detections in output image and stores this.
 
     :param image_path: Path to input image
@@ -178,8 +175,6 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     :type detections: [Tensor]
     :param img_size: Size of each image dimension for yolo
     :type img_size: int
-    :param colors: List of colors used to draw detections
-    :type colors: []
     :param output_path: Path of output directory
     :type output_path: str
     :param classes: List of class names
@@ -194,6 +189,9 @@ def _draw_and_save_output_image(image_path, detections, img_size, colors, output
     detections = rescale_boxes(detections, img_size, img.shape[:2])
     unique_labels = detections[:, -1].cpu().unique()
     n_cls_preds = len(unique_labels)
+    # Bounding-box colors
+    cmap = plt.get_cmap("tab20b")
+    colors = [cmap(i) for i in np.linspace(0, 1, n_cls_preds)]
     bbox_colors = random.sample(colors, n_cls_preds)
     for x1, y1, x2, y2, conf, cls_pred in detections:
 
