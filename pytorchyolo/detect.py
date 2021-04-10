@@ -158,7 +158,6 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     :type classes: [str]
     """
 
-
     # Iterate through images and save plot of detections
     for (image_path, detections) in zip(imgs, img_detections):
         print(f"Image {image_path}:")
