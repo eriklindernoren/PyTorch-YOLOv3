@@ -277,9 +277,12 @@ def load_model(model_path, weights_path=None):
 
     model.apply(weights_init_normal)
 
-    if weights_path:  # If pretrained weights are specified, start from checkpoint or weight file
-        if weights_path.endswith(".weights"):  # Load darknet weights
-            model.load_darknet_weights(weights_path)
-        else:  # Load checkpoint weights
+    # If pretrained weights are specified, start from checkpoint or weight file
+    if weights_path:
+        if weights_path.endswith(".pth"):  
+            # Load checkpoint weights
             model.load_state_dict(torch.load(weights_path))
+        else:  
+            # Load darknet weights
+            model.load_darknet_weights(weights_path)
     return model
