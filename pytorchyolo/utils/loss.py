@@ -180,9 +180,10 @@ def compute_loss(predictions, targets, model):  # predictions, targets, model
                 (1.0 - model.gr) + model.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
 
             # Classification
-            t = torch.full_like(ps[:, 5:], cn, device=device)  # targets
-            t[range(num_targets), tcls[layer_index]] = cp
-            lcls += BCEcls(ps[:, 5:], t)  # BCE
+            if ps.size(1) - 5 > 1:
+                t = torch.full_like(ps[:, 5:], cn, device=device)  # targets
+                t[range(num_targets), tcls[layer_index]] = cp
+                lcls += BCEcls(ps[:, 5:], t)  # BCE
 
         lobj += BCEobj(layer_predictions[..., 4], tobj) * balance[layer_index]  # obj loss
 
