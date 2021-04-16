@@ -372,12 +372,12 @@ def print_environment_info():
 
     # Print poetry package version
     try:
-        print(f"Current Version: {subprocess.check_output(['poetry', 'version']).decode('ascii').strip()}")
+        print(f"Current Version: {subprocess.check_output(['poetry', 'version'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("Not using the poetry package")
 
     # Print commit hash if possible
     try:
-        print(f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()}")
+        print(f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("No git or repo found")
