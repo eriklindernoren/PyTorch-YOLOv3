@@ -25,8 +25,7 @@ Also have a look at the other installing method, if you want to use the commands
 #### Download COCO
 
 ```bash
-cd data/
-bash get_coco_dataset.sh
+./data/get_coco_dataset.sh
 ```
 
 ### Install via pip
