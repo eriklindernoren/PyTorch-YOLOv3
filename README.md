@@ -30,7 +30,11 @@ Also have a look at the other installing method, if you want to use the commands
 
 ### Install via pip
 
-This installation method is less isolated and may conflict with other packages. It also only includes the code. Weights and the COCO dataset need to be installed as stated above. With this beeing said it is a good method if you want to use this package as dependency in another python project. See __API__ for further information regarding the packages api. It also enables the cli tools `yolo-detect`, `yolo-train`, and `yolo-test` everywhere without any additional commands.
+This installation method is recommended, if you want to use this package as dependency in another python project.
+This method only includes the code, is less isolated and may conflict with other packages.
+Weights and the COCO dataset need to be downloaded as stated above.
+See __API__ for further information regarding the packages API.
+It also enables the CLI tools `yolo-detect`, `yolo-train`, and `yolo-test` everywhere without any additional commands.
 
 ```bash
 pip3 install pytorchyolo --user
