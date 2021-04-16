@@ -13,7 +13,8 @@ pip3 install poetry --user
 poetry install
 ```
 
-You need join the virtual enviroment by runing `poetry shell` in this directory before running any of the following commands without the `poetry run` prefix. Also have a look at the other installing method if you want to use the commands everywhere without opening a poetry shell.
+You need to join the virtual enviroment by runing `poetry shell` in this directory before running any of the following commands without the `poetry run` prefix.
+Also have a look at the other installing method, if you want to use the commands everywhere without opening a poetry-shell.
 
 #### Download pretrained weights
 
