@@ -153,7 +153,7 @@ boxes = detect.detect_image(model, img)
 print(boxes)
 ```
 
-For more advanced usage look at the method doc strings.
+For more advanced usage look at the method's doc strings.
 
 ## Credit
 
