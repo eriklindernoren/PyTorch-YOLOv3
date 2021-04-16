@@ -4,7 +4,7 @@ version = "1.0.0"
 readme = "README.md"
 repository = "https://github.com/eriklindernoren/PyTorch-YOLOv3"
 description = "Minimal PyTorch implementation of YOLO"
-authors = ["Florian Vahl <florian@flova.de>", "Erik Linder-Noren <eriklindernoren@gmail.com>"]
+authors = ["Florian Vahl <git@flova.de>", "Erik Linder-Noren <eriklindernoren@gmail.com>"]
 license = "GPL-3.0"
 
 [tool.poetry.dependencies]
