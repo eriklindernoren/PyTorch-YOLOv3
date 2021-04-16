@@ -1,22 +1,15 @@
+from torch.utils.data import Dataset
+import torch.nn.functional as F
+import torch
 import glob
 import random
 import os
-import sys
 import warnings
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-import imgaug.augmenters as iaa
-from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
-
-import torch
-import torch.nn.functional as F
-
-from torch.utils.data import Dataset
-import torchvision.transforms as transforms
 
 
 def pad_to_square(img, pad_value):
@@ -69,10 +62,10 @@ class ListDataset(Dataset):
 
         self.label_files = []
         for path in self.img_files:
-            image_dir = os.path.dirname(path) 
+            image_dir = os.path.dirname(path)
             label_dir = "labels".join(image_dir.rsplit("images", 1))
             assert label_dir != image_dir, \
-                 f"Image path must contain a folder named 'images'! \n'{image_dir}'"
+                f"Image path must contain a folder named 'images'! \n'{image_dir}'"
             label_file = os.path.join(label_dir, os.path.basename(path))
             label_file = os.path.splitext(label_file)[0] + '.txt'
             self.label_files.append(label_file)
@@ -95,7 +88,7 @@ class ListDataset(Dataset):
             img_path = self.img_files[index % len(self.img_files)].rstrip()
 
             img = np.array(Image.open(img_path).convert('RGB'), dtype=np.uint8)
-        except Exception as e:
+        except Exception:
             print(f"Could not read image '{img_path}'.")
             return
 
@@ -109,7 +102,7 @@ class ListDataset(Dataset):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 boxes = np.loadtxt(label_path).reshape(-1, 5)
-        except Exception as e:
+        except Exception:
             print(f"Could not read label '{label_path}'.")
             return
 
@@ -119,8 +112,8 @@ class ListDataset(Dataset):
         if self.transform:
             try:
                 img, bb_targets = self.transform((img, boxes))
-            except:
-                print(f"Could not apply transform.")
+            except Exception:
+                print("Could not apply transform.")
                 return
 
         return img_path, img, bb_targets
@@ -135,7 +128,8 @@ class ListDataset(Dataset):
 
         # Selects new image size every tenth batch
         if self.multiscale and self.batch_count % 10 == 0:
-            self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
+            self.img_size = random.choice(
+                range(self.min_size, self.max_size + 1, 32))
 
         # Resize images to input shape
         imgs = torch.stack([resize(img, self.img_size) for img in imgs])

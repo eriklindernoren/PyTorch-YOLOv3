@@ -1,0 +1,51 @@
+name: Ubuntu CI
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  main:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Upgrade pip
+        run: python3 -m pip install --upgrade pip
+
+      - name: Install Poetry
+        run: pip3 install poetry --user
+        
+      - name: Install Dependencies
+        run: poetry install
+
+      # Prints the help pages of all scripts to see if the imports etc. work
+      - name: Test the help pages
+        run: | 
+          poetry run yolo-train -h
+          poetry run yolo-test -h
+          poetry run yolo-detect -h
+
+      - name: Demo Training
+        run: poetry run yolo-train --data config/custom.data  --model config/yolov3.cfg --epochs 5 
+
+      - name: Demo Evaluate
+        run: poetry run yolo-test --data config/custom.data  --model config/yolov3.cfg --weights checkpoints/yolov3_ckpt_4.pth
+
+      - name: Demo Detect 
+        run: poetry run yolo-detect --batch_size 2 --weights checkpoints/yolov3_ckpt_4.pth
+  
+  linter:
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Flake8 
+        uses: TrueBrain/actions-flake8@master
+        with:
+          only_warn: 1
+          max_line_length: 150
+          path: pytorchyolo
