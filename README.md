@@ -125,6 +125,32 @@ poetry run yolo-train --model config/yolov3-custom.cfg --data config/custom.data
 Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
 
 
+## API
+
+You are able to import the modules of this repo in your own project if you install the pip package `pytorchyolo`.
+
+An example prediction call from a simple OpenCV python script would look like this:
+
+```python
+import cv2
+from pytorchyolo import detect, models
+
+# Load the YOLO model
+model = models.load_model(
+  "<PATH_TO_YOUR_CONFIG_FOLDER>/yolov3.cfg", 
+  "<PATH_TO_YOUR_WEIGHTS_FOLDER>/yolov3.weights")
+
+# Load the image as an numpy array
+img = cv2.imread("<PATH_TO_YOUR_IMAGE>")
+
+# Runs the YOLO model on the image 
+boxes = detect.detect_image(model, img)
+
+print(boxes)
+```
+
+For more advanced usage look at the method doc strings.
+
 ## Credit
 
 ### YOLOv3: An Incremental Improvement
