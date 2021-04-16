@@ -38,6 +38,7 @@ pip3 install pytorchyolo --user
 
 ## Test
 Evaluates the model on COCO test dataset.
+To download this dataset as well as weights, see above.
 
 ```bash
 poetry run yolo-test --weights weights/yolov3.weights
