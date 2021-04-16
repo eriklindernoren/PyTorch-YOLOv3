@@ -19,8 +19,7 @@ Also have a look at the other installing method, if you want to use the commands
 #### Download pretrained weights
 
 ```bash
-cd weights/
-bash download_weights.sh
+./weights/download_weights.sh
 ```
 
 #### Download COCO
