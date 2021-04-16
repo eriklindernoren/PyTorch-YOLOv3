@@ -30,7 +30,7 @@ Also have a look at the other installing method, if you want to use the commands
 
 ### Install via pip
 
-This installation method is recommended, if you want to use this package as dependency in another python project.
+This installation method is recommended, if you want to use this package as a dependency in another python project.
 This method only includes the code, is less isolated and may conflict with other packages.
 Weights and the COCO dataset need to be downloaded as stated above.
 See __API__ for further information regarding the packages API.
