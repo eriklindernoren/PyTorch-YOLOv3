@@ -99,8 +99,7 @@ You can adjust the log directory using `--logdir <path>` when running `tensorboa
 Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in your dataset.
 
 ```bash
-cd config/                                # Navigate to config dir
-bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-custom.cfg'
+./config/create_custom_model.sh <num-classes>  # Will create custom model 'yolov3-custom.cfg'
 ```
 
 #### Classes
