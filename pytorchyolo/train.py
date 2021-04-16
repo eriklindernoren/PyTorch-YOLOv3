@@ -12,7 +12,7 @@ import torch.optim as optim
 
 from pytorchyolo.models import load_model
 from pytorchyolo.utils.logger import Logger
-from pytorchyolo.utils.utils import to_cpu, load_classes
+from pytorchyolo.utils.utils import to_cpu, load_classes, print_environment_info
 from pytorchyolo.utils.datasets import ListDataset
 from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 # from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
@@ -57,6 +57,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_traini
 
 
 def run():
+    print_environment_info()
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
@@ -72,7 +73,7 @@ def run():
     parser.add_argument("--nms_thres", type=float, default=0.5, help="Evaluation: IOU threshold for non-maximum suppression")
     parser.add_argument("--logdir", type=str, default="logs", help="Directory for training log files (e.g. for TensorBoard)")
     args = parser.parse_args()
-    print(args)
+    print(f"Command line arguments: {args}")
 
     logger = Logger(args.logdir)  # Tensorboard logger
 
