@@ -121,18 +121,18 @@ def run():
     # ################
     # Create optimizer
     # ################
-    
+
     params = [p for p in model.parameters() if p.requires_grad]
 
     if (model.hyperparams['optimizer'] in [None, "adam"]):
         optimizer = optim.Adam(
-            params, 
+            params,
             lr=model.hyperparams['learning_rate'],
             weight_decay=model.hyperparams['decay'],
         )
     elif (model.hyperparams['optimizer'] == "sgd"):
         optimizer = optim.SGD(
-            params, 
+            params,
             lr=model.hyperparams['learning_rate'],
             weight_decay=model.hyperparams['decay'],
             momentum=model.hyperparams['momentum'])
