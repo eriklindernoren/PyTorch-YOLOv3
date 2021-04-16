@@ -1,11 +1,14 @@
 from __future__ import division
 
+import os
 import time
+import platform
 import tqdm
 import torch
 import torch.nn as nn
 import torchvision
 import numpy as np
+import subprocess
 
 
 def to_cpu(tensor):
@@ -354,3 +357,27 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
             break  # time limit exceeded
 
     return output
+
+
+def print_environment_info():
+    """
+    Prints infos about the environment and the system. 
+    This should help when people make issues containg the printout.
+    """
+
+    print("Environment information:")
+
+    # Print OS information
+    print(f"System: {platform.system()} {platform.release()}")
+
+    # Print poetry package version
+    try:
+        print(f"Current Version: {subprocess.check_output(['poetry', 'version']).decode('ascii').strip()}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("Not using the poetry package")
+
+    # Print commit hash if possible
+    try:
+        print(f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("No git or repo found")
