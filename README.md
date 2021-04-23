@@ -154,7 +154,7 @@ boxes = detect.detect_image(model, img)
 
 print(boxes)
 # Output will be a numpy array in the following format:
-# [x1, y1, x2, y2, confidence, class]
+# [[x1, y1, x2, y2, confidence, class]]
 ```
 
 For more advanced usage look at the method's doc strings.
