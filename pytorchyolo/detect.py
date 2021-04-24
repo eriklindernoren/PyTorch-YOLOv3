@@ -76,7 +76,7 @@ def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
     :type conf_thres: float, optional
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
     :type nms_thres: float, optional
-    :return: Detections on image
+    :return: Detections on image with each detection in the format: [x1, y1, x2, y2, confidence, class]
     :rtype: nd.array
     """
     model.eval()  # Set model to evaluation mode
