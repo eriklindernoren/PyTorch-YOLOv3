@@ -153,7 +153,6 @@ def compute_loss(predictions, targets, model):  # predictions, targets, model
         BCEcls, BCEobj = FocalLoss(BCEcls, gamma), FocalLoss(BCEobj, gamma)
 
     # Losses
-    balance = [4.0, 1.0, 0.4, 0.1]  # P3-P6
     # layer index, layer predictions
     for layer_index, layer_predictions in enumerate(predictions):
         # image, anchor, gridy, gridx
@@ -185,7 +184,7 @@ def compute_loss(predictions, targets, model):  # predictions, targets, model
                 t[range(num_targets), tcls[layer_index]] = cp
                 lcls += BCEcls(ps[:, 5:], t)  # BCE
 
-        lobj += BCEobj(layer_predictions[..., 4], tobj) * balance[layer_index]  # obj loss
+        lobj += BCEobj(layer_predictions[..., 4], tobj) # obj loss
 
     lbox *= 0.05 * (3. / 2)
     lobj *= (3. / 2)
