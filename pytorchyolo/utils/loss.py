@@ -166,8 +166,8 @@ def compute_loss(predictions, targets, model):  # predictions, targets, model
             ps = layer_predictions[b, anchor, grid_j, grid_i]
 
             # Regression
-            pxy = ps[:, :2].sigmoid() * 2. - 0.5
-            pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[layer_index]
+            pxy = ps[:, :2].sigmoid()
+            pwh = torch.exp(ps[:, 2:4]) * anchors[layer_index]
             pbox = torch.cat((pxy, pwh), 1)  # predicted box
             # iou(prediction, target)
             iou = bbox_iou(pbox.T, tbox[layer_index], x1y1x2y2=False, CIoU=True)
