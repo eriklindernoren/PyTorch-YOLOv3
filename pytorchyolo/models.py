@@ -140,13 +140,12 @@ class YOLOLayer(nn.Module):
             if self.grid.shape[2:4] != x.shape[2:4]:
                 self.grid = self._make_grid(nx, ny).to(x.device)
 
-            y = x.sigmoid()
-            y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 +
-                           self.grid.to(x.device)) * stride  # xy
-            y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid  # wh
-            y = y.view(bs, -1, self.no)
+            x[..., 0:2] = (x[..., 0:2].sigmoid() + self.grid) * stride  # xy
+            x[..., 2:4] = torch.exp(x[..., 2:4]) * self.anchor_grid # wh
+            x[..., 4:] = x[..., 4:].sigmoid()
+            x = x.view(bs, -1, self.no)
 
-        return x if self.training else y
+        return x
 
     @staticmethod
     def _make_grid(nx=20, ny=20):
