@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "PyTorchYolo"
-version = "1.2.0"
+version = "1.2.1"
 readme = "README.md"
 repository = "https://github.com/eriklindernoren/PyTorch-YOLOv3"
 description = "Minimal PyTorch implementation of YOLO"
@@ -8,7 +8,7 @@ authors = ["Florian Vahl <git@flova.de>", "Erik Linder-Noren <eriklindernoren@gm
 license = "GPL-3.0"
 
 [tool.poetry.dependencies]
-python = ">=3.6"
+python = ">=3.6.2"
 numpy = "^1.19.5"
 torch = ">=1.0"
 torchvision = "^0.8.2"
