@@ -12,7 +12,7 @@ import torch.optim as optim
 
 from pytorchyolo.models import load_model
 from pytorchyolo.utils.logger import Logger
-from pytorchyolo.utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_np
+from pytorchyolo.utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
 from pytorchyolo.utils.datasets import ListDataset
 from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 # from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
@@ -53,7 +53,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_traini
         num_workers=n_cpu,
         pin_memory=True,
         collate_fn=dataset.collate_fn,
-        worker_init_fn=worker_seed_np)
+        worker_init_fn=worker_seed_set)
     return dataloader
 
 
@@ -73,7 +73,7 @@ def run():
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5, help="Evaluation: IOU threshold for non-maximum suppression")
     parser.add_argument("--logdir", type=str, default="logs", help="Directory for training log files (e.g. for TensorBoard)")
-    parser.add_argument("--seed", type=int, default=42, help="Makes results reproducable. Set -1 to disable.")
+    parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
 
