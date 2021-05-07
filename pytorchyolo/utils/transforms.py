@@ -59,9 +59,9 @@ class RelativeLabels(object):
 
     def __call__(self, data):
         img, boxes = data
-        w, h, _ = img.shape
-        boxes[:, [1, 3]] /= h
-        boxes[:, [2, 4]] /= w
+        h, w, _ = img.shape
+        boxes[:, [1, 3]] /= w
+        boxes[:, [2, 4]] /= h
         return img, boxes
 
 
@@ -71,9 +71,9 @@ class AbsoluteLabels(object):
 
     def __call__(self, data):
         img, boxes = data
-        w, h, _ = img.shape
-        boxes[:, [1, 3]] *= h
-        boxes[:, [2, 4]] *= w
+        h, w, _ = img.shape
+        boxes[:, [1, 3]] *= w
+        boxes[:, [2, 4]] *= h
         return img, boxes
 
 
