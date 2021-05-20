@@ -6,7 +6,7 @@ A minimal PyTorch implementation of YOLOv3, with support for training, inference
 ## Installation
 ### Installing from source
 
-For normal training and evaluation we recommend installing the package from source using a poetry virtual enviroment.
+For normal training and evaluation we recommend installing the package from source using a poetry virtual environment.
 
 ```bash
 git clone https://github.com/eriklindernoren/PyTorch-YOLOv3
@@ -15,7 +15,7 @@ pip3 install poetry --user
 poetry install
 ```
 
-You need to join the virtual enviroment by runing `poetry shell` in this directory before running any of the following commands without the `poetry run` prefix.
+You need to join the virtual environment by running `poetry shell` in this directory before running any of the following commands without the `poetry run` prefix.
 Also have a look at the other installing method, if you want to use the commands everywhere without opening a poetry-shell.
 
 #### Download pretrained weights
@@ -77,7 +77,7 @@ poetry run yolo-detect --images data/samples/
 <p align="center"><img src="https://github.com/eriklindernoren/PyTorch-YOLOv3/raw/master/assets/messi.png" width="480"\></p>
 
 ## Train
-For argument descriptions have a lock at `poetry run yolo-train --help`
+For argument descriptions have a look at `poetry run yolo-train --help`
 
 #### Example (COCO)
 To train on COCO using a Darknet-53 backend pretrained on ImageNet run: 
@@ -146,7 +146,7 @@ model = models.load_model(
   "<PATH_TO_YOUR_CONFIG_FOLDER>/yolov3.cfg", 
   "<PATH_TO_YOUR_WEIGHTS_FOLDER>/yolov3.weights")
 
-# Load the image as an numpy array
+# Load the image as a numpy array
 img = cv2.imread("<PATH_TO_YOUR_IMAGE>")
 
 # Runs the YOLO model on the image 
