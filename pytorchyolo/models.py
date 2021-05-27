@@ -75,7 +75,7 @@ def create_modules(module_defs):
 
         elif module_def["type"] == "route":
             layers = [int(x) for x in module_def["layers"].split(",")]
-            filters = sum([output_filters[1:][i] for i in layers])
+            filters = sum([output_filters[1:][i] for i in layers]) // int(module_def.get("groups", 1))
             modules.add_module(f"route_{module_i}", nn.Sequential())
 
         elif module_def["type"] == "shortcut":
@@ -172,8 +172,10 @@ class Darknet(nn.Module):
             if module_def["type"] in ["convolutional", "upsample", "maxpool"]:
                 x = module(x)
             elif module_def["type"] == "route":
-                x = torch.cat([layer_outputs[int(layer_i)]
-                              for layer_i in module_def["layers"].split(",")], 1)
+                combined_outputs = torch.cat([layer_outputs[int(layer_i)] for layer_i in module_def["layers"].split(",")], 1)
+                group_size = combined_outputs.shape[1] // int(module_def.get("groups", 1))
+                group_id = int(module_def.get("group_id", 0))
+                x = combined_outputs[:, group_size * group_id : group_size * (group_id + 1)] # Slice groupings used by yolo v4
             elif module_def["type"] == "shortcut":
                 layer_i = int(module_def["from"])
                 x = layer_outputs[-1] + layer_outputs[layer_i]
