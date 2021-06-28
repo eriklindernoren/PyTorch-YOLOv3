@@ -149,6 +149,9 @@ model = models.load_model(
 # Load the image as a numpy array
 img = cv2.imread("<PATH_TO_YOUR_IMAGE>")
 
+# Convert OpenCV bgr to rgb
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
 # Runs the YOLO model on the image 
 boxes = detect.detect_image(model, img)
 
