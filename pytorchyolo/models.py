@@ -215,7 +215,7 @@ class Darknet(nn.Module):
         if ".conv." in filename:
             try:
                 cutoff = int(filename.split(".")[-1]) + 1  # use last part of filename
-            except ValueError as e:
+            except ValueError:
                 pass
 
         ptr = 0
