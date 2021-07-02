@@ -214,7 +214,7 @@ class Darknet(nn.Module):
         filename = os.path.basename(weights_path)
         if ".conv." in filename:
             try:
-                cutoff = int(filename.split(".")[-1]) + 1  # use last part of filename
+                cutoff = int(filename.split(".")[-1])  # use last part of filename
             except ValueError:
                 pass
 
