@@ -1,5 +1,6 @@
 from __future__ import division
 from itertools import chain
+import os
 
 import torch
 import torch.nn as nn
@@ -208,8 +209,15 @@ class Darknet(nn.Module):
 
         # Establish cutoff for loading backbone weights
         cutoff = None
-        if "darknet53.conv.74" in weights_path:
-            cutoff = 75
+        # If the weights file has a cutoff, we can find out about it by looking at the filename
+        # examples: darknet53.conv.74 -> cutoff is 75
+        #           yolov4-tiny.conv.29 -> cutoff is 30
+        filename = os.path.basename(weights_path)
+        if ".conv." in filename:
+            try:
+                cutoff = int(filename.split(".")[-1]) + 1  # use last part of filename
+            except ValueError as e:
+                pass
 
         ptr = 0
         for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
