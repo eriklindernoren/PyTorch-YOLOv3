@@ -210,7 +210,7 @@ class Darknet(nn.Module):
         # Establish cutoff for loading backbone weights
         cutoff = None
         # If the weights file has a cutoff, we can find out about it by looking at the filename
-        # examples: darknet53.conv.74 -> cutoff is 75
+        # examples: darknet53.conv.74 -> cutoff is 74
         filename = os.path.basename(weights_path)
         if ".conv." in filename:
             try:
