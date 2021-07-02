@@ -211,7 +211,6 @@ class Darknet(nn.Module):
         cutoff = None
         # If the weights file has a cutoff, we can find out about it by looking at the filename
         # examples: darknet53.conv.74 -> cutoff is 75
-        #           yolov4-tiny.conv.29 -> cutoff is 30
         filename = os.path.basename(weights_path)
         if ".conv." in filename:
             try:
