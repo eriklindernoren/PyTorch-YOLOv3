@@ -68,7 +68,7 @@ def run():
     parser.add_argument("--pretrained_weights", type=str, help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
     parser.add_argument("--checkpoint_interval", type=int, default=1, help="Interval of epochs between saving model weights")
     parser.add_argument("--evaluation_interval", type=int, default=1, help="Interval of epochs between evaluations on validation set")
-    parser.add_argument("--multiscale_training", action="store_false", help="Allow for multi-scale training")
+    parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
     parser.add_argument("--iou_thres", type=float, default=0.5, help="Evaluation: IOU threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5, help="Evaluation: IOU threshold for non-maximum suppression")
