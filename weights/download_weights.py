@@ -3,7 +3,7 @@ import os
 import urllib.request
 
 
-DATA_FOLDER = os.path.abspath(os.path.dirname(__file__))
+WEIGHTS_FOLDER = os.path.abspath(os.path.dirname(__file__))
 
 DOWNLOAD_LINKS = [
     'https://pjreddie.com/media/files/yolov3.weights',
@@ -29,7 +29,7 @@ def download(remote_location, folder):
 
 def download_all():
     for weight_url in DOWNLOAD_LINKS:
-        download(weight_url, DATA_FOLDER)
+        download(weight_url, WEIGHTS_FOLDER)
 
 
 if __name__ == '__main__':
