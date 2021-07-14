@@ -145,7 +145,10 @@ def run():
     else:
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
-    for epoch in range(args.epochs):
+    # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
+    # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
+    # instead of: 0, 10, 20
+    for epoch in range(1, args.epochs+1):
 
         print("\n---- Training Model ----")
 
