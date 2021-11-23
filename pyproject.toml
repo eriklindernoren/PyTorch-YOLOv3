@@ -21,7 +21,7 @@ imgaug = "^0.4.0"
 torchsummary = "^1.5.1"
 
 [tool.poetry.dev-dependencies]
-rope = "^0.20.1"
+rope = "^0.22.0"
 profilehooks = "^1.12.0"
 
 [build-system]
