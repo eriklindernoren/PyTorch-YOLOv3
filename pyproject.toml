@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "PyTorchYolo"
-version = "1.5.2"
+version = "1.6.0"
 readme = "README.md"
 repository = "https://github.com/eriklindernoren/PyTorch-YOLOv3"
 description = "Minimal PyTorch implementation of YOLO"
@@ -10,8 +10,8 @@ license = "GPL-3.0"
 [tool.poetry.dependencies]
 python = ">=3.6.2"
 numpy = "^1.19.5"
-torch = ">=1.0"
-torchvision = "^0.8.2"
+torch = ">=1.8.1"
+torchvision = ">=0.8.2"
 matplotlib = "^3.3.3"
 tensorboard = "^2.4.0"
 terminaltables = "^3.1.0"
@@ -21,7 +21,6 @@ imgaug = "^0.4.0"
 torchsummary = "^1.5.1"
 
 [tool.poetry.dev-dependencies]
-rope = "^0.20.1"
 profilehooks = "^1.12.0"
 
 [build-system]
