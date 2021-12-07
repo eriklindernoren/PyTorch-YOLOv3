@@ -216,9 +216,13 @@ def get_batch_statistics(outputs, targets, iou_threshold):
                 # Filter target_boxes by pred_label so that we only match against boxes of our own label
                 filtered_target_position, filtered_targets = zip(*filter(lambda x: target_labels[x] == pred_label, enumerate(target_boxes)))
 
+                # Find the best matching target for our predicted box
                 iou, box_filtered_index = bbox_iou(pred_box.unsqueeze(0), filtered_targets).max(0)
+
+                # Remap the index in the list of filtered targets for that label to the index in the list with all targets.
                 box_index = filtered_target_position[box_filtered_index]
 
+                # Check if the iou is above the min treshold and i
                 if iou >= iou_threshold and box_index not in detected_boxes:
                     true_positives[pred_i] = 1
                     detected_boxes += [box_index]
