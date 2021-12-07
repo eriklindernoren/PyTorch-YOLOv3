@@ -15,7 +15,7 @@ from pytorchyolo.utils.logger import Logger
 from pytorchyolo.utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
 from pytorchyolo.utils.datasets import ListDataset
 from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
-from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
+#from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
 from pytorchyolo.utils.parse_config import parse_data_config
 from pytorchyolo.utils.loss import compute_loss
 from pytorchyolo.test import _evaluate, _create_validation_data_loader
@@ -45,7 +45,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_traini
         img_path,
         img_size=img_size,
         multiscale=multiscale_training,
-        transform=DEFAULT_TRANSFORMS)
+        transform=AUGMENTATION_TRANSFORMS)
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
