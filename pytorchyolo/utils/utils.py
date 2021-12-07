@@ -214,11 +214,11 @@ def get_batch_statistics(outputs, targets, iou_threshold):
                     continue
 
                 # Filter target_boxes by pred_label so that we only match against boxes of our own label
-                filtered_target_position, filtered_targets = zip(*filter(lambda x: target_labels[x] == pred_label, enumerate(target_boxes)))
-
+                filtered_target_position, filtered_targets = zip(*filter(lambda x: target_labels[x[0]] == pred_label, enumerate(target_boxes)))
+                
                 # Find the best matching target for our predicted box
-                iou, box_filtered_index = bbox_iou(pred_box.unsqueeze(0), filtered_targets).max(0)
-
+                iou, box_filtered_index = bbox_iou(pred_box.unsqueeze(0), torch.stack(filtered_targets)).max(0)
+                
                 # Remap the index in the list of filtered targets for that label to the index in the list with all targets.
                 box_index = filtered_target_position[box_filtered_index]
 
