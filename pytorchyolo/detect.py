@@ -56,11 +56,12 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
         model,
         dataloader,
         output_path,
-        img_size,
         conf_thres,
         nms_thres)
     _draw_and_save_output_images(
         img_detections, imgs, img_size, output_path, classes)
+
+    print(f"---- Detections were saved to: '{output_path}' ----")
 
 
 def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
@@ -98,7 +99,7 @@ def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
     return detections.numpy()
 
 
-def detect(model, dataloader, output_path, img_size, conf_thres, nms_thres):
+def detect(model, dataloader, output_path, conf_thres, nms_thres):
     """Inferences images with model.
 
     :param model: Model for inference
@@ -107,8 +108,6 @@ def detect(model, dataloader, output_path, img_size, conf_thres, nms_thres):
     :type dataloader: DataLoader
     :param output_path: Path to output directory
     :type output_path: str
-    :param img_size: Size of each image dimension for yolo, defaults to 416
-    :type img_size: int, optional
     :param conf_thres: Object confidence threshold, defaults to 0.5
     :type conf_thres: float, optional
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
