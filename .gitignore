@@ -4,13 +4,15 @@ build
 .git
 *.egg-info
 dist
-output
+output/
 data/*
 backup
 weights/*.weights
 weights/*.conv.*
 __pycache__
-checkpoints
+checkpoints/
 
 .vscode/
 logs/
+
+.python-version
