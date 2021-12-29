@@ -20,6 +20,7 @@ def provide_determinism(seed=42):
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+
 def worker_seed_set(worker_id):
     # See for details of numpy:
     # https://github.com/pytorch/pytorch/issues/5059#issuecomment-817392562
@@ -390,6 +391,7 @@ def print_environment_info():
 
     # Print commit hash if possible
     try:
-        print(f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
+        commit_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()
+        print(f"Current Commit Hash: {commit_hash}")
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("No git or repo found")

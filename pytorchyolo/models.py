@@ -114,6 +114,7 @@ class Upsample(nn.Module):
         x = F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
         return x
 
+
 class Mish(nn.Module):
     """ The MISH activation function (https://github.com/digantamisra98/Mish) """
 
@@ -122,6 +123,7 @@ class Mish(nn.Module):
 
     def forward(self, x):
         return x * torch.tanh(F.softplus(x))
+
 
 class YOLOLayer(nn.Module):
     """Detection layer"""
@@ -152,7 +154,7 @@ class YOLOLayer(nn.Module):
                 self.grid = self._make_grid(nx, ny).to(x.device)
 
             x[..., 0:2] = (x[..., 0:2].sigmoid() + self.grid) * stride  # xy
-            x[..., 2:4] = torch.exp(x[..., 2:4]) * self.anchor_grid # wh
+            x[..., 2:4] = torch.exp(x[..., 2:4]) * self.anchor_grid  # wh
             x[..., 4:] = x[..., 4:].sigmoid()
             x = x.view(bs, -1, self.no)
 
@@ -186,7 +188,7 @@ class Darknet(nn.Module):
                 combined_outputs = torch.cat([layer_outputs[int(layer_i)] for layer_i in module_def["layers"].split(",")], 1)
                 group_size = combined_outputs.shape[1] // int(module_def.get("groups", 1))
                 group_id = int(module_def.get("group_id", 0))
-                x = combined_outputs[:, group_size * group_id : group_size * (group_id + 1)] # Slice groupings used by yolo v4
+                x = combined_outputs[:, group_size * group_id:group_size * (group_id + 1)]  # Slice groupings used by yolo v4
             elif module_def["type"] == "shortcut":
                 layer_i = int(module_def["from"])
                 x = layer_outputs[-1] + layer_outputs[layer_i]
