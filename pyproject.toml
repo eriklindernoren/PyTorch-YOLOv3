@@ -19,7 +19,6 @@ Pillow = "^8.1.0"
 tqdm = "^4.55.1"
 imgaug = "^0.4.0"
 torchsummary = "^1.5.1"
-setuptools = "59.5.0"
 
 [tool.poetry.dev-dependencies]
 profilehooks = "^1.12.0"
