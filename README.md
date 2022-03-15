@@ -190,3 +190,7 @@ https://pjreddie.com/yolo/.
   year={2018}
 }
 ```
+
+## Other
+
+- https://github.com/bit-bots/YOEO is extends this repo with the ability to train an additional semantic segmentation decoder.
