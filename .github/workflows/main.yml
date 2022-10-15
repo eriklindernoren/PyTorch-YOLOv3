@@ -4,7 +4,10 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   main:
-    runs-on: ubuntu-18.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+        matrix:
+            os: [ubuntu-22.04, ubuntu-20.04, windows-latest]
     steps:
       - uses: actions/checkout@v2
 
@@ -42,7 +45,7 @@ jobs:
         run: poetry run yolo-detect --batch_size 2 --weights checkpoints/yolov3_ckpt_29.pth
 
   linter:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
