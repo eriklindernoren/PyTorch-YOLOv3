@@ -8,15 +8,19 @@ authors = ["Florian Vahl <git@flova.de>", "Erik Linder-Noren <eriklindernoren@gm
 license = "GPL-3.0"
 
 [tool.poetry.dependencies]
-python = ">=3.8"
-numpy = "^1.23.1"
+python = ">=3.7.9"
+numpy = "^1.20.1"
 torch = ">=1.10.1"
-torchvision = ">=0.12.2"
+torchvision = ">=0.13.1"
 matplotlib = "^3.3.3"
 tensorboard = "^2.10.0"
 terminaltables = "^3.1.0"
 Pillow = "^9.1.0"
 tqdm = "^4.64.1"
+scipy = [
+    {version = "<=1.6", python = ">=3.8,<3.9"},
+    {version = "^1.9", python = ">=3.9"}
+]
 imgaug = "^0.4.0"
 torchsummary = "^1.5.1"
 
