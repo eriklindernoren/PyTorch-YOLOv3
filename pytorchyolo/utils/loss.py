@@ -171,7 +171,7 @@ def build_targets(p, targets, model):
         a = t[:, 6].long()
         # Add target tensors for this yolo layer to the output lists
         # Add to index list and limit index range to prevent out of bounds
-        indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp_(0, gain[2] - 1)))
+        indices.append((b, a, gj.clamp_(0, gain[3].long() - 1), gi.clamp_(0, gain[2].long() - 1)))
         # Add to target box list and convert box coordinates from global grid coordinates to local offsets in the grid cell
         tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
         # Add correct anchor for each target to the list

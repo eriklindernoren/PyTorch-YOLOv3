@@ -1,10 +1,13 @@
-name: Ubuntu CI
+name: CI
 
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 
 jobs:
   main:
-    runs-on: ubuntu-18.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+        matrix:
+            os: [ubuntu-22.04, ubuntu-20.04, windows-latest]
     steps:
       - uses: actions/checkout@v2
 
@@ -21,9 +24,6 @@ jobs:
 
       - name: Install Dependencies
         run: poetry install
-
-      - name: Pin setup tools (remove for next torch release)
-        run: poetry run pip install setuptools==59.5.0
 
       # Prints the help pages of all scripts to see if the imports etc. work
       - name: Test the help pages
@@ -42,7 +42,7 @@ jobs:
         run: poetry run yolo-detect --batch_size 2 --weights checkpoints/yolov3_ckpt_29.pth
 
   linter:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
