@@ -8,8 +8,7 @@ authors = ["Florian Vahl <git@flova.de>", "Erik Linder-Noren <eriklindernoren@gm
 license = "GPL-3.0"
 
 [tool.poetry.dependencies]
-python = ">=3.7.9,<4.0"
-numpy = "^1.20.1"
+python = ">=3.8,<4.0"
 torch = ">=1.10.1, < 1.13.0"
 torchvision = ">=0.13.1"
 matplotlib = "^3.3.3"
@@ -27,6 +26,7 @@ scipy = [
 ]
 imgaug = "^0.4.0"
 torchsummary = "^1.5.1"
+numpy = "^1.23.4"
 
 [tool.poetry.dev-dependencies]
 profilehooks = "^1.12.0"
