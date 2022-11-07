@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "PyTorchYolo"
-version = "1.7.22
+version = "1.7.2"
 readme = "README.md"
 repository = "https://github.com/eriklindernoren/PyTorch-YOLOv3"
 description = "Minimal PyTorch implementation of YOLO"
