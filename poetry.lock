@@ -1190,13 +1190,13 @@ files = [
 
 [[package]]
 name = "tensorboard"
-version = "2.11.1"
+version = "2.11.2"
 description = "TensorBoard lets you watch Tensors Flow"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "tensorboard-2.11.1-py3-none-any.whl", hash = "sha256:0c7529f3f43691e8cc2ece8e564c2e103c51ade317c6af626d415239b5088018"},
+    {file = "tensorboard-2.11.2-py3-none-any.whl", hash = "sha256:cbaa2210c375f3af1509f8571360a19ccc3ded1d9641533414874b5deca47e89"},
 ]
 
 [package.dependencies]
