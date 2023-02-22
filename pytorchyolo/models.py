@@ -66,7 +66,7 @@ def create_modules(module_defs: List[dict]) -> Tuple[dict, nn.ModuleList]:
             if module_def["activation"] == "leaky":
                 modules.add_module(f"leaky_{module_i}", nn.LeakyReLU(0.1))
             elif module_def["activation"] == "mish":
-                modules.add_module(f"mish_{module_i}", Mish())
+                modules.add_module(f"mish_{module_i}", nn.Mish())
             elif module_def["activation"] == "logistic":
                 modules.add_module(f"sigmoid_{module_i}", nn.Sigmoid())
             elif module_def["activation"] == "swish":
@@ -124,14 +124,6 @@ class Upsample(nn.Module):
         x = F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
         return x
 
-class Mish(nn.Module):
-    """ The MISH activation function (https://github.com/digantamisra98/Mish) """
-
-    def __init__(self):
-        super(Mish, self).__init__()
-
-    def forward(self, x):
-        return x * torch.tanh(F.softplus(x))
 
 class YOLOLayer(nn.Module):
     """Detection layer"""
