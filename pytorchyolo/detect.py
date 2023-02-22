@@ -207,7 +207,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
         plt.text(
             x1,
             y1,
-            s=classes[int(cls_pred)],
+            s=f"{classes[int(cls_pred)]}: {conf:.2f}",
             color="white",
             verticalalignment="top",
             bbox={"color": color, "pad": 0})
