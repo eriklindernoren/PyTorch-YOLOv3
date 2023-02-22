@@ -1,19 +1,24 @@
 from __future__ import division
-from itertools import chain
-import os
 
+import os
+from itertools import chain
+from typing import List, Tuple
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 
 from pytorchyolo.utils.parse_config import parse_model_config
 from pytorchyolo.utils.utils import weights_init_normal
 
 
-def create_modules(module_defs):
+def create_modules(module_defs: List[dict]) -> Tuple[dict, nn.ModuleList]:
     """
     Constructs module list of layer blocks from module configuration in module_defs
+
+    :param module_defs: List of dictionaries with module definitions
+    :return: Hyperparameters and pytorch module list
     """
     hyperparams = module_defs.pop(0)
     hyperparams.update({
@@ -60,8 +65,12 @@ def create_modules(module_defs):
                                    nn.BatchNorm2d(filters, momentum=0.1, eps=1e-5))
             if module_def["activation"] == "leaky":
                 modules.add_module(f"leaky_{module_i}", nn.LeakyReLU(0.1))
-            if module_def["activation"] == "mish":
+            elif module_def["activation"] == "mish":
                 modules.add_module(f"mish_{module_i}", Mish())
+            elif module_def["activation"] == "logistic":
+                modules.add_module(f"sigmoid_{module_i}", nn.Sigmoid())
+            elif module_def["activation"] == "swish":
+                modules.add_module(f"swish_{module_i}", nn.SiLU())
 
         elif module_def["type"] == "maxpool":
             kernel_size = int(module_def["size"])
@@ -92,8 +101,9 @@ def create_modules(module_defs):
             anchors = [(anchors[i], anchors[i + 1]) for i in range(0, len(anchors), 2)]
             anchors = [anchors[i] for i in anchor_idxs]
             num_classes = int(module_def["classes"])
+            new_coords = bool(module_def.get("new_coords", False))
             # Define detection layer
-            yolo_layer = YOLOLayer(anchors, num_classes)
+            yolo_layer = YOLOLayer(anchors, num_classes, new_coords)
             modules.add_module(f"yolo_{module_i}", yolo_layer)
         # Register module list and number of output filters
         module_list.append(modules)
@@ -105,7 +115,7 @@ def create_modules(module_defs):
 class Upsample(nn.Module):
     """ nn.Upsample is deprecated """
 
-    def __init__(self, scale_factor, mode="nearest"):
+    def __init__(self, scale_factor, mode: str = "nearest"):
         super(Upsample, self).__init__()
         self.scale_factor = scale_factor
         self.mode = mode
@@ -126,10 +136,18 @@ class Mish(nn.Module):
 class YOLOLayer(nn.Module):
     """Detection layer"""
 
-    def __init__(self, anchors, num_classes):
+    def __init__(self, anchors: List[Tuple[int, int]], num_classes: int, new_coords: bool):
+        """
+        Create a YOLO layer
+
+        :param anchors: List of anchors
+        :param num_classes: Number of classes
+        :param new_coords: Whether to use the new coordinate format from YOLO V7
+        """
         super(YOLOLayer, self).__init__()
         self.num_anchors = len(anchors)
         self.num_classes = num_classes
+        self.new_coords = new_coords
         self.mse_loss = nn.MSELoss()
         self.bce_loss = nn.BCELoss()
         self.no = num_classes + 5  # number of outputs per anchor
@@ -141,7 +159,13 @@ class YOLOLayer(nn.Module):
             'anchor_grid', anchors.clone().view(1, -1, 1, 1, 2))
         self.stride = None
 
-    def forward(self, x, img_size):
+    def forward(self, x: torch.Tensor, img_size: int) -> torch.Tensor:
+        """
+        Forward pass of the YOLO layer
+
+        :param x: Input tensor
+        :param img_size: Size of the input image
+        """
         stride = img_size // x.size(2)
         self.stride = stride
         bs, _, ny, nx = x.shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
@@ -151,15 +175,25 @@ class YOLOLayer(nn.Module):
             if self.grid.shape[2:4] != x.shape[2:4]:
                 self.grid = self._make_grid(nx, ny).to(x.device)
 
-            x[..., 0:2] = (x[..., 0:2].sigmoid() + self.grid) * stride  # xy
-            x[..., 2:4] = torch.exp(x[..., 2:4]) * self.anchor_grid # wh
-            x[..., 4:] = x[..., 4:].sigmoid()
+            if self.new_coords:
+                x[..., 0:2] = (x[..., 0:2] + self.grid) * stride  # xy
+                x[..., 2:4] = x[..., 2:4] ** 2 * (4 * self.anchor_grid) # wh
+            else:
+                x[..., 0:2] = (x[..., 0:2].sigmoid() + self.grid) * stride  # xy
+                x[..., 2:4] = torch.exp(x[..., 2:4]) * self.anchor_grid # wh
+                x[..., 4:] = x[..., 4:].sigmoid() # conf, cls
             x = x.view(bs, -1, self.no)
 
         return x
 
     @staticmethod
-    def _make_grid(nx=20, ny=20):
+    def _make_grid(nx: int = 20, ny: int = 20) -> torch.Tensor:
+        """
+        Create a grid of (x, y) coordinates
+
+        :param nx: Number of x coordinates
+        :param ny: Number of y coordinates
+        """
         yv, xv = torch.meshgrid([torch.arange(ny), torch.arange(nx)], indexing='ij')
         return torch.stack((xv, yv), 2).view((1, 1, ny, nx, 2)).float()
 
