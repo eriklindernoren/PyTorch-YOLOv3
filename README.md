@@ -1,5 +1,6 @@
 # PyTorch-YOLOv3
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
+YOLOv4 and YOLOv7 weights are also compatible with this implementation.
 
 [![CI](https://github.com/eriklindernoren/PyTorch-YOLOv3/actions/workflows/main.yml/badge.svg)](https://github.com/eriklindernoren/PyTorch-YOLOv3/actions/workflows/main.yml) [![PyPI pyversions](https://img.shields.io/pypi/pyversions/pytorchyolo.svg)](https://pypi.python.org/pypi/pytorchyolo/) [![PyPI license](https://img.shields.io/pypi/l/pytorchyolo.svg)](LICENSE)
 
@@ -80,7 +81,7 @@ poetry run yolo-detect --images data/samples/
 For argument descriptions have a look at `poetry run yolo-train --help`
 
 #### Example (COCO)
-To train on COCO using a Darknet-53 backend pretrained on ImageNet run: 
+To train on COCO using a Darknet-53 backend pretrained on ImageNet run:
 
 ```bash
 poetry run yolo-train --data config/coco.data  --pretrained_weights weights/darknet53.conv.74
@@ -143,7 +144,7 @@ from pytorchyolo import detect, models
 
 # Load the YOLO model
 model = models.load_model(
-  "<PATH_TO_YOUR_CONFIG_FOLDER>/yolov3.cfg", 
+  "<PATH_TO_YOUR_CONFIG_FOLDER>/yolov3.cfg",
   "<PATH_TO_YOUR_WEIGHTS_FOLDER>/yolov3.weights")
 
 # Load the image as a numpy array
@@ -152,7 +153,7 @@ img = cv2.imread("<PATH_TO_YOUR_IMAGE>")
 # Convert OpenCV bgr to rgb
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-# Runs the YOLO model on the image 
+# Runs the YOLO model on the image
 boxes = detect.detect_image(model, img)
 
 print(boxes)
