@@ -383,6 +383,25 @@ perf = ["ipython"]
 testing = ["flake8 (<5)", "flufl.flake8", "importlib-resources (>=1.3)", "packaging", "pyfakefs", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-flake8", "pytest-mypy (>=0.9.1)", "pytest-perf (>=0.9.2)"]
 
 [[package]]
+name = "importlib-resources"
+version = "5.12.0"
+description = "Read resources from Python packages"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "importlib_resources-5.12.0-py3-none-any.whl", hash = "sha256:7b1deeebbf351c7578e09bf2f63fa2ce8b5ffec296e0d349139d43cca061a81a"},
+    {file = "importlib_resources-5.12.0.tar.gz", hash = "sha256:4be82589bf5c1d7999aedf2a45159d10cb3ca4f19b2271f8792bc8e6da7b22f6"},
+]
+
+[package.dependencies]
+zipp = {version = ">=3.1.0", markers = "python_version < \"3.10\""}
+
+[package.extras]
+docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
+testing = ["flake8 (<5)", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-flake8", "pytest-mypy (>=0.9.1)"]
+
+[[package]]
 name = "kiwisolver"
 version = "1.4.4"
 description = "A fast implementation of the Cassowary constraint solver"
@@ -530,64 +549,65 @@ files = [
 
 [[package]]
 name = "matplotlib"
-version = "3.6.2"
+version = "3.7.1"
 description = "Python plotting package"
 category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "matplotlib-3.6.2-cp310-cp310-macosx_10_12_universal2.whl", hash = "sha256:8d0068e40837c1d0df6e3abf1cdc9a34a6d2611d90e29610fa1d2455aeb4e2e5"},
-    {file = "matplotlib-3.6.2-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:252957e208c23db72ca9918cb33e160c7833faebf295aaedb43f5b083832a267"},
-    {file = "matplotlib-3.6.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:d50e8c1e571ee39b5dfbc295c11ad65988879f68009dd281a6e1edbc2ff6c18c"},
-    {file = "matplotlib-3.6.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d840adcad7354be6f2ec28d0706528b0026e4c3934cc6566b84eac18633eab1b"},
-    {file = "matplotlib-3.6.2-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:78ec3c3412cf277e6252764ee4acbdbec6920cc87ad65862272aaa0e24381eee"},
-    {file = "matplotlib-3.6.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9347cc6822f38db2b1d1ce992f375289670e595a2d1c15961aacbe0977407dfc"},
-    {file = "matplotlib-3.6.2-cp310-cp310-win32.whl", hash = "sha256:e0bbee6c2a5bf2a0017a9b5e397babb88f230e6f07c3cdff4a4c4bc75ed7c617"},
-    {file = "matplotlib-3.6.2-cp310-cp310-win_amd64.whl", hash = "sha256:8a0ae37576ed444fe853709bdceb2be4c7df6f7acae17b8378765bd28e61b3ae"},
-    {file = "matplotlib-3.6.2-cp311-cp311-macosx_10_12_universal2.whl", hash = "sha256:5ecfc6559132116dedfc482d0ad9df8a89dc5909eebffd22f3deb684132d002f"},
-    {file = "matplotlib-3.6.2-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:9f335e5625feb90e323d7e3868ec337f7b9ad88b5d633f876e3b778813021dab"},
-    {file = "matplotlib-3.6.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:b2604c6450f9dd2c42e223b1f5dca9643a23cfecc9fde4a94bb38e0d2693b136"},
-    {file = "matplotlib-3.6.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e5afe0a7ea0e3a7a257907060bee6724a6002b7eec55d0db16fd32409795f3e1"},
-    {file = "matplotlib-3.6.2-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ca0e7a658fbafcddcaefaa07ba8dae9384be2343468a8e011061791588d839fa"},
-    {file = "matplotlib-3.6.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:32d29c8c26362169c80c5718ce367e8c64f4dd068a424e7110df1dd2ed7bd428"},
-    {file = "matplotlib-3.6.2-cp311-cp311-win32.whl", hash = "sha256:5024b8ed83d7f8809982d095d8ab0b179bebc07616a9713f86d30cf4944acb73"},
-    {file = "matplotlib-3.6.2-cp311-cp311-win_amd64.whl", hash = "sha256:52c2bdd7cd0bf9d5ccdf9c1816568fd4ccd51a4d82419cc5480f548981b47dd0"},
-    {file = "matplotlib-3.6.2-cp38-cp38-macosx_10_12_universal2.whl", hash = "sha256:8a8dbe2cb7f33ff54b16bb5c500673502a35f18ac1ed48625e997d40c922f9cc"},
-    {file = "matplotlib-3.6.2-cp38-cp38-macosx_10_12_x86_64.whl", hash = "sha256:380d48c15ec41102a2b70858ab1dedfa33eb77b2c0982cb65a200ae67a48e9cb"},
-    {file = "matplotlib-3.6.2-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:0844523dfaaff566e39dbfa74e6f6dc42e92f7a365ce80929c5030b84caa563a"},
-    {file = "matplotlib-3.6.2-cp38-cp38-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:7f716b6af94dc1b6b97c46401774472f0867e44595990fe80a8ba390f7a0a028"},
-    {file = "matplotlib-3.6.2-cp38-cp38-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:74153008bd24366cf099d1f1e83808d179d618c4e32edb0d489d526523a94d9f"},
-    {file = "matplotlib-3.6.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f41e57ad63d336fe50d3a67bb8eaa26c09f6dda6a59f76777a99b8ccd8e26aec"},
-    {file = "matplotlib-3.6.2-cp38-cp38-win32.whl", hash = "sha256:d0e9ac04065a814d4cf2c6791a2ad563f739ae3ae830d716d54245c2b96fead6"},
-    {file = "matplotlib-3.6.2-cp38-cp38-win_amd64.whl", hash = "sha256:8a9d899953c722b9afd7e88dbefd8fb276c686c3116a43c577cfabf636180558"},
-    {file = "matplotlib-3.6.2-cp39-cp39-macosx_10_12_universal2.whl", hash = "sha256:f04f97797df35e442ed09f529ad1235d1f1c0f30878e2fe09a2676b71a8801e0"},
-    {file = "matplotlib-3.6.2-cp39-cp39-macosx_10_12_x86_64.whl", hash = "sha256:3964934731fd7a289a91d315919cf757f293969a4244941ab10513d2351b4e83"},
-    {file = "matplotlib-3.6.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:168093410b99f647ba61361b208f7b0d64dde1172b5b1796d765cd243cadb501"},
-    {file = "matplotlib-3.6.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5e16dcaecffd55b955aa5e2b8a804379789c15987e8ebd2f32f01398a81e975b"},
-    {file = "matplotlib-3.6.2-cp39-cp39-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:83dc89c5fd728fdb03b76f122f43b4dcee8c61f1489e232d9ad0f58020523e1c"},
-    {file = "matplotlib-3.6.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:795ad83940732b45d39b82571f87af0081c120feff2b12e748d96bb191169e33"},
-    {file = "matplotlib-3.6.2-cp39-cp39-win32.whl", hash = "sha256:19d61ee6414c44a04addbe33005ab1f87539d9f395e25afcbe9a3c50ce77c65c"},
-    {file = "matplotlib-3.6.2-cp39-cp39-win_amd64.whl", hash = "sha256:5ba73aa3aca35d2981e0b31230d58abb7b5d7ca104e543ae49709208d8ce706a"},
-    {file = "matplotlib-3.6.2-pp38-pypy38_pp73-macosx_10_12_x86_64.whl", hash = "sha256:1836f366272b1557a613f8265db220eb8dd883202bbbabe01bad5a4eadfd0c95"},
-    {file = "matplotlib-3.6.2-pp38-pypy38_pp73-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:0eda9d1b43f265da91fb9ae10d6922b5a986e2234470a524e6b18f14095b20d2"},
-    {file = "matplotlib-3.6.2-pp38-pypy38_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ec9be0f4826cdb3a3a517509dcc5f87f370251b76362051ab59e42b6b765f8c4"},
-    {file = "matplotlib-3.6.2-pp38-pypy38_pp73-win_amd64.whl", hash = "sha256:3cef89888a466228fc4e4b2954e740ce8e9afde7c4315fdd18caa1b8de58ca17"},
-    {file = "matplotlib-3.6.2-pp39-pypy39_pp73-macosx_10_12_x86_64.whl", hash = "sha256:54fa9fe27f5466b86126ff38123261188bed568c1019e4716af01f97a12fe812"},
-    {file = "matplotlib-3.6.2-pp39-pypy39_pp73-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e68be81cd8c22b029924b6d0ee814c337c0e706b8d88495a617319e5dd5441c3"},
-    {file = "matplotlib-3.6.2-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b0ca2c60d3966dfd6608f5f8c49b8a0fcf76de6654f2eda55fc6ef038d5a6f27"},
-    {file = "matplotlib-3.6.2-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:4426c74761790bff46e3d906c14c7aab727543293eed5a924300a952e1a3a3c1"},
-    {file = "matplotlib-3.6.2.tar.gz", hash = "sha256:b03fd10a1709d0101c054883b550f7c4c5e974f751e2680318759af005964990"},
+    {file = "matplotlib-3.7.1-cp310-cp310-macosx_10_12_universal2.whl", hash = "sha256:95cbc13c1fc6844ab8812a525bbc237fa1470863ff3dace7352e910519e194b1"},
+    {file = "matplotlib-3.7.1-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:08308bae9e91aca1ec6fd6dda66237eef9f6294ddb17f0d0b3c863169bf82353"},
+    {file = "matplotlib-3.7.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:544764ba51900da4639c0f983b323d288f94f65f4024dc40ecb1542d74dc0500"},
+    {file = "matplotlib-3.7.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:56d94989191de3fcc4e002f93f7f1be5da476385dde410ddafbb70686acf00ea"},
+    {file = "matplotlib-3.7.1-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e99bc9e65901bb9a7ce5e7bb24af03675cbd7c70b30ac670aa263240635999a4"},
+    {file = "matplotlib-3.7.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:eb7d248c34a341cd4c31a06fd34d64306624c8cd8d0def7abb08792a5abfd556"},
+    {file = "matplotlib-3.7.1-cp310-cp310-win32.whl", hash = "sha256:ce463ce590f3825b52e9fe5c19a3c6a69fd7675a39d589e8b5fbe772272b3a24"},
+    {file = "matplotlib-3.7.1-cp310-cp310-win_amd64.whl", hash = "sha256:3d7bc90727351fb841e4d8ae620d2d86d8ed92b50473cd2b42ce9186104ecbba"},
+    {file = "matplotlib-3.7.1-cp311-cp311-macosx_10_12_universal2.whl", hash = "sha256:770a205966d641627fd5cf9d3cb4b6280a716522cd36b8b284a8eb1581310f61"},
+    {file = "matplotlib-3.7.1-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:f67bfdb83a8232cb7a92b869f9355d677bce24485c460b19d01970b64b2ed476"},
+    {file = "matplotlib-3.7.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:2bf092f9210e105f414a043b92af583c98f50050559616930d884387d0772aba"},
+    {file = "matplotlib-3.7.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:89768d84187f31717349c6bfadc0e0d8c321e8eb34522acec8a67b1236a66332"},
+    {file = "matplotlib-3.7.1-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:83111e6388dec67822e2534e13b243cc644c7494a4bb60584edbff91585a83c6"},
+    {file = "matplotlib-3.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a867bf73a7eb808ef2afbca03bcdb785dae09595fbe550e1bab0cd023eba3de0"},
+    {file = "matplotlib-3.7.1-cp311-cp311-win32.whl", hash = "sha256:fbdeeb58c0cf0595efe89c05c224e0a502d1aa6a8696e68a73c3efc6bc354304"},
+    {file = "matplotlib-3.7.1-cp311-cp311-win_amd64.whl", hash = "sha256:c0bd19c72ae53e6ab979f0ac6a3fafceb02d2ecafa023c5cca47acd934d10be7"},
+    {file = "matplotlib-3.7.1-cp38-cp38-macosx_10_12_universal2.whl", hash = "sha256:6eb88d87cb2c49af00d3bbc33a003f89fd9f78d318848da029383bfc08ecfbfb"},
+    {file = "matplotlib-3.7.1-cp38-cp38-macosx_10_12_x86_64.whl", hash = "sha256:cf0e4f727534b7b1457898c4f4ae838af1ef87c359b76dcd5330fa31893a3ac7"},
+    {file = "matplotlib-3.7.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:46a561d23b91f30bccfd25429c3c706afe7d73a5cc64ef2dfaf2b2ac47c1a5dc"},
+    {file = "matplotlib-3.7.1-cp38-cp38-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:8704726d33e9aa8a6d5215044b8d00804561971163563e6e6591f9dcf64340cc"},
+    {file = "matplotlib-3.7.1-cp38-cp38-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:4cf327e98ecf08fcbb82685acaf1939d3338548620ab8dfa02828706402c34de"},
+    {file = "matplotlib-3.7.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:617f14ae9d53292ece33f45cba8503494ee199a75b44de7717964f70637a36aa"},
+    {file = "matplotlib-3.7.1-cp38-cp38-win32.whl", hash = "sha256:7c9a4b2da6fac77bcc41b1ea95fadb314e92508bf5493ceff058e727e7ecf5b0"},
+    {file = "matplotlib-3.7.1-cp38-cp38-win_amd64.whl", hash = "sha256:14645aad967684e92fc349493fa10c08a6da514b3d03a5931a1bac26e6792bd1"},
+    {file = "matplotlib-3.7.1-cp39-cp39-macosx_10_12_universal2.whl", hash = "sha256:81a6b377ea444336538638d31fdb39af6be1a043ca5e343fe18d0f17e098770b"},
+    {file = "matplotlib-3.7.1-cp39-cp39-macosx_10_12_x86_64.whl", hash = "sha256:28506a03bd7f3fe59cd3cd4ceb2a8d8a2b1db41afede01f66c42561b9be7b4b7"},
+    {file = "matplotlib-3.7.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:8c587963b85ce41e0a8af53b9b2de8dddbf5ece4c34553f7bd9d066148dc719c"},
+    {file = "matplotlib-3.7.1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8bf26ade3ff0f27668989d98c8435ce9327d24cffb7f07d24ef609e33d582439"},
+    {file = "matplotlib-3.7.1-cp39-cp39-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:def58098f96a05f90af7e92fd127d21a287068202aa43b2a93476170ebd99e87"},
+    {file = "matplotlib-3.7.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f883a22a56a84dba3b588696a2b8a1ab0d2c3d41be53264115c71b0a942d8fdb"},
+    {file = "matplotlib-3.7.1-cp39-cp39-win32.whl", hash = "sha256:4f99e1b234c30c1e9714610eb0c6d2f11809c9c78c984a613ae539ea2ad2eb4b"},
+    {file = "matplotlib-3.7.1-cp39-cp39-win_amd64.whl", hash = "sha256:3ba2af245e36990facf67fde840a760128ddd71210b2ab6406e640188d69d136"},
+    {file = "matplotlib-3.7.1-pp38-pypy38_pp73-macosx_10_12_x86_64.whl", hash = "sha256:3032884084f541163f295db8a6536e0abb0db464008fadca6c98aaf84ccf4717"},
+    {file = "matplotlib-3.7.1-pp38-pypy38_pp73-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:3a2cb34336110e0ed8bb4f650e817eed61fa064acbefeb3591f1b33e3a84fd96"},
+    {file = "matplotlib-3.7.1-pp38-pypy38_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b867e2f952ed592237a1828f027d332d8ee219ad722345b79a001f49df0936eb"},
+    {file = "matplotlib-3.7.1-pp38-pypy38_pp73-win_amd64.whl", hash = "sha256:57bfb8c8ea253be947ccb2bc2d1bb3862c2bccc662ad1b4626e1f5e004557042"},
+    {file = "matplotlib-3.7.1-pp39-pypy39_pp73-macosx_10_12_x86_64.whl", hash = "sha256:438196cdf5dc8d39b50a45cb6e3f6274edbcf2254f85fa9b895bf85851c3a613"},
+    {file = "matplotlib-3.7.1-pp39-pypy39_pp73-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:21e9cff1a58d42e74d01153360de92b326708fb205250150018a52c70f43c290"},
+    {file = "matplotlib-3.7.1-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:75d4725d70b7c03e082bbb8a34639ede17f333d7247f56caceb3801cb6ff703d"},
+    {file = "matplotlib-3.7.1-pp39-pypy39_pp73-win_amd64.whl", hash = "sha256:97cc368a7268141afb5690760921765ed34867ffb9655dd325ed207af85c7529"},
+    {file = "matplotlib-3.7.1.tar.gz", hash = "sha256:7b73305f25eab4541bd7ee0b96d87e53ae9c9f1823be5659b806cd85786fe882"},
 ]
 
 [package.dependencies]
 contourpy = ">=1.0.1"
 cycler = ">=0.10"
 fonttools = ">=4.22.0"
+importlib-resources = {version = ">=3.2.0", markers = "python_version < \"3.10\""}
 kiwisolver = ">=1.0.1"
-numpy = ">=1.19"
+numpy = ">=1.20"
 packaging = ">=20.0"
 pillow = ">=6.2.0"
-pyparsing = ">=2.2.1"
+pyparsing = ">=2.3.1"
 python-dateutil = ">=2.7"
 
 [[package]]
