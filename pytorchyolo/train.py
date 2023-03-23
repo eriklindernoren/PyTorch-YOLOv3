@@ -164,6 +164,8 @@ def run():
 
             loss, loss_components = compute_loss(outputs, targets, model)
 
+            loss *= imgs.shape[0]
+
             loss.backward()
 
             ###############
