@@ -1,4 +1,4 @@
-# PyTorch YOLO
+# PyTorch YOLO learning
 A minimal PyTorch implementation of YOLOv3, with support for training, inference and evaluation.
 
 YOLOv4 and YOLOv7 weights are also compatible with this implementation.
