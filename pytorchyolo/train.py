@@ -4,15 +4,16 @@ from __future__ import division
 
 import os
 import argparse
-import tqdm
 
+import numpy as np
+import tqdm
 import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
 
 from pytorchyolo.models import load_model
 from pytorchyolo.utils.logger import Logger
-from pytorchyolo.utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
+from pytorchyolo.utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set, cumprod
 from pytorchyolo.utils.datasets import ListDataset
 from pytorchyolo.utils.augmentations import AUGMENTATION_TRANSFORMS
 #from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
@@ -141,7 +142,8 @@ def run():
             params,
             lr=model.hyperparams['learning_rate'],
             weight_decay=model.hyperparams['decay'],
-            momentum=model.hyperparams['momentum'])
+            momentum=model.hyperparams['momentum'],
+            nesterov=True)
     else:
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
@@ -155,7 +157,8 @@ def run():
         model.train()  # Set model to training mode
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
-            batches_done = len(dataloader) * epoch + batch_i
+            batches_done = len(dataloader) * (epoch - 1) + batch_i + 1
+            optimizer_steps_done = batches_done // model.hyperparams['subdivisions']
 
             imgs = imgs.to(device, non_blocking=True)
             targets = targets.to(device)
@@ -163,6 +166,8 @@ def run():
             outputs = model(imgs)
 
             loss, loss_components = compute_loss(outputs, targets, model)
+
+            loss *= imgs.shape[0]
 
             loss.backward()
 
@@ -174,16 +179,22 @@ def run():
                 # Adapt learning rate
                 # Get learning rate defined in cfg
                 lr = model.hyperparams['learning_rate']
-                if batches_done < model.hyperparams['burn_in']:
-                    # Burn in
-                    lr *= (batches_done / model.hyperparams['burn_in'])
-                else:
-                    # Set and parse the learning rate to the steps defined in the cfg
-                    for threshold, value in model.hyperparams['lr_steps']:
-                        if batches_done > threshold:
-                            lr *= value
+                
+                # Get learing rate schedule hyperparameter 
+                # Split it into lists defining the timestep and corresponding factors
+                lr_thresholds, lr_factors = zip(*model.hyperparams['lr_steps'])
+                # As the factors are cumulative calculate the cumulative product to get the factors relative to the base learning rate
+                lr_factors = cumprod(lr_factors)
+
+                # Add burn in to lr schedule
+                lr_thresholds = [-1, model.hyperparams['burn_in']] + list(lr_thresholds)
+                lr_factors = [0, 1] + list(lr_factors)
+                
+
+                # Multiply learning rate by factor based on linear interpolation of the learning rate schedule
+                lr *= np.interp(optimizer_steps_done, lr_thresholds, lr_factors)
                 # Log the learning rate
-                logger.scalar_summary("train/learning_rate", lr, batches_done)
+                logger.scalar_summary("train/learning_rate", lr, optimizer_steps_done)
                 # Set learning rate
                 for g in optimizer.param_groups:
                     g['lr'] = lr
@@ -193,27 +204,27 @@ def run():
                 # Reset gradients
                 optimizer.zero_grad()
 
-            # ############
-            # Log progress
-            # ############
-            if args.verbose:
-                print(AsciiTable(
-                    [
-                        ["Type", "Value"],
-                        ["IoU loss", float(loss_components[0])],
-                        ["Object loss", float(loss_components[1])],
-                        ["Class loss", float(loss_components[2])],
-                        ["Loss", float(loss_components[3])],
-                        ["Batch loss", to_cpu(loss).item()],
-                    ]).table)
+                # ############
+                # Log progress
+                # ############
+                if args.verbose:
+                    print(AsciiTable(
+                        [
+                            ["Type", "Value"],
+                            ["IoU loss", float(loss_components[0])],
+                            ["Object loss", float(loss_components[1])],
+                            ["Class loss", float(loss_components[2])],
+                            ["Loss", float(loss_components[3])],
+                            ["Batch loss", to_cpu(loss).item()],
+                        ]).table)
 
-            # Tensorboard logging
-            tensorboard_log = [
-                ("train/iou_loss", float(loss_components[0])),
-                ("train/obj_loss", float(loss_components[1])),
-                ("train/class_loss", float(loss_components[2])),
-                ("train/loss", to_cpu(loss).item())]
-            logger.list_of_scalars_summary(tensorboard_log, batches_done)
+                # Tensorboard logging
+                tensorboard_log = [
+                    ("train/iou_loss", float(loss_components[0])),
+                    ("train/obj_loss", float(loss_components[1])),
+                    ("train/class_loss", float(loss_components[2])),
+                    ("train/loss", to_cpu(loss).item())]
+                logger.list_of_scalars_summary(tensorboard_log, optimizer_steps_done)
 
             model.seen += imgs.size(0)
 

@@ -1,14 +1,16 @@
 from __future__ import division
 
-import time
+import random
 import platform
+import subprocess
+import time
+from functools import reduce
+
 import tqdm
 import torch
 import torch.nn as nn
 import torchvision
 import numpy as np
-import subprocess
-import random
 import imgaug as ia
 
 
@@ -396,3 +398,11 @@ def print_environment_info():
         print(f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("No git or repo found")
+
+
+def cumprod(lst):
+    """
+    Returns a list where each element is the cumulative product of the input list up to that index.
+    Similar to NumPy cumsum."""
+    return reduce(lambda acc, x: acc + [acc[-1] * x], lst[1:], [lst[0]])
+
