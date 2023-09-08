@@ -5,6 +5,7 @@ from __future__ import division
 import os
 import argparse
 import tqdm
+import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
@@ -215,7 +216,7 @@ def run():
                 ("train/loss", to_cpu(loss).item())]
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
-            model.seen += imgs.size(0)
+            model.seen += np.uint64(imgs.size(0))
 
         # #############
         # Save progress

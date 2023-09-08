@@ -199,8 +199,10 @@ class Darknet(nn.Module):
         self.hyperparams, self.module_list = create_modules(self.module_defs)
         self.yolo_layers = [layer[0]
                             for layer in self.module_list if isinstance(layer[0], YOLOLayer)]
-        self.seen = 0
-        self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
+        # NOTE: Fields of *.weights's header: major, minor, revision and seen
+        # [major, minor, revision] always np.int32 (Python) or int (C++, 4 bytes for most compiler)
+        # [seen] np.uint64(C++) or size_t(C++, 8 bytes) here, or 4 bytes, decided by header's version
+        self.seen = np.uint64(0)
 
     def forward(self, x):
         img_size = x.size(2)
@@ -227,10 +229,15 @@ class Darknet(nn.Module):
 
         # Open the weights file
         with open(weights_path, "rb") as f:
-            # First five are header values
-            header = np.fromfile(f, dtype=np.int32, count=5)
-            self.header_info = header  # Needed to write header when saving weights
-            self.seen = header[3]  # number of images seen during training
+            # Needed to write header when saving weights
+            header_version = np.fromfile(f, dtype=np.int32, count=3)
+            major, minor, _ = header_version
+            # number of images seen during training
+            if (major * 10 + minor) >= 2 and major < 1000 and minor < 1000:
+                seen = np.fromfile(f, dtype=np.uint64, count=1)[0]
+            else:
+                seen = np.fromfile(f, dtype=np.int32, count=1)[0]
+            self.seen = seen.astype(np.uint64, casting='safe')
             weights = np.fromfile(f, dtype=np.float32)  # The rest are weights
 
         # Establish cutoff for loading backbone weights
@@ -294,8 +301,9 @@ class Darknet(nn.Module):
             @:param cutoff  - save layers between 0 and cutoff (cutoff = -1 -> all are saved)
         """
         fp = open(path, "wb")
-        self.header_info[3] = self.seen
-        self.header_info.tofile(fp)
+        header_version = np.array([0, 2, 0], dtype=np.int32)
+        header_version.tofile(fp)
+        self.seen.tofile(fp)
 
         # Iterate through layers
         for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
