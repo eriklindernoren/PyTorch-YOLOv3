@@ -14,7 +14,7 @@ torchvision = ">=0.13.1"
 matplotlib = "^3.3.3"
 tensorboard = "^2.10.0"
 terminaltables = "^3.1.0"
-Pillow = "^9.1.0"
+Pillow = ">=9.1,<11.0"
 tqdm = "^4.64.1"
 urllib3 =  [
     {version = "<=1.22", python = ">=3.8,<3.9"},
