@@ -17,7 +17,7 @@ terminaltables = "^3.1.0"
 Pillow = "^9.1.0"
 tqdm = "^4.64.1"
 urllib3 =  [
-    {version = "<=1.22", python = ">=3.8,<3.9"},
+    {version = "<=1.26.18", python = ">=3.8,<3.9"},
     {version = "^1.23", python = ">=3.9"}
 ] # Temp pin because of crash issue
 scipy = [
