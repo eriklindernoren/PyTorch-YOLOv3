@@ -109,7 +109,7 @@ Run the commands below to create a custom model definition, replacing `<num-clas
 
 ```bash
 cd config 
-./config/create_custom_model.sh <num-classes>  # Will create custom model 'yolov3-custom.cfg'
+./create_custom_model.sh <num-classes>  # Will create custom model 'yolov3-custom.cfg'
 ```
 
 #### Classes
