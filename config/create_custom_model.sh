@@ -2,8 +2,7 @@
 
 NUM_CLASSES=$1
 
-echo "
-[net]
+echo "[net]
 # Testing
 #batch=1
 #subdivisions=1
@@ -790,5 +789,4 @@ num=9
 jitter=.3
 ignore_thresh = .7
 truth_thresh = 1
-random=1
-" >> yolov3-custom.cfg
+random=1" > yolov3-custom.cfg
